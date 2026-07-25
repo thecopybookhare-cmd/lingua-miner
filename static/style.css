@@ -477,15 +477,15 @@ button.small { font-size: 12px; padding: 6px 10px; }
 
 /* ---------- i+1 recomendadas ---------- */
 /* recomendación estilo Migaku a nivel de PALABRA: la palabra objetivo (la
-   desconocida) se destaca según cuántas nuevas tenga su frase — verde = i+1
-   (una sola nueva, óptima para tarjeta) · azul = i+2 (dos nuevas, buena).
+   desconocida) se DESTACA con relleno completo (como un marcador), no con un
+   subrayado — verde = i+1 (una sola nueva, óptima) · azul = i+2 (dos nuevas).
    Va DESPUÉS de .t.st-* para ganar al subrayado rojo de «desconocida». */
-#overlay-ca .t.rec-w1 {
-  border-bottom: 2px solid var(--green); background: #4fc3832e;
+#overlay-ca .t.rec-w1, #overlay-ca .t.rec-w2 {
+  border-bottom: none; color: #08120c; text-shadow: none;
+  padding: 1px 5px; font-weight: 700; border-radius: 6px;
 }
-#overlay-ca .t.rec-w2 {
-  border-bottom: 2px solid var(--rec-blue); background: #6fb3ff2b;
-}
+#overlay-ca .t.rec-w1 { background: var(--green); }
+#overlay-ca .t.rec-w2 { background: var(--rec-blue); }
 /* filas del navegador de subtítulos: borde verde (i+1) / azul (i+2) */
 .seg.rec-1 { border-left: 3px solid var(--green); }
 .seg.rec-2 { border-left: 3px solid var(--rec-blue); }
@@ -494,9 +494,9 @@ button.small { font-size: 12px; padding: 6px 10px; }
 /* leyenda en la ayuda (?) */
 .rec-legend { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 8px; font-size: 13.5px; }
 .rec-legend span { display: flex; align-items: center; gap: 8px; color: var(--dim); }
-.rec-sw { width: 22px; height: 0; border-bottom: 3px solid; border-radius: 2px; flex-shrink: 0; }
-.rec-sw.green { border-color: var(--green); }
-.rec-sw.blue { border-color: var(--rec-blue); }
+.rec-sw { width: 20px; height: 15px; border-radius: 4px; flex-shrink: 0; }
+.rec-sw.green { background: var(--green); }
+.rec-sw.blue { background: var(--rec-blue); }
 
 /* ---------- panel de palabras ---------- */
 #panel-tabs {
