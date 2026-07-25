@@ -594,13 +594,18 @@ function reconstructWs(seg) {
 function tokenHtml(seg) {
   if (!(seg.tokens && seg.tokens.length)) return esc(seg.text);
   const hasWs = seg.tokens[0].ws !== undefined || reconstructWs(seg);
+  // recomendación estilo Migaku a nivel de PALABRA: si la frase tiene 1 o 2
+  // palabras nuevas, esas palabras objetivo se marcan (verde=i+1, azul=i+2)
+  const tier = segRecTier(seg);
   let prevJoined = false;                    // el token anterior va pegado a este
   return seg.tokens.map((t, k) => {
     // nsr/nsl: sin padding en la juntura, para que «d»+«els» se lea «dels»
     const joined = hasWs && t.ws === "" && k < seg.tokens.length - 1;
-    const cls = (joined ? " nsr" : "") + (prevJoined ? " nsl" : "");
+    const st = t.is_word ? stOf(t.lemma) : "";
+    const rec = (tier && t.is_word && st === "unknown") ? " rec-w" + tier : "";
+    const cls = (joined ? " nsr" : "") + (prevJoined ? " nsl" : "") + rec;
     const html = t.is_word
-      ? `<span class="t st-${stOf(t.lemma)}${cls}" data-l="${esc(t.lemma)}">${esc(t.t)}</span>`
+      ? `<span class="t st-${st}${cls}" data-l="${esc(t.lemma)}">${esc(t.t)}</span>`
       : `<span>${esc(t.t)}</span>`;
     prevJoined = joined;
     // «ws» = espaciado original; sin él, espacio antes de cada palabra (legado)
@@ -654,19 +659,12 @@ function renderSegs() {
 
 function renderOverlay() {
   const ca = $("overlay-ca");
-  if (CUR < 0 || !SEGS[CUR]) {
-    ca.innerHTML = ""; ca.classList.remove("rec-1", "rec-2");
-    $("overlay-es").textContent = ""; return;
-  }
+  if (CUR < 0 || !SEGS[CUR]) { ca.innerHTML = ""; $("overlay-es").textContent = ""; return; }
   const long = SEGS[CUR].text.length > 140;
   ca.classList.toggle("longtext", long);
   $("overlay-es").classList.toggle("longtext", long);
   ca.style.display = HIDE_CA ? "none" : "";
-  ca.innerHTML = tokenHtml(SEGS[CUR]);
-  // recomendación estilo Migaku: verde (i+1) / azul (i+2) en la línea en vivo
-  const tier = segRecTier(SEGS[CUR]);
-  ca.classList.toggle("rec-1", tier === 1);
-  ca.classList.toggle("rec-2", tier === 2);
+  ca.innerHTML = tokenHtml(SEGS[CUR]);   // el resaltado va por palabra (ver tokenHtml)
   bindTokenEvents(ca, CUR);
   // el popup abierto sigue a su palabra tras el re-render (su span murió)
   if (POP && POP.anchor && !POP.anchor.isConnected) positionPopup(POP.anchor);
@@ -1441,12 +1439,12 @@ function renderHelp() {
        <div><h3>Reproducción y minado</h3>${remap}</div>
        <div><h3>Teclas fijas</h3>${fixed}</div>
      </div>
-     <h3>Frases recomendadas para minar</h3>
+     <h3>Palabras recomendadas para minar</h3>
      <div class="rec-legend">
-       <span><i class="rec-sw green"></i>i+1 — 1 palabra nueva (óptima, ${(km.recommended || "r").toUpperCase()} salta a la siguiente)</span>
-       <span><i class="rec-sw blue"></i>i+2 — 2 palabras nuevas (también buena)</span>
+       <span><i class="rec-sw green"></i>Verde — es la única palabra nueva de la frase (i+1, óptima; ${(km.recommended || "r").toUpperCase()} salta a la siguiente)</span>
+       <span><i class="rec-sw blue"></i>Azul — es una de dos palabras nuevas de la frase (i+2, también buena)</span>
      </div>
-     <p class="dim">El subtítulo se subraya en verde o azul cuando es una buena frase para hacer flashcard.</p>
+     <p class="dim">La palabra objetivo se resalta en verde o azul cuando es buena para hacer flashcard.</p>
      <p class="dim">Las letras se cambian en Ajustes → Atajos de teclado.</p>`;
 }
 function toggleHelp() {
@@ -1738,12 +1736,6 @@ function updateRecs() {
     const tier = segRecTier(seg);
     if (tier) $("seg-" + i)?.classList.add("rec-" + tier);
   });
-  // re-resaltar la línea en vivo por si cambió el estado de una palabra
-  if (CUR >= 0 && SEGS[CUR]) {
-    const t = segRecTier(SEGS[CUR]);
-    $("overlay-ca").classList.toggle("rec-1", t === 1);
-    $("overlay-ca").classList.toggle("rec-2", t === 2);
-  }
 }
 
 function nextRec() {

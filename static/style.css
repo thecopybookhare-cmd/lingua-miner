@@ -476,23 +476,21 @@ button.small { font-size: 12px; padding: 6px 10px; }
 @keyframes wp-pulse { 50% { opacity: .35; } }
 
 /* ---------- i+1 recomendadas ---------- */
-/* recomendación de frase para minar (estilo Migaku): verde = i+1 (una palabra
-   nueva, óptima) · azul = i+2 (dos nuevas, buena). Va en el borde de la fila. */
+/* recomendación estilo Migaku a nivel de PALABRA: la palabra objetivo (la
+   desconocida) se destaca según cuántas nuevas tenga su frase — verde = i+1
+   (una sola nueva, óptima para tarjeta) · azul = i+2 (dos nuevas, buena).
+   Va DESPUÉS de .t.st-* para ganar al subrayado rojo de «desconocida». */
+#overlay-ca .t.rec-w1 {
+  border-bottom: 2px solid var(--green); background: #4fc3832e;
+}
+#overlay-ca .t.rec-w2 {
+  border-bottom: 2px solid var(--rec-blue); background: #6fb3ff2b;
+}
+/* filas del navegador de subtítulos: borde verde (i+1) / azul (i+2) */
 .seg.rec-1 { border-left: 3px solid var(--green); }
 .seg.rec-2 { border-left: 3px solid var(--rec-blue); }
 #rec-chip { color: var(--green); cursor: pointer; }
 
-/* … y como subrayado + brillo en el subtítulo en vivo (además del color por
-   palabra): de un vistazo se ve si la frase es buena para hacer flashcard. */
-#overlay-ca { transition: box-shadow .2s ease, background .2s ease; }
-#overlay-ca.rec-1 {
-  box-shadow: inset 0 -3px 0 var(--green), 0 0 22px #4fc38340;
-  background: #081310e6;
-}
-#overlay-ca.rec-2 {
-  box-shadow: inset 0 -3px 0 var(--rec-blue), 0 0 22px #6fb3ff34;
-  background: #081018e6;
-}
 /* leyenda en la ayuda (?) */
 .rec-legend { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 8px; font-size: 13.5px; }
 .rec-legend span { display: flex; align-items: center; gap: 8px; color: var(--dim); }
