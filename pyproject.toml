@@ -1,6 +1,6 @@
 [project]
 name = "lingua-miner"
-version = "1.5.2"
+version = "1.6.0"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "fastapi>=0.115",

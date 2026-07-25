@@ -127,6 +127,16 @@ def test_base_language_falls_back_when_unavailable(tmp_path):
     c.post("/api/settings", json={"base_language": "es", "language": "ca"})
 
 
+def test_rec_min_zipf_setting(tmp_path):
+    c = client(tmp_path)
+    assert c.get("/api/settings").json()["rec_min_zipf"] == 3.5
+    assert c.post("/api/settings", json={"rec_min_zipf": 4.5}).status_code == 200
+    assert c.get("/api/settings").json()["rec_min_zipf"] == 4.5
+    # fuera de rango [0,7] → 400
+    assert c.post("/api/settings", json={"rec_min_zipf": 9}).status_code == 400
+    assert c.post("/api/settings", json={"rec_min_zipf": "x"}).status_code == 400
+
+
 def test_settings_rejects_bad_keymap_and_unknown(tmp_path):
     c = client(tmp_path)
     # tecla duplicada con otra acción

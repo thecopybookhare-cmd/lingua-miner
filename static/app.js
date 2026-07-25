@@ -602,7 +602,8 @@ function tokenHtml(seg) {
     // nsr/nsl: sin padding en la juntura, para que «d»+«els» se lea «dels»
     const joined = hasWs && t.ws === "" && k < seg.tokens.length - 1;
     const st = t.is_word ? stOf(t.lemma) : "";
-    const rec = (tier && t.is_word && st === "unknown") ? " rec-w" + tier : "";
+    // solo se resalta la palabra recomendable (frecuente + no nombre propio)
+    const rec = (tier && isRecWord(t)) ? " rec-w" + tier : "";
     const cls = (joined ? " nsr" : "") + (prevJoined ? " nsl" : "") + rec;
     const html = t.is_word
       ? `<span class="t st-${st}${cls}" data-l="${esc(t.lemma)}">${esc(t.t)}</span>`
@@ -1372,6 +1373,10 @@ function applySettings() {
   $("set-base-section").hidden = bases.length <= 1;
   $("set-base").innerHTML = bases.map((b) =>
     `<option value="${esc(b.code)}"${b.code === activeBase ? " selected" : ""}>${esc(b.name)}</option>`).join("");
+  // nivel de recomendación (zipf mínimo): el valor guardado marca la opción
+  const rz = String(SETTINGS.rec_min_zipf ?? 3.5);
+  const recSel = $("set-rec-level");
+  recSel.value = [...recSel.options].some((o) => o.value === rz) ? rz : "3.5";
   // etiquetas «ES» de la tarjeta y del dual → idioma base activo
   const baseTag = activeBase.toUpperCase();
   $("lbl-word-es").textContent = t("card.word") + " " + baseTag;
@@ -1441,10 +1446,10 @@ function renderHelp() {
      </div>
      <h3>Palabras recomendadas para minar</h3>
      <div class="rec-legend">
-       <span><i class="rec-sw green"></i>Verde — es la única palabra nueva de la frase (i+1, óptima; ${(km.recommended || "r").toUpperCase()} salta a la siguiente)</span>
-       <span><i class="rec-sw blue"></i>Azul — es una de dos palabras nuevas de la frase (i+2, también buena)</span>
+       <span><i class="rec-sw green"></i>Verde — palabra frecuente y única nueva de la frase (i+1, óptima; ${(km.recommended || "r").toUpperCase()} salta a la siguiente)</span>
+       <span><i class="rec-sw blue"></i>Azul — palabra frecuente, una de dos nuevas de la frase (i+2, también buena)</span>
      </div>
-     <p class="dim">La palabra objetivo se resalta en verde o azul cuando es buena para hacer flashcard.</p>
+     <p class="dim">Solo se recomiendan palabras frecuentes y útiles (no nombres propios ni palabras raras). Ajusta el nivel en Ajustes → Recomendaciones.</p>
      <p class="dim">Las letras se cambian en Ajustes → Atajos de teclado.</p>`;
 }
 function toggleHelp() {
@@ -1611,6 +1616,11 @@ $("set-base").onchange = async () => {
   // re-traducir lo visible al nuevo idioma base
   if (SESSION) openSession(SESSION.id);
 };
+$("set-rec-level").onchange = async () => {
+  await saveSettings({ rec_min_zipf: parseFloat($("set-rec-level").value) });
+  // re-evaluar las recomendaciones en vivo con el nuevo umbral
+  if (SEGS.length) { renderSegs(); renderOverlay(); updateComp(); }
+};
 $("set-import").onchange = async (e) => {
   const f = e.target.files[0];
   if (!f) return;
@@ -1716,16 +1726,32 @@ function segNewLemmas(seg) {
   return s.size;
 }
 
-// nivel de recomendación: 1 = i+1 (una palabra nueva, óptima, verde) ·
-// 2 = i+2 (dos nuevas, buena, azul) · 0 = no recomendada
+// Migaku no recomienda cualquier palabra desconocida: prioriza vocabulario
+// ÚTIL. Una palabra es recomendable si es desconocida, FRECUENTE (según el
+// nivel elegido) y NO un nombre propio (nombres/lugares no son vocabulario).
+function recFloor() { return SETTINGS?.rec_min_zipf ?? 3.5; }
+function isRecWord(t) {
+  return !!(t.is_word && t.lemma) && stOf(t.lemma) === "unknown"
+      && t.pos !== "PROPN" && (t.zipf || 0) >= recFloor();
+}
+
+// nivel de recomendación de la frase: 1 (verde) = i+1 con la palabra nueva
+// recomendable · 2 (azul) = i+2 con al menos una recomendable · 0 = no
 function segRecTier(seg) {
-  const n = segNewLemmas(seg);
-  return n === 1 ? 1 : n === 2 ? 2 : 0;
+  const unk = new Set();
+  let anyRec = false;
+  for (const t of (seg.tokens || []))
+    if (t.is_word && t.lemma && stOf(t.lemma) === "unknown") {
+      unk.add(t.lemma);
+      if (isRecWord(t)) anyRec = true;
+    }
+  if (!anyRec) return 0;
+  return unk.size === 1 ? 1 : unk.size === 2 ? 2 : 0;
 }
 
 function updateRecs() {
   RECS = [];
-  SEGS.forEach((seg, i) => { if (segNewLemmas(seg) === 1) RECS.push(i); });
+  SEGS.forEach((seg, i) => { if (segRecTier(seg) === 1) RECS.push(i); });
   const chip = $("rec-chip");
   if (!SEGS.length || !RECS.length) chip.hidden = true;
   else { chip.innerHTML = `<svg class="ic ic-xs"><use href="#i-star"/></svg>${RECS.length} recomendadas`; chip.hidden = false; }

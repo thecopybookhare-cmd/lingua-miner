@@ -265,6 +265,9 @@ DEFAULT_SETTINGS = {
     "sub_scale": 1.0, "dual_default": False, "autopause_default": False,
     "speed_default": 1.0, "ipa_enabled": True, "online_enabled": False,
     "audio_trim": False, "ui_lang": "es", "base_language": "es",
+    # zipf mínimo para recomendar una palabra (0-7). Solo se recomiendan
+    # palabras frecuentes y que no sean nombres propios (nivel de vocabulario).
+    "rec_min_zipf": 3.5,
     "keymap": {"prev": "a", "next": "d", "replay": "s", "mine": "q",
                "subs": "w", "browser": "g", "copy": "c", "dual": "e",
                "autopause": "p", "fullscreen": "f", "recommended": "r"},
@@ -1315,10 +1318,10 @@ _SETTING_TYPES = {
     "sub_scale": (int, float), "dual_default": bool, "autopause_default": bool,
     "speed_default": (int, float), "ipa_enabled": bool, "online_enabled": bool,
     "audio_trim": bool, "ui_lang": str, "keymap": dict,
-    "base_language": str,
+    "base_language": str, "rec_min_zipf": (int, float),
 }
 _SETTING_RANGES = {"sub_scale": (0.3, 3.0), "speed_default": (0.25, 3.0),
-                   "anki_port": (1, 65535)}
+                   "anki_port": (1, 65535), "rec_min_zipf": (0, 7)}
 
 
 @app.post("/api/settings")
