@@ -654,12 +654,19 @@ function renderSegs() {
 
 function renderOverlay() {
   const ca = $("overlay-ca");
-  if (CUR < 0 || !SEGS[CUR]) { ca.innerHTML = ""; $("overlay-es").textContent = ""; return; }
+  if (CUR < 0 || !SEGS[CUR]) {
+    ca.innerHTML = ""; ca.classList.remove("rec-1", "rec-2");
+    $("overlay-es").textContent = ""; return;
+  }
   const long = SEGS[CUR].text.length > 140;
   ca.classList.toggle("longtext", long);
   $("overlay-es").classList.toggle("longtext", long);
   ca.style.display = HIDE_CA ? "none" : "";
   ca.innerHTML = tokenHtml(SEGS[CUR]);
+  // recomendación estilo Migaku: verde (i+1) / azul (i+2) en la línea en vivo
+  const tier = segRecTier(SEGS[CUR]);
+  ca.classList.toggle("rec-1", tier === 1);
+  ca.classList.toggle("rec-2", tier === 2);
   bindTokenEvents(ca, CUR);
   // el popup abierto sigue a su palabra tras el re-render (su span murió)
   if (POP && POP.anchor && !POP.anchor.isConnected) positionPopup(POP.anchor);
@@ -1434,6 +1441,12 @@ function renderHelp() {
        <div><h3>Reproducción y minado</h3>${remap}</div>
        <div><h3>Teclas fijas</h3>${fixed}</div>
      </div>
+     <h3>Frases recomendadas para minar</h3>
+     <div class="rec-legend">
+       <span><i class="rec-sw green"></i>i+1 — 1 palabra nueva (óptima, ${(km.recommended || "r").toUpperCase()} salta a la siguiente)</span>
+       <span><i class="rec-sw blue"></i>i+2 — 2 palabras nuevas (también buena)</span>
+     </div>
+     <p class="dim">El subtítulo se subraya en verde o azul cuando es una buena frase para hacer flashcard.</p>
      <p class="dim">Las letras se cambian en Ajustes → Atajos de teclado.</p>`;
 }
 function toggleHelp() {
@@ -1705,14 +1718,32 @@ function segNewLemmas(seg) {
   return s.size;
 }
 
+// nivel de recomendación: 1 = i+1 (una palabra nueva, óptima, verde) ·
+// 2 = i+2 (dos nuevas, buena, azul) · 0 = no recomendada
+function segRecTier(seg) {
+  const n = segNewLemmas(seg);
+  return n === 1 ? 1 : n === 2 ? 2 : 0;
+}
+
 function updateRecs() {
   RECS = [];
   SEGS.forEach((seg, i) => { if (segNewLemmas(seg) === 1) RECS.push(i); });
   const chip = $("rec-chip");
   if (!SEGS.length || !RECS.length) chip.hidden = true;
   else { chip.innerHTML = `<svg class="ic ic-xs"><use href="#i-star"/></svg>${RECS.length} recomendadas`; chip.hidden = false; }
-  document.querySelectorAll(".seg.rec").forEach((d) => d.classList.remove("rec"));
-  for (const i of RECS) $("seg-" + i)?.classList.add("rec");
+  // filas del navegador de subtítulos: verde (i+1) / azul (i+2)
+  document.querySelectorAll(".seg.rec-1, .seg.rec-2")
+    .forEach((d) => d.classList.remove("rec-1", "rec-2"));
+  SEGS.forEach((seg, i) => {
+    const tier = segRecTier(seg);
+    if (tier) $("seg-" + i)?.classList.add("rec-" + tier);
+  });
+  // re-resaltar la línea en vivo por si cambió el estado de una palabra
+  if (CUR >= 0 && SEGS[CUR]) {
+    const t = segRecTier(SEGS[CUR]);
+    $("overlay-ca").classList.toggle("rec-1", t === 1);
+    $("overlay-ca").classList.toggle("rec-2", t === 2);
+  }
 }
 
 function nextRec() {
