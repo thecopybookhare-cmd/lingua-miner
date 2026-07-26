@@ -1336,6 +1336,9 @@ def _settings_payload() -> dict:
     s["bases"] = [{"code": b, "name": languages.BASE_NAMES.get(b, b)}
                   for b in languages.bases()]
     s["base_language_effective"] = languages.base_code()
+    # fuentes públicas recomendadas del idioma activo (descubrir contenido sin
+    # tener que saberse las URLs de memoria)
+    s["sources"] = list(prof.get("sources") or [])
     return s
 
 

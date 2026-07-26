@@ -127,6 +127,24 @@ def test_base_language_falls_back_when_unavailable(tmp_path):
     c.post("/api/settings", json={"base_language": "es", "language": "ca"})
 
 
+def test_sources_follow_study_language(tmp_path):
+    """Cada idioma ofrece sus fuentes públicas (descubrir sin saberse URLs)."""
+    c = client(tmp_path)
+    seen = {}
+    for code in ("ca", "pt", "de"):
+        c.post("/api/settings", json={"language": code})
+        seen[code] = [x["name"] for x in c.get("/api/settings").json()["sources"]]
+    c.post("/api/settings", json={"language": "ca"})
+    assert "3Cat" in seen["ca"] and "RTP Play" in seen["pt"]
+    assert seen["ca"] != seen["pt"] != seen["de"]
+    # todas con url https y tipo conocido
+    from app import languages
+    for prof in languages.PROFILES.values():
+        for src in prof.get("sources", []):
+            assert src["url"].startswith("https://"), src
+            assert src["kind"] in ("tv", "pod", "archive"), src
+
+
 def test_rec_min_zipf_setting(tmp_path):
     c = client(tmp_path)
     assert c.get("/api/settings").json()["rec_min_zipf"] == 3.5

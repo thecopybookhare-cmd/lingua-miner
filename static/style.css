@@ -836,3 +836,27 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   #transcribe-bar { min-width: 0; width: 100%; }
   #model-select { max-width: 100%; min-width: 0; flex: 1 1 100%; }
 }
+
+/* ---------- fuentes públicas por idioma (descubrir contenido) ---------- */
+.sec-h {
+  font-family: var(--display); font-size: 15px; font-weight: 700;
+  margin: 26px 0 4px; letter-spacing: -0.01em;
+}
+#sources-sec .dim { margin: 0 0 12px; font-size: 13.5px; }
+.src-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px; margin-bottom: 26px;
+}
+.src-card {
+  display: grid; grid-template-columns: auto 1fr; gap: 3px 10px;
+  align-items: center; text-decoration: none; color: var(--fg);
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 13px; padding: 11px 13px;
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+.src-card:hover {
+  border-color: var(--vio); background: var(--vio-soft); transform: translateY(-2px);
+}
+.src-card .ic { grid-row: span 2; color: var(--vio); width: 19px; height: 19px; }
+.src-name { font-family: var(--display); font-weight: 600; font-size: 14px; }
+.src-note { font-size: 12px; line-height: 1.35; }

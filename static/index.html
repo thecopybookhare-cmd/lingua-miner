@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>LinguaMiner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="icon" href="/favicon.png?v=1.7.0">
+<link rel="icon" href="/favicon.png?v=1.8.0">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#0c0d13">
@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="LinguaMiner">
-<link rel="stylesheet" href="/style.css?v=1.7.0">
+<link rel="stylesheet" href="/style.css?v=1.8.0">
 </head>
 <body>
 <!-- sprite de iconos (estilo Lucide: 24×24, trazo 2, sin relleno) -->
@@ -79,6 +79,11 @@
         <button id="onb-recheck" class="small"><svg class="ic"><use href="#i-refresh"/></svg><span data-i18n="onb.recheck">Volver a comprobar</span></button>
       </div>
     </div>
+  </section>
+  <section id="sources-sec" hidden>
+    <h3 class="sec-h" data-i18n="src.title">Dónde encontrar contenido</h3>
+    <p class="dim" data-i18n="src.note">Fuentes públicas de tu idioma de estudio. Abre una, copia el enlace del episodio y pégalo arriba en «Ver online».</p>
+    <div id="sources-list" class="src-grid"></div>
   </section>
   <section id="lib-search-sec" hidden>
     <div class="search-wrap">
@@ -422,7 +427,7 @@
     });
   }
 </script>
-<script src="/i18n.js?v=1.7.0"></script>
-<script src="/app.js?v=1.7.0"></script>
+<script src="/i18n.js?v=1.8.0"></script>
+<script src="/app.js?v=1.8.0"></script>
 </body>
 </html>

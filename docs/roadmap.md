@@ -141,11 +141,12 @@ Investigación de julio 2026. Lo hecho va marcado; lo demás queda con su plan.
       así que las fuentes solo-audio quedaban fuera. Ahora hay fallback a la
       mejor pista de audio (`is_audio`). Los podcasts son de las mejores
       fuentes para un idioma y ya entran por «Ver online».
-- [ ] **Catálogo de fuentes legales.** `resolve()` ya es genérico (yt-dlp, sin
-      lista blanca): funcionan RTVE, RTP (portugués), France.tv, ARD/ZDF,
-      Archive.org (dominio público), TED, Vimeo… Falta *presentarlo*: un
-      selector de fuentes recomendadas por idioma en la pantalla de inicio,
-      para que no haya que saberse las URLs.
+- [x] **Catálogo de fuentes legales (v1.8.0).** `resolve()` ya era genérico
+      (yt-dlp, sin lista blanca), pero había que saberse las URLs. Ahora cada
+      perfil de idioma trae sus `sources` (nombre, tipo tv/pod/archive, nota)
+      y la portada muestra «Dónde encontrar contenido» con las del idioma
+      activo: 3Cat, RTP Play/Arquivos/Antena 1, france.tv, Radio France,
+      ARD/ZDF/Deutschlandfunk, TED, Archive.org. Todas verificadas vivas.
 - [ ] **Importar playlists y canales.** Hoy `noplaylist: True` lo impide. Con
       un job por lote se podría añadir una temporada entera o un canal de
       podcast de una vez (con límite y barra de progreso).

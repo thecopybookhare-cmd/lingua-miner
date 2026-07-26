@@ -470,6 +470,20 @@ $("subs-input").onchange = async (e) => {
   openSession(SESSION.id);
 };
 
+// fuentes públicas del idioma de estudio: descubrir contenido sin saberse URLs
+const SRC_ICON = { tv: "i-captions", pod: "i-wave", archive: "i-folder" };
+function renderSources() {
+  const list = SETTINGS?.sources || [];
+  $("sources-sec").hidden = !list.length;
+  if (!list.length) return;
+  $("sources-list").innerHTML = list.map((s) => `
+    <a class="src-card" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">
+      <svg class="ic"><use href="#${SRC_ICON[s.kind] || "i-globe"}"/></svg>
+      <span class="src-name">${esc(s.name)}</span>
+      <span class="src-note dim">${esc(s.note || "")}</span>
+    </a>`).join("");
+}
+
 // audio condensado: solo el diálogo, en un mp3 para escucha pasiva
 $("condensed-dl").onclick = async () => {
   if (!SESSION) return;
@@ -1420,6 +1434,7 @@ function applySettings() {
   if (ln === "lang." + lc)                       // sin clave i18n → nombre del perfil
     ln = (SETTINGS.languages || []).find((l) => l.code === lc)?.name || lc;
   $("hero-sub").textContent = t("hero.sub", ln);
+  renderSources();                    // fuentes públicas del idioma activo
 }
 
 async function loadSettings() {

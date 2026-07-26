@@ -24,6 +24,13 @@ PROFILES = {
                         "kaikki.org-dictionary-Catal%C3%A1n.jsonl"),
         # voz neural Piper (ONNX) para la pronunciación; ruta en rhasspy/piper-voices
         "piper_voice": "ca/ca_ES/upc_ona/x_low/ca_ES-upc_ona-x_low.onnx",
+        "sources": [
+            {"name": "3Cat", "kind": "tv", "url": "https://www.3cat.cat/3cat/",
+             "note": "Series y programas de la TV pública catalana"},
+            {"name": "3Cat Podcasts", "kind": "pod",
+             "url": "https://www.3cat.cat/3cat/podcasts/",
+             "note": "Podcasts de Catalunya Ràdio"},
+        ],
         # idiomas base alternativos: traductor estudio→base (además del es)
         "translate_bases": {
             "en": {"repo": "gaudi/opus-mt-ca-en-ctranslate2",
@@ -49,6 +56,13 @@ PROFILES = {
         "wikdict_url": ("https://kaikki.org/eswiktionary/Franc%C3%A9s/"
                         "kaikki.org-dictionary-Franc%C3%A9s.jsonl"),
         "piper_voice": "fr/fr_FR/siwis/medium/fr_FR-siwis-medium.onnx",
+        "sources": [
+            {"name": "france.tv", "kind": "tv", "url": "https://www.france.tv/",
+             "note": "Televisión pública francesa"},
+            {"name": "Radio France", "kind": "pod",
+             "url": "https://www.radiofrance.fr/podcasts",
+             "note": "Podcasts de France Inter, Culture…"},
+        ],
         "translate_bases": {
             "en": {"repo": "gaudi/opus-mt-fr-en-ctranslate2",
                    "dir": "translate-fra-eng", "eos": True},
@@ -70,6 +84,13 @@ PROFILES = {
         "wikdict_url": ("https://kaikki.org/eswiktionary/Ingl%C3%A9s/"
                         "kaikki.org-dictionary-Ingl%C3%A9s.jsonl"),
         "piper_voice": "en/en_US/amy/low/en_US-amy-low.onnx",
+        "sources": [
+            {"name": "TED Talks", "kind": "tv", "url": "https://www.ted.com/talks",
+             "note": "Charlas con subtítulos y transcripción"},
+            {"name": "Archive.org", "kind": "archive",
+             "url": "https://archive.org/details/feature_films",
+             "note": "Películas de dominio público"},
+        ],
     },
     "de": {
         "name": "Deutsch",
@@ -87,6 +108,16 @@ PROFILES = {
         "wikdict_url": ("https://kaikki.org/eswiktionary/Alem%C3%A1n/"
                         "kaikki.org-dictionary-Alem%C3%A1n.jsonl"),
         "piper_voice": "de/de_DE/thorsten/low/de_DE-thorsten-low.onnx",
+        "sources": [
+            {"name": "ARD Mediathek", "kind": "tv",
+             "url": "https://www.ardmediathek.de/",
+             "note": "Televisión pública alemana"},
+            {"name": "ZDF", "kind": "tv", "url": "https://www.zdf.de/",
+             "note": "Segunda cadena pública"},
+            {"name": "Deutschlandfunk", "kind": "pod",
+             "url": "https://www.deutschlandfunk.de/podcasts-100.html",
+             "note": "Podcasts de la radio pública"},
+        ],
         "translate_bases": {
             "en": {"repo": "gaudi/opus-mt-de-en-ctranslate2",
                    "dir": "translate-deu-eng", "eos": True},
@@ -115,6 +146,16 @@ PROFILES = {
                         "kaikki.org-dictionary-Portugu%C3%A9s.jsonl"),
         # voz neural europea (pt_PT), no brasileña
         "piper_voice": "pt/pt_PT/tug%C3%A3o/medium/pt_PT-tug%C3%A3o-medium.onnx",
+        "sources": [
+            {"name": "RTP Play", "kind": "tv", "url": "https://www.rtp.pt/play/",
+             "note": "Televisión pública portuguesa"},
+            {"name": "RTP Arquivos", "kind": "archive",
+             "url": "https://arquivos.rtp.pt/",
+             "note": "Archivo histórico de la RTP"},
+            {"name": "Antena 1", "kind": "pod",
+             "url": "https://www.rtp.pt/antena1/",
+             "note": "Radio pública: programas y podcasts"},
+        ],
     },
 }
 
