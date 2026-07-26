@@ -470,6 +470,26 @@ $("subs-input").onchange = async (e) => {
   openSession(SESSION.id);
 };
 
+// audio condensado: solo el diálogo, en un mp3 para escucha pasiva
+$("condensed-dl").onclick = async () => {
+  if (!SESSION) return;
+  if (!SEGS.length) { toast(t("cond.need_transcript"), "err"); return; }
+  const btn = $("condensed-dl");
+  btn.disabled = true;
+  try {
+    const r = await api(`/api/sessions/${SESSION.id}/condensed`, { method: "POST" });
+    if (r.error) { toast(r.error, "err"); return; }
+    const res = await pollJob(r.job_id, t("cond.working"));
+    if (!res) return;
+    const mins = (s) => Math.round(s / 60);
+    toast(t("cond.done", mins(res.seconds), mins(res.total)), "ok");
+    const a = document.createElement("a");     // descarga directa
+    a.href = res.file; a.download = res.name;
+    document.body.appendChild(a); a.click(); a.remove();
+  } catch { toast(t("cond.err"), "err"); }
+  finally { btn.disabled = false; }
+};
+
 // ---------- estados de palabra ----------
 function stOf(lemma) { return STATUS[lemma] || "unknown"; }
 

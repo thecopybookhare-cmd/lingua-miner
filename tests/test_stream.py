@@ -150,3 +150,32 @@ def test_stream_session_error_when_unresolvable(_m, tmp_path):
     j = _wait(r["job_id"])
     assert j["status"] == "error"
     assert "no soporta" in j["message"]
+
+
+def test_audio_only_source_resolves_as_podcast(monkeypatch):
+    """Podcasts/radio: sin formatos de vídeo, se cae a la mejor pista de audio."""
+    from app import stream
+    info = {"title": "Episodio 12", "duration": 1800, "formats": [
+        {"protocol": "https", "url": "http://x/lo.mp3", "vcodec": "none",
+         "acodec": "mp3", "abr": 64, "format_note": "low"},
+        {"protocol": "https", "url": "http://x/hi.mp3", "vcodec": "none",
+         "acodec": "mp3", "abr": 128, "format_note": "high"},
+    ]}
+    monkeypatch.setattr(stream, "_extract", lambda url: info)
+    stream._CACHE.clear()
+    r = stream.resolve("http://podcast/ep12")
+    assert r["is_audio"] is True and r["is_hls"] is False
+    assert r["best_url"] == "http://x/hi.mp3"          # la mejor tasa de bits
+    assert r["title"] == "Episodio 12"
+
+
+def test_video_source_is_not_marked_audio(monkeypatch):
+    from app import stream
+    info = {"title": "v", "duration": 10, "formats": [
+        {"protocol": "https", "url": "http://x/v.mp4", "height": 720,
+         "vcodec": "avc1", "acodec": "mp4a", "format_note": "720p"},
+    ]}
+    monkeypatch.setattr(stream, "_extract", lambda url: info)
+    stream._CACHE.clear()
+    r = stream.resolve("http://site/v")
+    assert r["is_audio"] is False and r["best_height"] == 720

@@ -129,6 +129,43 @@ Los 18 hallazgos de la revisión de código profunda, corregidos:
 
 Pendiente menor: roles ARIA en los badges del header (a11y).
 
+## 🚀 Ambición: más fuentes y más formas de estudiar
+
+Investigación de julio 2026. Lo hecho va marcado; lo demás queda con su plan.
+
+- [x] **Audio condensado (v1.7.0).** Exporta un mp3 con SOLO el diálogo del
+      episodio (une los tramos con `aselect` en una pasada, aire de 0,15 s y
+      fusión de huecos < 0,6 s). Es la escucha pasiva del método de inmersión:
+      50 min de capítulo → ~20 min para el móvil. Medido: 60 s → 15,8 s.
+- [x] **Podcasts y radio (v1.7.0).** `_progressive()` exigía altura de vídeo,
+      así que las fuentes solo-audio quedaban fuera. Ahora hay fallback a la
+      mejor pista de audio (`is_audio`). Los podcasts son de las mejores
+      fuentes para un idioma y ya entran por «Ver online».
+- [ ] **Catálogo de fuentes legales.** `resolve()` ya es genérico (yt-dlp, sin
+      lista blanca): funcionan RTVE, RTP (portugués), France.tv, ARD/ZDF,
+      Archive.org (dominio público), TED, Vimeo… Falta *presentarlo*: un
+      selector de fuentes recomendadas por idioma en la pantalla de inicio,
+      para que no haya que saberse las URLs.
+- [ ] **Importar playlists y canales.** Hoy `noplaylist: True` lo impide. Con
+      un job por lote se podría añadir una temporada entera o un canal de
+      podcast de una vez (con límite y barra de progreso).
+- [ ] **Sembrar vocabulario desde tu Anki.** Leer los mazos existentes por
+      AnkiConnect y marcar como conocidas las palabras que ya estudias — hoy
+      el nivel se fija a mano o por frecuencia.
+- [ ] **Extensión de navegador.** Minar desde cualquier vídeo web reusando el
+      backend local (la API ya existe y el modo compartir ya sirve en red).
+- [ ] **Repaso integrado (SRS).** Alternativa a Anki para quien no lo quiera
+      instalar; la DB ya guarda tarjetas y estados.
+
+**Sobre «descargar películas»:** el catálogo legal de yt-dlp (más de mil
+sitios: televisiones públicas, archivos de dominio público, plataformas
+abiertas) cubre de sobra la necesidad de material real, y ahí sí conviene
+invertir. Lo que no se implementa son *scrapers* de agregadores pirata ni
+suplantación de cabeceras para saltarse protecciones: aparte del problema
+legal, esos sitios rompen cada semana y arrastrarían el mantenimiento. El
+contenido con DRM (Netflix, Prime…) es directamente inviable sin romper la
+protección. Alternativa práctica ya soportada: archivo local + `.srt`.
+
 ## 🧭 Próximos grandes (v1.x)
 
 - [x] **Portugués europeo (v1.4.0).** Estudio pt → base es. No existe un

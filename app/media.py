@@ -84,6 +84,38 @@ def animated_clip(src, start, end, out, max_dur=6.0, timeout=90):
     _run(clip_cmd(src, start, end, out, max_dur), timeout=timeout)
 
 
+def merge_ranges(ranges, gap: float = 0.6, pad: float = 0.15):
+    """Une tramos de diálogo cercanos (y añade aire) para que el audio
+    condensado suene natural y el comando de ffmpeg no sea kilométrico."""
+    out: list[list[float]] = []
+    for a, b in sorted((float(a), float(b)) for a, b in ranges):
+        if b <= a:
+            continue                       # tramo degenerado: no es diálogo
+        a, b = max(0.0, a - pad), b + pad
+        if out and a - out[-1][1] <= gap:
+            out[-1][1] = max(out[-1][1], b)
+        else:
+            out.append([a, b])
+    return [(a, b) for a, b in out]
+
+
+def condensed_audio(src: str, ranges, out: str, timeout: float = 1800) -> float:
+    """Audio condensado: solo los tramos con diálogo, concatenados en un mp3.
+
+    Es la escucha pasiva del método de inmersión: un capítulo de 50 min queda
+    en ~20 min de puro diálogo para el móvil. `aselect` en una sola pasada
+    (nada de miles de ficheros temporales). Devuelve la duración resultante.
+    """
+    rs = merge_ranges(ranges)
+    if not rs:
+        raise ValueError("sin tramos de diálogo")
+    sel = "+".join(f"between(t,{a:.2f},{b:.2f})" for a, b in rs)
+    _run([_exe("ffmpeg"), "-y", "-i", src,
+          "-af", f"aselect='{sel}',asetpts=N/SR/TB",
+          "-vn", "-c:a", "libmp3lame", "-q:a", "5", out], timeout=timeout)
+    return sum(b - a for a, b in rs)
+
+
 def download_window(src: str, start: float, dur: float, out: str,
                     timeout: float = 120) -> None:
     """Copia (sin recodificar) la ventana [start, start+dur] a un mp4 local.

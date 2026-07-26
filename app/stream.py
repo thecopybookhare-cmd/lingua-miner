@@ -106,6 +106,26 @@ def _extract(url: str) -> dict:
         return y.extract_info(url, download=False)
 
 
+def _audio_only(info: dict) -> list[dict]:
+    """Formatos solo-audio (podcasts, radio, charlas). Son fuentes de primera
+    para escuchar un idioma, y sin esto quedaban fuera: _progressive() exige
+    altura de vídeo y descarta las pistas sueltas."""
+    out = []
+    for f in info.get("formats", []):
+        proto = f.get("protocol") or ""
+        if "dash" in proto or "m3u8" in proto or not proto.startswith("http"):
+            continue
+        if not f.get("url") or f.get("vcodec") not in (None, "none"):
+            continue
+        if f.get("acodec") == "none":
+            continue
+        out.append({"height": 0, "url": f["url"],
+                    "label": f.get("format_note") or "Audio",
+                    "abr": f.get("abr") or 0})
+    out.sort(key=lambda x: x["abr"])
+    return [{k: v for k, v in f.items() if k != "abr"} for f in out[-1:]]
+
+
 def resolve(url: str) -> dict:
     """{title, duration, formats:[{height,label,url}], best_url, subs_url,
     subs_auto} — o {} si no se pudo resolver. Cacheado con TTL."""
@@ -117,12 +137,15 @@ def resolve(url: str) -> dict:
     except Exception:
         return {}
     formats = _progressive(info)            # ideal: mp4 progresivo (mejor para ffmpeg)
-    is_hls = False
+    is_hls = is_audio = False
     if not formats:                         # si no hay, caer a HLS (m3u8)
         hls_url, hls_h = _hls_stream(info)
         if hls_url:
             formats = [{"height": hls_h, "label": "HLS", "url": hls_url}]
             is_hls = True
+    if not formats:                         # ni vídeo ni HLS: ¿podcast/radio?
+        formats = _audio_only(info)
+        is_audio = bool(formats)
     if not formats:
         return {}
     subs_url, subs_auto = _subs_url(info)
@@ -131,7 +154,7 @@ def resolve(url: str) -> dict:
          "formats": formats,
          "best_url": formats[-1]["url"],
          "best_height": formats[-1]["height"],
-         "is_hls": is_hls,
+         "is_hls": is_hls, "is_audio": is_audio,
          "subs_url": subs_url, "subs_auto": subs_auto}
     _CACHE[url] = (time.time(), r)          # solo éxitos; los fallos reintentan
     return r

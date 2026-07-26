@@ -54,3 +54,49 @@ def test_local_card_does_not_download_window(tmp_path):
     gif_src, gif_start = calls["gif"][0], calls["gif"][1]
     assert gif_src == "/local/v.mp4"
     assert gif_start == 2000.0
+
+
+# ---------- audio condensado (escucha pasiva) ----------
+
+def test_merge_ranges_joins_close_and_pads():
+    from app import media
+    # tramos cercanos (gap 0.3 < 0.6) se unen; el lejano queda aparte
+    assert media.merge_ranges([(0, 2), (2.3, 4), (10, 11)]) == [(0.0, 4.15),
+                                                               (9.85, 11.15)]
+    assert media.merge_ranges([]) == []
+    # desordenados y con tramos vacíos
+    assert media.merge_ranges([(5, 6), (1, 2), (3, 3)]) == [(0.85, 2.15),
+                                                           (4.85, 6.15)]
+
+
+def test_condensed_endpoint_needs_transcript(tmp_path):
+    sid = _session(tmp_path, "local")
+    main.db.update_transcript(main.CON, sid, "[]", "-", "none", 0)
+    r = main.__dict__  # noqa: F841  (silencia linters sobre import no usado)
+    from fastapi.testclient import TestClient
+    c = TestClient(main.app)
+    assert c.post(f"/api/sessions/{sid}/condensed").status_code == 400
+
+
+def test_condensed_endpoint_passes_dialogue_ranges(tmp_path):
+    sid = _session(tmp_path, "local")
+    s = main.db.get_session(main.CON, sid)
+    calls = {}
+    with patch.object(main.media, "condensed_audio",
+                      side_effect=lambda src, rng, out, **k: (
+                          calls.setdefault("ranges", list(rng)), 3.0)[1]):
+        from fastapi.testclient import TestClient
+        c = TestClient(main.app)
+        r = c.post(f"/api/sessions/{sid}/condensed").json()
+        # el job corre en background: esperar a que termine
+        import time
+        t0 = time.time()
+        while time.time() - t0 < 10:
+            j = main.jobs.get(r["job_id"])
+            if j["status"] in ("done", "error"):
+                break
+            time.sleep(0.05)
+    assert j["status"] == "done", j.get("message")
+    assert calls["ranges"] == [(2000.0, 2003.0)]      # el segmento del fixture
+    assert j["result"]["name"] == f"condensed-{sid}.mp3"
+    assert s["duration_secs"] == 3000

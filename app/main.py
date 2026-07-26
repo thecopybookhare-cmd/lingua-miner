@@ -775,6 +775,39 @@ def do_transcribe(sid: str, req: TranscribeReq):
     return {"job_id": jobs.start(work, label="transcribe")}
 
 
+@app.post("/api/sessions/{sid}/condensed")
+def do_condensed(sid: str):
+    """Audio condensado (solo diálogo) para escucha pasiva — el mp3 queda en
+    la biblioteca de medios y se descarga desde el navegador."""
+    s = db.get_session(CON, sid)
+    if not s:
+        return JSONResponse({"error": "not found"}, status_code=404)
+    segs = json.loads(s["transcript_json"] or "[]")
+    if not segs:
+        return JSONResponse({"error": "transcribe primero esta sesión"},
+                            status_code=400)
+
+    def work(jid):
+        jobs.set_progress(jid, 0.05, "Preparando audio condensado…")
+        src = s["media_path"]
+        if s.get("source_type") == "stream" and s.get("page_url"):
+            fresh, _, _ = stream.stream_url(s["page_url"],
+                                            s.get("stream_height") or 0)
+            if fresh:
+                src = fresh
+        ranges = [(g["start"], g["end"]) for g in segs
+                  if g.get("end", 0) > g.get("start", 0)]
+        name = f"condensed-{sid}.mp3"
+        jobs.set_progress(jid, 0.15, "Extrayendo el diálogo (puede tardar)…")
+        dur = media.condensed_audio(src, ranges,
+                                    str(config.MEDIA_DIR / name))
+        jobs.set_progress(jid, 1.0, "Listo")
+        return {"file": f"/media/{name}", "name": name,
+                "seconds": round(dur), "total": round(s["duration_secs"] or 0)}
+
+    return {"job_id": jobs.start(work, label="condensed")}
+
+
 @app.get("/api/jobs/{jid}")
 def job_status(jid: str):
     j = jobs.get(jid)
