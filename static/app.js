@@ -470,6 +470,37 @@ $("subs-input").onchange = async (e) => {
   openSession(SESSION.id);
 };
 
+// sembrar vocabulario desde un mazo de Anki que ya estudias
+async function loadSeedDecks() {
+  const sel = $("seed-deck");
+  try {
+    const r = await api("/api/anki/decks");
+    const decks = r.decks || [];
+    $("seed-section").hidden = !decks.length;
+    sel.innerHTML = decks.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join("");
+    if (r.error) $("seed-status").textContent = r.error;
+  } catch { $("seed-section").hidden = true; }
+}
+$("seed-btn").onclick = async () => {
+  const deck = $("seed-deck").value;
+  if (!deck) return;
+  const btn = $("seed-btn");
+  btn.disabled = true;
+  $("seed-status").textContent = t("seed.working");
+  try {
+    const r = await api("/api/words/seed-anki", {
+      method: "POST", body: JSON.stringify({ deck }),
+    });
+    if (r.error) { $("seed-status").textContent = r.error; return; }
+    const res = await pollJob(r.job_id, t("seed.working"));
+    if (!res) return;
+    $("seed-status").textContent = t("seed.done", res.marked, res.skipped);
+    toast(t("seed.done", res.marked, res.skipped), "ok");
+    if (SESSION) { renderSegs(); renderOverlay(); updateComp(); }
+  } catch { $("seed-status").textContent = t("seed.err"); }
+  finally { btn.disabled = false; }
+};
+
 // fuentes públicas del idioma de estudio: descubrir contenido sin saberse URLs
 const SRC_ICON = { tv: "i-captions", pod: "i-wave", archive: "i-folder" };
 function renderSources() {
@@ -1541,6 +1572,7 @@ async function openSettings() {
   $("set-deck").innerHTML = (st.decks || []).map((d) =>
     `<option${d === st.deck ? " selected" : ""}>${d}</option>`).join("")
     || `<option>${SETTINGS?.deck || ""}</option>`;
+  loadSeedDecks();               // mazos para sembrar vocabulario ya conocido
 }
 
 function renderShare(s) {

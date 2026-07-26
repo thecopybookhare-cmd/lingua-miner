@@ -150,9 +150,12 @@ Investigación de julio 2026. Lo hecho va marcado; lo demás queda con su plan.
 - [ ] **Importar playlists y canales.** Hoy `noplaylist: True` lo impide. Con
       un job por lote se podría añadir una temporada entera o un canal de
       podcast de una vez (con límite y barra de progreso).
-- [ ] **Sembrar vocabulario desde tu Anki.** Leer los mazos existentes por
-      AnkiConnect y marcar como conocidas las palabras que ya estudias — hoy
-      el nivel se fija a mano o por frecuencia.
+- [x] **Sembrar vocabulario desde tu Anki (v1.9.0).** ⚙️ → «Vocabulario que
+      ya sabes»: eliges un mazo tuyo y sus palabras se marcan como conocidas.
+      Lee solo el primer campo (el anverso suele ser la palabra), limpia HTML
+      y `[sound:…]`, descarta frases (>3 palabras) y lematiza con el modelo
+      del idioma, así «coneixes» y «conèixer» cuentan como el mismo lema.
+      NUNCA pisa un estado existente: lo que ya marcaste manda.
 - [ ] **Extensión de navegador.** Minar desde cualquier vídeo web reusando el
       backend local (la API ya existe y el modo compartir ya sirve en red).
 - [ ] **Repaso integrado (SRS).** Alternativa a Anki para quien no lo quiera

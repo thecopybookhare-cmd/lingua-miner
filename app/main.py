@@ -117,7 +117,7 @@ _ADMIN_POSTS = {
     "/api/settings", "/api/anki/deck", "/api/anki/port",
     "/api/setup/download", "/api/words/import",
     "/api/sessions/upload", "/api/sessions/youtube", "/api/sessions/stream",
-    "/api/update/apply",
+    "/api/update/apply", "/api/words/seed-anki",
 }
 
 
@@ -1223,6 +1223,37 @@ class BulkKnownReq(BaseModel):
 def words_bulk_known(req: BulkKnownReq):
     n = max(0, min(5000, req.top_n))
     return {"marked": vocab.bulk_known(CON, n, _lang())}
+
+
+@app.get("/api/anki/decks")
+def anki_decks():
+    """Mazos disponibles, para sembrar vocabulario desde los que ya estudias."""
+    try:
+        return {"decks": anki.deck_names()}
+    except Exception:
+        return {"decks": [], "error": "Anki no está abierto"}
+
+
+class SeedReq(BaseModel):
+    deck: str
+
+
+@app.post("/api/words/seed-anki")
+def words_seed_anki(req: SeedReq):
+    if not req.deck or req.deck not in (anki.deck_names() or []):
+        return JSONResponse({"error": "mazo desconocido"}, status_code=400)
+
+    def work(jid):
+        jobs.set_progress(jid, 0.2, "Leyendo el mazo…")
+        try:
+            r = vocab.seed_from_anki(CON, req.deck, _lang())
+        except Exception as e:          # Anki cerrado a mitad, mazo borrado…
+            _log.warning("sembrado desde Anki falló: %s", e)
+            raise RuntimeError("Anki dejó de responder; ábrelo e inténtalo de nuevo") from e
+        jobs.set_progress(jid, 1.0, "Listo")
+        return r
+
+    return {"job_id": jobs.start(work, label="seed-anki")}
 
 
 # ---------- export / import de progreso ----------

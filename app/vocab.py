@@ -36,3 +36,28 @@ def bulk_known(con, top_n: int, lang: str = "ca") -> int:
             db.set_word_status(con, lemma, "known", lang)
             marked += 1
     return marked
+
+
+def seed_from_anki(con, deck: str, lang: str = "ca") -> dict:
+    """Marca como 'known' el vocabulario que ya estudias en un mazo de Anki.
+
+    Lematiza cada palabra con el modelo del idioma activo (así «coneixes» y
+    «conèixer» cuentan como el mismo lema) y nunca pisa un estado existente:
+    lo que ya marcaste a mano manda."""
+    from . import anki, db, nlp
+    words = anki.deck_words(deck)
+    current = db.word_statuses(con, lang)
+    marked, skipped = 0, 0
+    seen: set[str] = set()
+    for w in words:
+        lemma, _pos = nlp.analyze_selection(w)
+        lemma = (lemma or w).lower().strip()
+        if not lemma or not nlp.is_wordlike(lemma) or lemma in seen:
+            continue
+        seen.add(lemma)
+        if lemma in current:
+            skipped += 1
+            continue
+        db.set_word_status(con, lemma, "known", lang)
+        marked += 1
+    return {"marked": marked, "skipped": skipped, "read": len(words)}

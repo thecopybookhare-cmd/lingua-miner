@@ -116,6 +116,33 @@ def ensure_note_type() -> str:
     return model
 
 
+def deck_names() -> list[str]:
+    return invoke("deckNames") or []
+
+
+def deck_words(deck: str, max_notes: int = 5000) -> list[str]:
+    """Palabras del anverso de las notas de un mazo.
+
+    Para sembrar el vocabulario que YA estudias en Anki: se lee solo el primer
+    campo (el anverso suele ser la palabra/expresión), se limpia el HTML y se
+    descartan las entradas largas (frases enteras, no vocabulario)."""
+    import html
+    import re
+    ids = invoke("findNotes", query=f'"deck:{deck}"') or []
+    words: list[str] = []
+    for i in range(0, min(len(ids), max_notes), 200):     # por lotes
+        for n in invoke("notesInfo", notes=ids[i:i + 200]) or []:
+            fields = n.get("fields") or {}
+            if not fields:
+                continue
+            first = min(fields.values(), key=lambda f: f.get("order", 0))
+            raw = html.unescape(re.sub(r"<[^>]+>", " ", first.get("value") or ""))
+            raw = re.sub(r"\[sound:[^\]]*\]", " ", raw).strip()
+            if raw and len(raw) <= 40 and len(raw.split()) <= 3:
+                words.append(raw)
+    return words
+
+
 def find_cards(query: str) -> list[int]:
     return invoke("findCards", query=query) or []
 
