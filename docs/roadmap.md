@@ -188,11 +188,18 @@ protección. Alternativa práctica ya soportada: archivo local + `.srt`.
       del Wikcionario) y las etiquetas «ES» de la tarjeta/dual pasan al idioma
       base. Selector en Ajustes → «Traducir a». Falta (menor): glosas del
       Wiktionary inglés vía kaikki para recuperar definiciones con base en.
-- [ ] **Conjugación multi-idioma.** Hoy solo catalán (diccionario de formas de
-      Softcatalà). Los extractos kaikki que ya descargamos para glosas incluyen
-      `forms` por entrada: se puede derivar una tabla de conjugación fr/en/de
-      sin fuentes nuevas. Tocaría `conjugation.py` + quitar el gate `ca` del
-      botón del popup.
+- [ ] **Conjugación multi-idioma.** Hoy solo catalán, vía el diccionario de
+      formas de Softcatalà (1,3M de entradas «forma lema ETIQUETA»).
+      ⚠️ *Corrección (jul 2026):* se había apuntado que bastaba con los
+      extractos kaikki que ya bajamos para las glosas, porque incluyen `forms`.
+      **Medido y es falso**: en el extracto del Wikcionario ESPAÑOL solo 1 de
+      1333 verbos franceses y 1 de 423 catalanes traen formas, y ninguno una
+      tabla completa (>20 formas). Son glosas/traducciones, no paradigmas.
+      Vías reales, una por idioma (proyecto de días, no un atajo): Morphalou o
+      LEFFF (fr), el Wikcionario en su propia edición (de/pt), o un conjugador
+      algorítmico tipo `mlconjug3` (fr/pt/en, pero arrastra scikit-learn).
+      Mientras tanto el botón sigue oculto fuera del catalán, que es lo
+      correcto: mejor sin función que con una tabla a medias.
 - [x] **v1.1.0** — Whisper multi-idioma real (language del perfil + selector
       dinámico), lemas basura fuera del panel (TOK_VERSION=2), actualizador
       integrado en Ajustes (git pull), i18n completa de la UI visible, icono
