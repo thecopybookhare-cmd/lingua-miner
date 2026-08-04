@@ -6,6 +6,16 @@ import uuid
 JOBS: dict[str, dict] = {}
 
 
+def running_with_label(label: str) -> str | None:
+    """Job en curso con esa etiqueta, si lo hay. Evita lanzar dos trabajos
+    pesados sobre lo mismo (p. ej. dos Whisper a la vez sobre un video, que
+    se pelean por la CPU y parecen colgados)."""
+    for jid, j in JOBS.items():
+        if j["status"] == "running" and j["label"] == label:
+            return jid
+    return None
+
+
 def start(target, *args, label="") -> str:
     # cap: los jobs terminados más viejos se descartan para no crecer sin
     # límite (relevante con invitados del modo compartir lanzando streams)

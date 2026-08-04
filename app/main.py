@@ -757,6 +757,14 @@ def do_transcribe(sid: str, req: TranscribeReq):
             {"error": f"modelo «{req.model}» no disponible para este idioma"},
             status_code=400)
 
+    # ya hay una transcripción en curso para esta sesión: devolver esa misma en
+    # vez de lanzar otro Whisper (dos modelos a la vez se pelean por la CPU y
+    # todo parece colgado — pasaba al pulsar el botón varias veces)
+    label = f"transcribe:{sid}"
+    running = jobs.running_with_label(label)
+    if running:
+        return {"job_id": running, "already_running": True}
+
     def work(jid):
         from . import transcribe as T
         sidecar = _find_sidecar_subs(Path(s["media_path"]))
@@ -772,7 +780,7 @@ def do_transcribe(sid: str, req: TranscribeReq):
                                  "whisper", nlp.TOK_VERSION)
         return {"segments": len(segs)}
 
-    return {"job_id": jobs.start(work, label="transcribe")}
+    return {"job_id": jobs.start(work, label=label)}
 
 
 @app.post("/api/sessions/{sid}/condensed")

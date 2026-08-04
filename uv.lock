@@ -552,7 +552,7 @@ wheels = [
 
 [[package]]
 name = "lingua-miner"
-version = "1.9.0"
+version = "1.9.1"
 source = { editable = "." }
 dependencies = [
     { name = "ctranslate2" },

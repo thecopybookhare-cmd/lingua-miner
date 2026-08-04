@@ -23,6 +23,10 @@ def transcribe(jid: str, media_path: str, model_key: str,
     from . import languages
     jobs.set_progress(jid, 0.01, "Cargando modelo… (la primera vez se descarga)")
     model = _model(model_key)
+    # el modelo ya está: lo que viene ahora (VAD sobre todo el audio) tarda
+    # minutos en un capítulo largo, así que el mensaje debe reflejarlo — antes
+    # se quedaba en «Cargando modelo…» y parecía que no avanzaba
+    jobs.set_progress(jid, 0.02, "Analizando el audio… (puede tardar unos minutos)")
     segments, _info = model.transcribe(
         media_path, language=languages.active_code(), beam_size=5,
         word_timestamps=True, vad_filter=True)

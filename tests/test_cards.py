@@ -100,3 +100,16 @@ def test_condensed_endpoint_passes_dialogue_ranges(tmp_path):
     assert calls["ranges"] == [(2000.0, 2003.0)]      # el segmento del fixture
     assert j["result"]["name"] == f"condensed-{sid}.mp3"
     assert s["duration_secs"] == 3000
+
+
+def test_transcribe_does_not_start_a_second_job(tmp_path):
+    """Pulsar Transcribir dos veces no lanza dos Whisper (se peleaban por la
+    CPU y parecía colgado): la segunda llamada devuelve el trabajo en curso."""
+    from unittest.mock import patch as _p
+
+    from fastapi.testclient import TestClient
+    sid = _session(tmp_path, "local")
+    c = TestClient(main.app)
+    with _p.object(main.jobs, "running_with_label", return_value="job123"):
+        r = c.post(f"/api/sessions/{sid}/transcribe", json={"model": "small"}).json()
+    assert r == {"job_id": "job123", "already_running": True}

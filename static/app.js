@@ -452,11 +452,18 @@ $("back").onclick = () => {
 };
 
 $("transcribe-btn").onclick = async () => {
-  const model = $("model-select").value;
-  const { job_id } = await api(`/api/sessions/${SESSION.id}/transcribe`,
-    { method: "POST", body: JSON.stringify({ model }) });
-  const res = await pollJob(job_id, "Transcribiendo… (la primera vez descarga el modelo)");
-  if (res) openSession(SESSION.id);
+  const btn = $("transcribe-btn");
+  if (btn.disabled) return;                 // ya hay una transcripción en curso
+  btn.disabled = true;
+  try {
+    const model = $("model-select").value;
+    const r = await api(`/api/sessions/${SESSION.id}/transcribe`,
+      { method: "POST", body: JSON.stringify({ model }) });
+    if (r.error) { toast(r.error, "err"); return; }
+    if (r.already_running) toast(t("tr.already"));
+    const res = await pollJob(r.job_id, "Transcribiendo… (la primera vez descarga el modelo)");
+    if (res) openSession(SESSION.id);
+  } finally { btn.disabled = false; }
 };
 
 $("subs-input").onchange = async (e) => {
