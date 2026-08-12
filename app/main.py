@@ -351,8 +351,13 @@ def setup_download():
             try:
                 import spacy.cli
                 spacy.cli.download(prof["spacy"])
-            except Exception:
-                pass                      # degrada a tokenizador regex
+            except (Exception, SystemExit) as e:
+                # spacy.cli.download acaba en sys.exit(1) cuando falla la
+                # descarga, y SystemExit no es Exception: sin atraparlo, un
+                # modelo que no baja se llevaba por delante TODO el job de
+                # setup (traductor y diccionarios incluidos)
+                _log.warning("modelo spaCy %s no disponible: %s — sigo con el "
+                             "tokenizador regex", prof["spacy"], e)
         jobs.set_progress(jid, 0.1, "Descargando el traductor (~1.5 GB)…")
         if not translate.is_downloaded():
             translate.download()

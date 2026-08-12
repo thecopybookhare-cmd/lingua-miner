@@ -414,13 +414,36 @@ def test_share_status_and_qr(tmp_path):
 @patch("app.main._dict")
 @patch("app.main.translate.download")
 @patch("app.main.translate.is_downloaded", return_value=False)
-def test_setup_download_runs_job(_isdl, _dl, _d, _f, _w, tmp_path):
+@patch("spacy.cli.download")           # sin esto el test sale a la red en CI
+def test_setup_download_runs_job(_spacy, _isdl, _dl, _d, _f, _w, tmp_path):
     c = client(tmp_path)
     r = c.post("/api/setup/download").json()
     j = _wait_job(r["job_id"])
     assert j["status"] == "done", j.get("message")
     assert j["result"] == {"ok": True}
     _dl.assert_called_once()                # descargó el traductor (no estaba)
+
+
+@patch("app.main.wikdict.lookup", return_value=[])
+@patch("app.main.forms.lookup", return_value=[])
+@patch("app.main._dict")
+@patch("app.main.translate.download")
+@patch("app.main.translate.is_downloaded", return_value=False)
+def test_setup_download_survives_a_failing_spacy_model(_isdl, _dl, _d, _f, _w, tmp_path):
+    """El modelo de spaCy es opcional; que no baje no puede tumbar el setup.
+
+    `spacy.cli.download` acaba en `sys.exit(1)` cuando GitHub falla, y
+    `SystemExit` no hereda de `Exception`: el `except Exception` de al lado no
+    lo veía y el job moría entero, dejando al usuario también sin traductor ni
+    diccionarios. Justo lo que pasó en CI (http2 "refused stream").
+    """
+    c = client(tmp_path)
+    with patch("importlib.util.find_spec", return_value=None), \
+         patch("spacy.cli.download", side_effect=SystemExit(1)):
+        r = c.post("/api/setup/download").json()
+        j = _wait_job(r["job_id"])
+    assert j["status"] == "done", j.get("message")
+    _dl.assert_called_once()            # siguió con el traductor pese al fallo
 
 
 # ---------- desfase de subtítulos (offset) en el audio de tarjeta ----------
