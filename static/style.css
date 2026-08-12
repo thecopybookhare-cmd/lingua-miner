@@ -610,6 +610,22 @@ button.small { font-size: 12px; padding: 6px 10px; }
 }
 .onb-head { display: flex; justify-content: space-between; align-items: center; }
 .onb-head h3 { margin: 0; font-size: 16px; }
+/* los 3 pasos del bucle de minado: sin ellos el usuario nuevo se queda con la
+   biblioteca vacía y el checklist verde, sin saber qué hacer */
+#onb-steps { list-style: none; counter-reset: onb; padding: 0;
+  margin: 12px 0 4px; display: grid; gap: 10px; }
+#onb-steps li { counter-increment: onb; position: relative; padding-left: 34px; }
+#onb-steps li::before {
+  content: counter(onb); position: absolute; left: 0; top: 0;
+  width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 12px; font-weight: 700; color: var(--acc);
+  background: color-mix(in srgb, var(--acc) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--acc) 45%, transparent);
+}
+#onb-steps b { display: block; font-size: 14px; }
+#onb-steps small { color: var(--dim); font-size: 12.5px; line-height: 1.45; }
+.onb-sub { margin: 16px 0 0; font-size: 12px; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--dim); font-weight: 600; }
 #onb-checks { list-style: none; padding: 0; margin: 10px 0 12px; display: grid; gap: 6px; }
 #onb-checks li { display: flex; flex-direction: column; gap: 1px; font-size: 14px; }
 #onb-checks li.ok { color: var(--dim); }

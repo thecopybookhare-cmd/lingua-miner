@@ -203,6 +203,9 @@ async function refreshOnboarding() {
   const show = !ONB_DISMISSED && (!allReady || !s.has_sessions);
   $("onboarding").hidden = !show;
   if (!show) return;
+  // los 3 pasos solo mientras no haya minado nada; luego sobran
+  $("onb-steps").hidden = !!s.has_sessions;
+  $("onb-need").hidden = !!s.has_sessions;
   $("onb-checks").innerHTML = ONB_ORDER.map((k) => {
     const ok = s.checks[k];
     const [label, hint] = ONB_LABEL[k];
@@ -1420,8 +1423,8 @@ function renderHelpLine() {
 
 function applySettings() {
   document.documentElement.style.setProperty("--sub-scale", SETTINGS.sub_scale);
-  setUILang(SETTINGS.ui_lang || "es");           // idioma de la interfaz
-  $("set-ui-lang").value = SETTINGS.ui_lang || "es";
+  setUILang(SETTINGS.ui_lang || "auto");         // "auto" → idioma del navegador
+  $("set-ui-lang").value = SETTINGS.ui_lang || "auto";
   rebuildKeymap();
   renderKeyEditor();
   renderHelpLine();

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/thecopybookhare-cmd/lingua-miner/actions/workflows/ci.yml/badge.svg)](https://github.com/thecopybookhare-cmd/lingua-miner/actions)
 ![license](https://img.shields.io/badge/license-MIT-blue)
-![version](https://img.shields.io/badge/version-1.9.1-8b7cf8)
+![version](https://img.shields.io/badge/version-1.10.0-8b7cf8)
 ![python](https://img.shields.io/badge/python-3.12-3776ab)
 
 **Local, Migaku-style flashcard miner — learn languages from the videos you love.**
@@ -12,7 +12,10 @@ Anki card with the audio of the sentence, a video frame, the sentence + neural
 translation, and the word's lemma, part of speech, dictionary senses and
 frequency. Everything runs **100% locally** — no accounts, no paid APIs.
 
-![LinguaMiner player with dictionary popup](docs/screenshots/player-popup.png)
+![Mining a word: click it, read the dictionary, get the card](docs/screenshots/demo.gif)
+
+*One click on an unknown word → dictionary → a card with the sentence audio, the
+video frame and the translation, ready for Anki.*
 
 ## Features
 
@@ -29,8 +32,13 @@ frequency. Everything runs **100% locally** — no accounts, no paid APIs.
 - 🎨 **Migaku-style word states**: red = new · orange = learning ·
   no mark = known · grey = ignored — synced back from your Anki review
   intervals. A header chip shows the % of the video you already know.
-- ⭐ **i+1 sentence finder**: jump between sentences with exactly one unknown
-  word — the optimal ones to mine.
+- ⭐ **Smart recommendations (i+1)**: a word is highlighted only when it is
+  unknown *and* frequent enough to be worth your time *and* not a proper noun —
+  the frequency floor follows your vocabulary level, so you get the words that
+  pay off, not every name you happen not to recognise.
+- 🌱 **Seed from your Anki decks**: already studying this language? Point
+  LinguaMiner at one of your decks and it marks those words as known — it never
+  overwrites a status you set yourself.
 - 📺 **Watch online**: paste a YouTube / direct / HLS link and it streams
   instantly (yt-dlp resolves the best format); cards cut audio + image
   straight from the stream. Quality selector included.
@@ -56,6 +64,11 @@ frequency. Everything runs **100% locally** — no accounts, no paid APIs.
 Everyone installs **their own copy** — nothing to host. You don't need Python
 or ffmpeg beforehand: the installer brings `uv` (which provides Python) and
 `static-ffmpeg` covers ffmpeg if it's missing.
+
+> **Heads up:** installing means pasting one line into a terminal. That's the
+> only technical step — after it, LinguaMiner is a normal app you open from
+> Launchpad or the Start menu. Never used a terminal? See
+> [the step-by-step guide](docs/install-guide.md).
 
 ### One command (clones + installs)
 
@@ -100,10 +113,14 @@ If Anki is closed, cards queue up and send themselves when it opens.
 
 ## Usage
 
+On first launch a **Getting started** card walks you through these same three
+steps and shows what is still downloading. The interface follows your system
+language (English, Spanish or Catalan) — change it under ⚙️ any time.
+
 1. Open a local file (mp4/mkv/mp3…), or paste a **YouTube / direct / HLS**
-   URL and hit **🔗 Watch online**. For offline HD, **⬇️ Import** downloads
+   URL and hit **Watch online**. For offline HD, **Import** downloads
    with a real progress bar.
-2. Hit **🎙️ Transcribe** (use `small` for a quick test) — or use the video's
+2. Hit **Transcribe** (use `small` for a quick test) — or use the video's
    own subtitles if available.
 3. Click any word in the subtitle (or drag-select an expression).
 4. Review/edit the card in the popup and press **⏎**.
@@ -121,7 +138,10 @@ playback · `G` subtitle browser · `P` auto-pause · `F` fullscreen ·
 | "Anki closed" badge | Open Anki with AnkiConnect installed; the queue sends itself |
 | Video won't play | `.mkv` files are remuxed to mp4 automatically on import |
 | Empty translations | Run `./install.sh` again (downloads the translator) |
-| Slow transcription | Pick the `small` model in the selector |
+| Slow transcription | Pick the `small` model in the selector. A 50-min episode takes a few minutes before the progress bar moves — press *Transcribe* once and let it run |
+
+New to all this? The [step-by-step install guide](docs/install-guide.md) covers
+the same ground with no assumed terminal experience.
 
 ## Architecture
 
@@ -140,7 +160,7 @@ language is mostly adding one entry there.
 ```bash
 uv pip install -p .venv/bin/python -e . --group dev
 .venv/bin/ruff check app/ tests/     # lint
-.venv/bin/python -m pytest tests/    # 143 tests
+.venv/bin/python -m pytest tests/    # 149 tests
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). CI runs lint + tests on

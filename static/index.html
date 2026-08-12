@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>LinguaMiner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="icon" href="/favicon.png?v=1.9.1">
+<link rel="icon" href="/favicon.png?v=1.10.0">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#0c0d13">
@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="LinguaMiner">
-<link rel="stylesheet" href="/style.css?v=1.9.1">
+<link rel="stylesheet" href="/style.css?v=1.10.0">
 </head>
 <body>
 <!-- sprite de iconos (estilo Lucide: 24×24, trazo 2, sin relleno) -->
@@ -73,6 +73,15 @@
         <h3 data-i18n="onb.title">Primeros pasos</h3>
         <button id="onb-dismiss" class="small close-btn" title="Ocultar" aria-label="Ocultar"><svg class="ic"><use href="#i-x"/></svg></button>
       </div>
+      <ol id="onb-steps" hidden>
+        <li><b data-i18n="onb.s1t">Trae un vídeo</b>
+          <small data-i18n="onb.s1">Abre un archivo tuyo, o pega un enlace de YouTube y pulsa «Ver online». Abajo tienes fuentes públicas de tu idioma.</small></li>
+        <li><b data-i18n="onb.s2t">Consigue los subtítulos</b>
+          <small data-i18n="onb.s2">Pulsa «Transcribir» — o usa los del propio vídeo si los trae. Se traducen solos.</small></li>
+        <li><b data-i18n="onb.s3t">Haz clic en una palabra</b>
+          <small data-i18n="onb.s3">Sale el diccionario; pulsa ⏎ y la tarjeta va a Anki con el audio de la frase, la imagen y la traducción.</small></li>
+      </ol>
+      <h4 id="onb-need" class="onb-sub" hidden data-i18n="onb.need">Lo que necesitas</h4>
       <ul id="onb-checks"></ul>
       <div class="onb-actions">
         <button id="onb-download" class="primary" hidden><svg class="ic"><use href="#i-download"/></svg><span data-i18n="onb.download">Descargar traductor y diccionarios</span></button>
@@ -258,6 +267,7 @@
       <h3 data-i18n="set.sec_lang">Idioma</h3>
       <div class="set-row"><label data-i18n="set.ui_lang">Idioma de la interfaz</label>
         <select id="set-ui-lang">
+          <option value="auto" data-i18n="set.ui_auto">Automático (idioma del sistema)</option>
           <option value="es">Español</option>
           <option value="ca">Català</option>
           <option value="en">English</option>
@@ -436,7 +446,7 @@
     });
   }
 </script>
-<script src="/i18n.js?v=1.9.1"></script>
-<script src="/app.js?v=1.9.1"></script>
+<script src="/i18n.js?v=1.10.0"></script>
+<script src="/app.js?v=1.10.0"></script>
 </body>
 </html>

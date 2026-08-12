@@ -10,6 +10,13 @@ const I18N = {
     "hero.open": "Abrir archivo",
     "hero.url_ph": "URL de YouTube o enlace directo (.mp4, .m3u8)…",
     "hero.import": "Importar", "hero.online": "Ver online",
+    "onb.need": "Lo que necesitas",
+    "onb.s1t": "Trae un vídeo",
+    "onb.s1": "Abre un archivo tuyo, o pega un enlace de YouTube y pulsa «Ver online». Abajo tienes fuentes públicas de tu idioma.",
+    "onb.s2t": "Consigue los subtítulos",
+    "onb.s2": "Pulsa «Transcribir» — o usa los del propio vídeo si los trae. Se traducen solos.",
+    "onb.s3t": "Haz clic en una palabra",
+    "onb.s3": "Sale el diccionario; pulsa ⏎ y la tarjeta va a Anki con el audio de la frase, la imagen y la traducción.",
     "onb.title": "Primeros pasos",
     "onb.download": "Descargar traductor y diccionarios",
     "onb.recheck": "Volver a comprobar",
@@ -66,6 +73,7 @@ const I18N = {
     "pl.no_transcript": "Sin transcripción — Transcribe o adjunta un .srt.",
     "help.line": "{0}/{1} frase · {2} repetir · {3} tarjeta · ⇧{3} editar · {4} recomendada · 1-4 estado · {5} subs · {6} dual · K condensado · [ ] sincronía · {7} transcripción · {8} pantalla completa · ? ayuda · atajos",
     "set.title": "Configuración",
+    "set.ui_auto": "Automático (idioma del sistema)",
     "set.ui_lang": "Idioma de la interfaz", "set.study_lang": "Idioma de estudio",
     "set.sec_lang": "Idioma", "set.base_lang": "Traducir a",
     "set.base_note": "Con un idioma base que no sea español, las acepciones del diccionario y las glosas del Wikcionario (en español) se ocultan; la traducción neural sigue disponible.",
@@ -101,6 +109,13 @@ const I18N = {
     "hero.open": "Obre un fitxer",
     "hero.url_ph": "URL de YouTube o enllaç directe (.mp4, .m3u8)…",
     "hero.import": "Importa", "hero.online": "Mira en línia",
+    "onb.need": "Què necessites",
+    "onb.s1t": "Porta un vídeo",
+    "onb.s1": "Obre un fitxer teu, o enganxa un enllaç de YouTube i prem «Mira en línia». A baix tens fonts públiques del teu idioma.",
+    "onb.s2t": "Aconsegueix els subtítols",
+    "onb.s2": "Prem «Transcriu» — o fes servir els del mateix vídeo si en porta. Es tradueixen sols.",
+    "onb.s3t": "Fes clic en una paraula",
+    "onb.s3": "Surt el diccionari; prem ⏎ i la targeta va a l'Anki amb l'àudio de la frase, la imatge i la traducció.",
     "onb.title": "Primers passos",
     "onb.download": "Baixa el traductor i els diccionaris",
     "onb.recheck": "Torna a comprovar",
@@ -157,6 +172,7 @@ const I18N = {
     "pl.no_transcript": "Sense transcripció — Transcriu o adjunta un .srt.",
     "help.line": "{0}/{1} frase · {2} repeteix · {3} targeta · ⇧{3} edita · {4} recomanada · 1-4 estat · {5} subs · {6} dual · K condensat · [ ] sincronia · {7} transcripció · {8} pantalla completa · ? ajuda · dreceres",
     "set.title": "Configuració",
+    "set.ui_auto": "Automàtic (idioma del sistema)",
     "set.ui_lang": "Idioma de la interfície", "set.study_lang": "Idioma d'estudi",
     "set.sec_lang": "Idioma", "set.base_lang": "Tradueix a",
     "set.base_note": "Amb un idioma base que no sigui l'espanyol, les accepcions del diccionari i les glosses del Viccionari (en espanyol) s'amaguen; la traducció neural continua disponible.",
@@ -192,6 +208,13 @@ const I18N = {
     "hero.open": "Open file",
     "hero.url_ph": "YouTube URL or direct link (.mp4, .m3u8)…",
     "hero.import": "Import", "hero.online": "Watch online",
+    "onb.need": "What you need",
+    "onb.s1t": "Bring in a video",
+    "onb.s1": "Open a file of your own, or paste a YouTube link and hit \u00abWatch online\u00bb. Public sources for your language are listed below.",
+    "onb.s2t": "Get the subtitles",
+    "onb.s2": "Hit \u00abTranscribe\u00bb \u2014 or use the video's own subs if it has them. They get translated automatically.",
+    "onb.s3t": "Click a word",
+    "onb.s3": "The dictionary pops up; press \u23ce and the card lands in Anki with the sentence audio, the frame and the translation.",
     "onb.title": "Getting started",
     "onb.download": "Download translator and dictionaries",
     "onb.recheck": "Check again",
@@ -248,6 +271,7 @@ const I18N = {
     "pl.no_transcript": "No transcript — Transcribe or attach an .srt.",
     "help.line": "{0}/{1} sentence · {2} replay · {3} card · ⇧{3} edit · {4} recommended · 1-4 status · {5} subs · {6} dual · K condensed · [ ] sync · {7} transcript · {8} fullscreen · ? help · shortcuts",
     "set.title": "Settings",
+    "set.ui_auto": "Automatic (system language)",
     "set.ui_lang": "Interface language", "set.study_lang": "Study language",
     "set.sec_lang": "Language", "set.base_lang": "Translate to",
     "set.base_note": "With a base language other than Spanish, dictionary senses and Wiktionary glosses (in Spanish) are hidden; neural translation stays available.",
@@ -290,8 +314,19 @@ function applyI18n(root = document) {
   // placeholder de contenteditable (CSS :empty::before con attr(data-ph))
   root.querySelectorAll("[data-i18n-dph]").forEach((el) => { el.dataset.ph = t(el.dataset.i18nDph); });
 }
+// "auto" (por defecto en instalaciones nuevas) resuelve contra el idioma del
+// navegador: el README está en inglés, así que quien llega de fuera no debería
+// encontrarse la interfaz en español sin saber que hay selector.
+function detectUILang() {
+  for (const tag of navigator.languages || [navigator.language || ""]) {
+    const base = String(tag).toLowerCase().split("-")[0];
+    if (I18N[base]) return base;
+  }
+  return "en";
+}
 function setUILang(lang) {
-  UILANG = I18N[lang] ? lang : "es";
+  const want = lang === "auto" ? detectUILang() : lang;
+  UILANG = I18N[want] ? want : "es";
   document.documentElement.lang = UILANG;
   applyI18n();
 }
