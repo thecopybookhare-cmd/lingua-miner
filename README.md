@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/thecopybookhare-cmd/lingua-miner/actions/workflows/ci.yml/badge.svg)](https://github.com/thecopybookhare-cmd/lingua-miner/actions)
 ![license](https://img.shields.io/badge/license-MIT-blue)
-![version](https://img.shields.io/badge/version-1.16.0-8b7cf8)
+![version](https://img.shields.io/badge/version-1.17.0-8b7cf8)
 ![python](https://img.shields.io/badge/python-3.12-3776ab)
 
 **Local, Migaku-style flashcard miner — learn languages from the videos you love.**
@@ -52,8 +52,13 @@ video frame and the translation, ready for Anki.*
   video.
 - 📋 **Words panel**: every lemma in the video grouped by frequency band;
   bulk-mark the N most frequent words of the language as known.
-- 🔊 Neural TTS pronunciation (Piper), IPA, conjugation tables, custom
-  StarDict/Yomitan dictionaries, remappable shortcuts, daily DB backups.
+- 📖 **Dictionaries, four layers deep**: Wiktionary glosses in your base
+  language (Spanish *or* English), Apertium bilingual senses, the neural
+  translation of the word in context, and **your own dictionaries** — import
+  any StarDict (`.ifo`) or Yomitan (`.zip`) file and its definitions show up in
+  the same popup, Migaku-style.
+- 🔊 Neural TTS pronunciation (Piper), IPA, conjugation tables, remappable
+  shortcuts, daily DB backups.
 - 📱 **Installable PWA + share mode**: serve the app on your LAN or
   [Tailscale](https://tailscale.com) so a friend or your phone can use it in
   a browser (off by default, full access — share only with people you trust).
@@ -165,7 +170,7 @@ language is mostly adding one entry there.
 ```bash
 uv pip install -p .venv/bin/python -e . --group dev
 .venv/bin/ruff check app/ tests/     # lint
-.venv/bin/python -m pytest tests/    # 170 tests
+.venv/bin/python -m pytest tests/    # 173 tests
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). CI runs lint + tests on

@@ -321,10 +321,11 @@ def test_wikdict_build_and_lookup(tmp_path, monkeypatch):
     ])
     dbp = tmp_path / "wik.sqlite"
     wikdict.build(sample, dbp)
-    monkeypatch.setattr(wikdict, "_CON",
-                        sqlite3.connect(str(dbp), check_same_thread=False))
-    monkeypatch.setattr(wikdict, "_TRIED", True)
-    monkeypatch.setattr(wikdict, "_LANG", "ca")
+    # la caché va por (idioma, base): el catalán activo traduce a español
+    from app import languages
+    monkeypatch.setattr(wikdict, "_CONS", {
+        (languages.active_code(), languages.base_code()):
+            sqlite3.connect(str(dbp), check_same_thread=False)})
     assert wikdict.lookup("gos") == [("Perro, animal doméstico.", "noun")]  # dedupe
     assert wikdict.lookup("GOS")[0][0].startswith("Perro")
     assert wikdict.lookup("zzz") == []

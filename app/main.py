@@ -915,7 +915,9 @@ def lookup(req: LookupReq):
         sentence_es = _segment_es(req.session_id, req.segment_index)
     if not sentence_es and req.sentence:
         sentence_es = translate.sentence(req.sentence)
-    glosses = (wikdict.lookup(lemma) or wikdict.lookup(req.selection)) if es_src else []
+    # las glosas ya no dependen del español: wikdict elige el extracto del
+    # Wikcionario que toque según la base activa (es o en)
+    glosses = wikdict.lookup(lemma) or wikdict.lookup(req.selection)
     userdefs = userdict.lookup(lemma) or userdict.lookup(req.selection)
     return {
         "selection": req.selection,

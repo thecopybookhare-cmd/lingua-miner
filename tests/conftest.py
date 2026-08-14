@@ -22,8 +22,12 @@ def isolated_settings(monkeypatch, tmp_path):
 
 @pytest.fixture(autouse=True)
 def no_wikdict_download(monkeypatch):
-    """Los tests nunca descargan el Wikcionario real."""
-    from app import wikdict
-    monkeypatch.setattr(wikdict, "_CON", None)
-    monkeypatch.setattr(wikdict, "_TRIED", True)
-    monkeypatch.setattr(wikdict, "_LANG", "ca")
+    """Los tests nunca descargan el Wikcionario real.
+
+    La caché va por (idioma, base) desde que hay glosas inglesas además de
+    españolas; sembrarla con None para todas las combinaciones deja lookup()
+    devolviendo [] sin tocar la red.
+    """
+    from app import languages, wikdict
+    seeded = {(c, b): None for c in languages.PROFILES for b in ("es", "en")}
+    monkeypatch.setattr(wikdict, "_CONS", seeded)

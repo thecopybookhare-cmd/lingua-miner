@@ -22,6 +22,8 @@ PROFILES = {
         "forms_url": config.FORMS_URL,
         "wikdict_url": ("https://kaikki.org/eswiktionary/Catal%C3%A1n/"
                         "kaikki.org-dictionary-Catal%C3%A1n.jsonl"),
+        # glosas en inglés (Wikcionario EN vía kaikki)
+        "wikdict_url_en": "https://kaikki.org/dictionary/Catalan/kaikki.org-dictionary-Catalan.jsonl",
         # voz neural Piper (ONNX) para la pronunciación; ruta en rhasspy/piper-voices
         "piper_voice": "ca/ca_ES/upc_ona/x_low/ca_ES-upc_ona-x_low.onnx",
         "sources": [
@@ -55,6 +57,8 @@ PROFILES = {
         "forms_url": None,                        # spaCy fr_core_news_sm lematiza
         "wikdict_url": ("https://kaikki.org/eswiktionary/Franc%C3%A9s/"
                         "kaikki.org-dictionary-Franc%C3%A9s.jsonl"),
+        # glosas en inglés (Wikcionario EN vía kaikki)
+        "wikdict_url_en": "https://kaikki.org/dictionary/French/kaikki.org-dictionary-French.jsonl",
         "piper_voice": "fr/fr_FR/siwis/medium/fr_FR-siwis-medium.onnx",
         "sources": [
             {"name": "france.tv", "kind": "tv", "url": "https://www.france.tv/",
@@ -107,6 +111,8 @@ PROFILES = {
         "forms_url": None,                        # spaCy de_core_news_sm lematiza
         "wikdict_url": ("https://kaikki.org/eswiktionary/Alem%C3%A1n/"
                         "kaikki.org-dictionary-Alem%C3%A1n.jsonl"),
+        # glosas en inglés (Wikcionario EN vía kaikki)
+        "wikdict_url_en": "https://kaikki.org/dictionary/German/kaikki.org-dictionary-German.jsonl",
         "piper_voice": "de/de_DE/thorsten/low/de_DE-thorsten-low.onnx",
         "sources": [
             {"name": "ARD Mediathek", "kind": "tv",
@@ -145,6 +151,8 @@ PROFILES = {
         "wikdict_url": ("https://kaikki.org/eswiktionary/Portugu%C3%A9s/"
                         "kaikki.org-dictionary-Portugu%C3%A9s.jsonl"),
         # voz neural europea (pt_PT), no brasileña
+        # glosas en inglés (Wikcionario EN vía kaikki)
+        "wikdict_url_en": "https://kaikki.org/dictionary/Portuguese/kaikki.org-dictionary-Portuguese.jsonl",
         "piper_voice": "pt/pt_PT/tug%C3%A3o/medium/pt_PT-tug%C3%A3o-medium.onnx",
         "sources": [
             {"name": "RTP Play", "kind": "tv", "url": "https://www.rtp.pt/play/",
@@ -177,6 +185,8 @@ PROFILES = {
         "forms_url": None,                    # spaCy it_core_news_sm lematiza
         "wikdict_url": ("https://kaikki.org/eswiktionary/Italiano/"
                         "kaikki.org-dictionary-Italiano.jsonl"),
+        # glosas en inglés (Wikcionario EN vía kaikki)
+        "wikdict_url_en": "https://kaikki.org/dictionary/Italian/kaikki.org-dictionary-Italian.jsonl",
         "piper_voice": "it/it_IT/paola/medium/it_IT-paola-medium.onnx",
         "sources": [
             {"name": "RaiPlay", "kind": "tv", "url": "https://www.raiplay.it/",
@@ -208,6 +218,8 @@ PROFILES = {
         "forms_url": None,                    # spaCy ru_core_news_sm lematiza
         "wikdict_url": ("https://kaikki.org/eswiktionary/Ruso/"
                         "kaikki.org-dictionary-Ruso.jsonl"),
+        # glosas en inglés (Wikcionario EN vía kaikki)
+        "wikdict_url_en": "https://kaikki.org/dictionary/Russian/kaikki.org-dictionary-Russian.jsonl",
         "piper_voice": "ru/ru_RU/irina/medium/ru_RU-irina-medium.onnx",
         "sources": [],
         "translate_bases": {
@@ -235,6 +247,8 @@ PROFILES = {
         "bidix_file": "apertium-spa-zho.dix",
         "forms_url": None,
         "wikdict_url": None,                  # las glosas de kaikki son es→X
+        # glosas en inglés (Wikcionario EN vía kaikki)
+        "wikdict_url_en": "https://kaikki.org/dictionary/Chinese/kaikki.org-dictionary-Chinese.jsonl",
         "piper_voice": "zh/zh_CN/huayan/medium/zh_CN-huayan-medium.onnx",
         "sources": [
             {"name": "CCTV 央视网", "kind": "tv", "url": "https://tv.cctv.com/",

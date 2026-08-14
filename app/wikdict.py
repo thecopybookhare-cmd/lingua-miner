@@ -1,6 +1,12 @@
-"""Glosas en español del Wikcionario para catalán (extracción kaikki.org,
-~4 MB, descarga única, offline después). Complementa al bidix de Apertium
-con definiciones más ricas. Degradación total a [] si no está disponible."""
+"""Glosas del Wikcionario por idioma (extracciones de kaikki.org), en el
+idioma base activo: las españolas para base es, las inglesas para base en.
+
+Antes solo había españolas, así que quien estudiaba con base inglesa se
+quedaba sin ninguna definición — solo con la traducción neural de la frase.
+
+Descarga única por (idioma, base) y offline después. Degradación total a [] si
+no está disponible.
+"""
 import json
 import sqlite3
 from pathlib import Path
@@ -9,21 +15,25 @@ import requests
 
 from . import config
 
-_CON = None
-_TRIED = False
-_LANG = None
+_CONS: dict = {}          # (code, base) -> conexión sqlite (o None si falló)
 
 
-def build(jsonl_text: str, db_path: Path):
-    """Vuelca el JSONL de kaikki a un índice sqlite word->glosas."""
-    if db_path.exists():
-        db_path.unlink()
-    con = sqlite3.connect(str(db_path))
+def build_from_lines(lines, db_path: Path):
+    """Vuelca un JSONL de kaikki a un índice sqlite word->glosas.
+
+    Recibe un iterable de líneas, no el texto entero: los extractos ingleses
+    llegan a 153 MB (chino) y cargarlos en memoria dos veces era gratuito
+    cuando solo había españoles de 1-8 MB, pero ya no.
+    """
+    tmp = db_path.with_suffix(".part")
+    if tmp.exists():
+        tmp.unlink()
+    con = sqlite3.connect(str(tmp))
     con.execute("CREATE TABLE glosses (word TEXT, pos TEXT, gloss TEXT)")
 
     def rows():
         seen = set()
-        for line in jsonl_text.splitlines():
+        for line in lines:
             try:
                 d = json.loads(line)
             except Exception:
@@ -43,37 +53,53 @@ def build(jsonl_text: str, db_path: Path):
     con.execute("CREATE INDEX ix_gw ON glosses(word)")
     con.commit()
     con.close()
+    # rename atómico: un corte a media construcción no deja un índice a medias
+    # que luego parecería válido
+    tmp.replace(db_path)
+
+
+def build(jsonl_text: str, db_path: Path):
+    """Compat: misma construcción a partir del texto completo."""
+    build_from_lines(jsonl_text.splitlines(), db_path)
+
+
+def _url_for(code: str, base: str) -> str | None:
+    from . import languages
+    p = languages.PROFILES.get(code) or {}
+    return p.get("wikdict_url_en") if base == "en" else p.get("wikdict_url")
 
 
 def _con():
-    global _CON, _TRIED, _LANG
     from . import languages
-    code = languages.active_code()
-    if code != _LANG:
-        _CON, _TRIED, _LANG = None, False, code
-    if _CON is None and not _TRIED:
-        _TRIED = True
-        try:
-            url = languages.PROFILES[code].get("wikdict_url")
-            jsonl = config.MODELS_DIR / f"wikdict-{code}.jsonl"
-            dbp = config.MODELS_DIR / f"wikdict-{code}.sqlite"
-            if not dbp.exists():
-                if not url:
-                    _CON = None
-                    return _CON
-                if not jsonl.exists():
-                    resp = requests.get(url, timeout=120)
-                    resp.raise_for_status()
-                    jsonl.write_text(resp.text, encoding="utf-8")
-                build(jsonl.read_text(encoding="utf-8"), dbp)
-            _CON = sqlite3.connect(str(dbp), check_same_thread=False)
-        except Exception:
-            _CON = None
-    return _CON
+    code, base = languages.active_code(), languages.base_code()
+    key = (code, base)
+    if key in _CONS:
+        return _CONS[key]
+    _CONS[key] = None
+    try:
+        url = _url_for(code, base)
+        if not url:
+            return None
+        suffix = f"{code}-{base}" if base != "es" else code   # compat: es sin sufijo
+        dbp = config.MODELS_DIR / f"wikdict-{suffix}.sqlite"
+        if not dbp.exists():
+            jsonl = config.MODELS_DIR / f"wikdict-{suffix}.jsonl"
+            if not jsonl.exists():
+                with requests.get(url, stream=True, timeout=600) as r:
+                    r.raise_for_status()
+                    with open(jsonl, "wb") as f:
+                        for chunk in r.iter_content(chunk_size=1 << 20):
+                            f.write(chunk)
+            with open(jsonl, encoding="utf-8") as f:
+                build_from_lines(f, dbp)
+        _CONS[key] = sqlite3.connect(str(dbp), check_same_thread=False)
+    except Exception:
+        _CONS[key] = None
+    return _CONS[key]
 
 
 def lookup(term: str) -> list[tuple[str, str]]:
-    """[(glosa_es, pos)] para el término (minúsculas)."""
+    """[(glosa, pos)] para el término, en el idioma base activo."""
     con = _con()
     if con is None or not term:
         return []

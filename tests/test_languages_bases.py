@@ -108,3 +108,33 @@ def test_jieba_is_declared_as_a_dependency():
     data = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
     deps = " ".join(data["project"]["dependencies"])
     assert "wordfreq[jieba]" in deps, "wordfreq debe instalarse con el extra jieba"
+
+
+# ---------- glosas del Wikcionario según la base ----------
+
+def test_every_language_has_english_glosses():
+    """Con base inglesa antes no había NINGUNA definición: las acepciones de
+    Apertium y las glosas del Wikcionario eran fuentes español→X y se
+    ocultaban, dejando solo la traducción neural de la frase."""
+    faltan = [c for c, p in L.PROFILES.items()
+              if "en" in L.bases(c) and not p.get("wikdict_url_en")]
+    assert not faltan, f"sin glosas inglesas: {faltan}"
+
+
+def test_english_gloss_urls_point_at_english_wiktionary():
+    for code, p in L.PROFILES.items():
+        u = p.get("wikdict_url_en")
+        if not u:
+            continue
+        assert u.startswith("https://kaikki.org/dictionary/"), (code, u)
+        assert "eswiktionary" not in u, f"{code} apunta al Wikcionario español"
+
+
+def test_wikdict_picks_the_file_that_matches_the_base(tmp_path, monkeypatch):
+    from app import config, wikdict
+    p = tmp_path / "settings.json"
+    monkeypatch.setattr(config, "SETTINGS_PATH", p)
+    for base, esperado in [("es", "eswiktionary"), ("en", "/dictionary/")]:
+        p.write_text(f'{{"language": "ca", "base_language": "{base}"}}', encoding="utf-8")
+        url = wikdict._url_for(L.active_code(), L.base_code())
+        assert url and esperado in url, (base, url)
