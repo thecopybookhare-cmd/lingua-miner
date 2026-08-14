@@ -1468,9 +1468,9 @@ function applySettings() {
   const wm = SETTINGS.whisper_models || [];
   if (wm.length) {
     const WLBL = {
-      "catala-large": "Whisper large-v3 catalán (AINA) — máxima calidad",
-      "large-v3": "Whisper large-v3 multilingüe — máxima calidad",
-      "small": "Whisper small — rápido",
+      "catala-large": t("wh.catala"),
+      "large-v3": t("wh.large"),
+      "small": t("wh.small"),
     };
     $("model-select").innerHTML = wm.map((k) =>
       `<option value="${esc(k)}"${k === SETTINGS.default_whisper ? " selected" : ""}>${esc(WLBL[k] || k)}</option>`).join("");
@@ -1523,13 +1523,13 @@ function renderHelp() {
   const fixed = HELP_FIXED.map(([k, d]) => row(k, d)).join("");
   $("help-body").innerHTML =
     `<div class="help-cols">
-       <div><h3>Reproducción y minado</h3>${remap}</div>
-       <div><h3>Teclas fijas</h3>${fixed}</div>
+       <div><h3>${t("help.playback")}</h3>${remap}</div>
+       <div><h3>${t("help.fixed")}</h3>${fixed}</div>
      </div>
-     <h3>Palabras recomendadas para minar</h3>
+     <h3>${t("help.rec_title")}</h3>
      <div class="rec-legend">
-       <span><i class="rec-sw green"></i>Verde — palabra frecuente y única nueva de la frase (i+1, óptima; ${(km.recommended || "r").toUpperCase()} salta a la siguiente)</span>
-       <span><i class="rec-sw blue"></i>Azul — palabra frecuente, una de dos nuevas de la frase (i+2, también buena)</span>
+       <span><i class="rec-sw green"></i>${t("help.rec_green", (km.recommended || "r").toUpperCase())}</span>
+       <span><i class="rec-sw blue"></i>${t("help.rec_blue")}</span>
      </div>
      <p class="dim">Solo se recomiendan palabras frecuentes y útiles (no nombres propios ni palabras raras). Ajusta el nivel en Ajustes → Recomendaciones.</p>
      <p class="dim">Las letras se cambian en Ajustes → Atajos de teclado.</p>`;
@@ -1837,7 +1837,7 @@ function updateRecs() {
   SEGS.forEach((seg, i) => { if (segRecTier(seg) === 1) RECS.push(i); });
   const chip = $("rec-chip");
   if (!SEGS.length || !RECS.length) chip.hidden = true;
-  else { chip.innerHTML = `<svg class="ic ic-xs"><use href="#i-star"/></svg>${RECS.length} recomendadas`; chip.hidden = false; }
+  else { chip.innerHTML = `<svg class="ic ic-xs"><use href="#i-star"/></svg>${t("chip.recs", RECS.length)}`; chip.hidden = false; }
   // filas del navegador de subtítulos: verde (i+1) / azul (i+2)
   document.querySelectorAll(".seg.rec-1, .seg.rec-2")
     .forEach((d) => d.classList.remove("rec-1", "rec-2"));

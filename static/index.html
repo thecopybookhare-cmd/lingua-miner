@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>LinguaMiner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="icon" href="/favicon.png?v=1.13.0">
+<link rel="icon" href="/favicon.png?v=1.14.0">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#0c0d13">
@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="LinguaMiner">
-<link rel="stylesheet" href="/style.css?v=1.13.0">
+<link rel="stylesheet" href="/style.css?v=1.14.0">
 </head>
 <body>
 <!-- sprite de iconos (estilo Lucide: 24×24, trazo 2, sin relleno) -->
@@ -247,8 +247,8 @@
     </div>
     <aside id="side-panel" hidden>
       <div id="panel-tabs">
-        <button id="tab-subs" class="ptab on">Subtítulos</button>
-        <button id="tab-words" class="ptab">Palabras</button>
+        <button id="tab-subs" class="ptab on" data-i18n="panel.subs">Subtítulos</button>
+        <button id="tab-words" class="ptab" data-i18n="panel.words">Palabras</button>
       </div>
       <div id="subs"></div>
       <div id="words-view" hidden>
@@ -412,27 +412,26 @@
 
 <dialog id="level-dlg">
   <form method="dialog">
-    <h3>Nivel de vocabulario</h3>
-    <p class="dim">Marca como <b>conocidas</b> las palabras más frecuentes del catalán
-      de un solo golpe. No toca las que ya marcaste (aprendiendo/ignoradas se respetan).</p>
-    <div class="set-row"><label>Top <b><span id="level-val">1000</span></b> palabras</label>
+    <h3 data-i18n="lvl.title">Nivel de vocabulario</h3>
+    <p class="dim" data-i18n="lvl.note">Marca de una vez como conocidas las palabras más frecuentes del idioma que estudias. No toca las que ya marcaste: aprendiendo e ignoradas se respetan.</p>
+    <div class="set-row"><label><span data-i18n="lvl.top">Top</span> <b><span id="level-val">1000</span></b> <span data-i18n="lvl.words">palabras</span></label>
       <input id="level-n" type="range" min="500" max="5000" step="100" value="1000"></div>
     <div class="row actions">
-      <button value="cancel" type="submit">Cancelar</button>
-      <button value="ok" type="submit" class="primary">Marcar como conocidas</button>
+      <button value="cancel" type="submit" data-i18n="btn.cancel">Cancelar</button>
+      <button value="ok" type="submit" class="primary" data-i18n="lvl.mark">Marcar como conocidas</button>
     </div>
   </form>
 </dialog>
 
 <dialog id="port-dlg">
   <form method="dialog">
-    <h3>Puerto de AnkiConnect</h3>
+    <h3 data-i18n="port.title">Puerto de AnkiConnect</h3>
     <p id="port-msg" class="dim"></p>
     <input id="port-input" type="number" min="1" max="65535"
-           placeholder="vacío = automático (8765/8766/8767)">
+           placeholder="vacío = automático (8765/8766/8767)" data-i18n-ph="port.ph">
     <div class="row actions">
-      <button value="cancel" type="submit">Cancelar</button>
-      <button value="ok" type="submit" class="primary">Guardar</button>
+      <button value="cancel" type="submit" data-i18n="btn.cancel">Cancelar</button>
+      <button value="ok" type="submit" class="primary" data-i18n="btn.save">Guardar</button>
     </div>
   </form>
 </dialog>
@@ -446,7 +445,7 @@
     });
   }
 </script>
-<script src="/i18n.js?v=1.13.0"></script>
-<script src="/app.js?v=1.13.0"></script>
+<script src="/i18n.js?v=1.14.0"></script>
+<script src="/app.js?v=1.14.0"></script>
 </body>
 </html>
