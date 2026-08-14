@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>LinguaMiner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="icon" href="/favicon.png?v=1.14.0">
+<link rel="icon" href="/favicon.png?v=1.15.0">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#0c0d13">
@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="LinguaMiner">
-<link rel="stylesheet" href="/style.css?v=1.14.0">
+<link rel="stylesheet" href="/style.css?v=1.15.0">
 </head>
 <body>
 <!-- sprite de iconos (estilo Lucide: 24×24, trazo 2, sin relleno) -->
@@ -44,11 +44,11 @@
 <header>
   <h1 id="brand"><span class="brand-dot"></span>LinguaMiner</h1>
   <div class="header-right">
-    <div id="rec-chip" class="badge" hidden title="Frases i+1: la única palabra nueva se resalta en verde — las óptimas para hacer flashcard. Clic o tecla R para saltar entre ellas."></div>
-    <div id="comp-chip" class="badge" hidden title="Porcentaje de palabras de este contenido que ya conoces"></div>
+    <div id="rec-chip" class="badge" hidden title="Frases i+1: la única palabra nueva se resalta en verde — las óptimas para hacer flashcard. Clic o tecla R para saltar entre ellas." data-i18n-title="tip.rec_chip"></div>
+    <div id="comp-chip" class="badge" hidden title="Porcentaje de palabras de este contenido que ya conoces" data-i18n-title="tip.comp_chip"></div>
     <div id="stats-btn" class="badge icon-badge" role="button" tabindex="0" title="Estadísticas" data-i18n-title="hdr.stats" aria-label="Estadísticas"><svg class="ic"><use href="#i-chart"/></svg></div>
     <div id="settings-btn" class="badge icon-badge" role="button" tabindex="0" title="Configuración" data-i18n-title="hdr.settings" aria-label="Configuración"><svg class="ic"><use href="#i-gear"/></svg></div>
-    <div id="anki-badge" class="badge" title="Haz clic para configurar el puerto de AnkiConnect">Anki…</div>
+    <div id="anki-badge" class="badge" title="Haz clic para configurar el puerto de AnkiConnect" data-i18n-title="tip.anki_badge">Anki…</div>
   </div>
 </header>
 
@@ -62,8 +62,8 @@
       </label>
       <div class="yt">
         <input type="url" id="yt-url" placeholder="URL de YouTube o enlace directo (.mp4, .m3u8)…" data-i18n-ph="hero.url_ph">
-        <button id="yt-btn" title="Descargar con yt-dlp (YouTube)"><svg class="ic"><use href="#i-download"/></svg><span data-i18n="hero.import">Importar</span></button>
-        <button id="url-btn" title="Streaming sin descargar: YouTube, 3cat o enlace directo"><svg class="ic"><use href="#i-link"/></svg><span data-i18n="hero.online">Ver online</span></button>
+        <button id="yt-btn" title="Descargar con yt-dlp (YouTube)" data-i18n-title="tip.import"><svg class="ic"><use href="#i-download"/></svg><span data-i18n="hero.import">Importar</span></button>
+        <button id="url-btn" title="Streaming sin descargar: YouTube, 3cat o enlace directo" data-i18n-title="tip.online"><svg class="ic"><use href="#i-link"/></svg><span data-i18n="hero.online">Ver online</span></button>
       </div>
     </div>
   </section>
@@ -71,7 +71,7 @@
     <div class="onb-card">
       <div class="onb-head">
         <h3 data-i18n="onb.title">Primeros pasos</h3>
-        <button id="onb-dismiss" class="small close-btn" title="Ocultar" aria-label="Ocultar"><svg class="ic"><use href="#i-x"/></svg></button>
+        <button id="onb-dismiss" class="small close-btn" title="Ocultar" data-i18n-title="tip.hide" aria-label="Ocultar"><svg class="ic"><use href="#i-x"/></svg></button>
       </div>
       <ol id="onb-steps" hidden>
         <li><b data-i18n="onb.s1t">Trae un vídeo</b>
@@ -122,7 +122,7 @@
       <label class="filebtn small"><svg class="ic"><use href="#i-paperclip"/></svg>.srt
         <input type="file" id="subs-input" accept=".srt,.vtt">
       </label>
-      <button id="condensed-dl" class="small" title="Audio condensado: solo el diálogo, para escuchar en el móvil"><svg class="ic"><use href="#i-wave"/></svg><span data-i18n="pl.condensed_dl">Audio condensado</span></button>
+      <button id="condensed-dl" class="small" title="Audio condensado: solo el diálogo, para escuchar en el móvil" data-i18n-title="tip.condensed_dl"><svg class="ic"><use href="#i-wave"/></svg><span data-i18n="pl.condensed_dl">Audio condensado</span></button>
     </div>
   </div>
 
@@ -135,17 +135,17 @@
           <div id="overlay-es" hidden></div>
         </div>
       <div id="controls">
-        <button class="icon" id="play-btn" title="Reproducir/Pausar (espacio)">
+        <button class="icon" id="play-btn" title="Reproducir/Pausar (espacio)" data-i18n-title="tip.play">
           <svg class="ic-a" viewBox="0 0 24 24" fill="currentColor"><polygon points="7 4 20 12 7 20"/></svg>
           <svg class="ic-b" viewBox="0 0 24 24" fill="currentColor"><rect x="5.5" y="4" width="4.6" height="16" rx="1.2"/><rect x="13.9" y="4" width="4.6" height="16" rx="1.2"/></svg>
         </button>
-        <button class="icon" id="prev-btn" title="Frase anterior (A / ←)">
+        <button class="icon" id="prev-btn" title="Frase anterior (A / ←)" data-i18n-title="tip.prev">
           <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="19 20 9 12 19 4"/><rect x="4" y="4" width="2.6" height="16" rx="1"/></svg>
         </button>
-        <button class="icon" id="replay-btn" title="Repetir frase (S / ↓)">
+        <button class="icon" id="replay-btn" title="Repetir frase (S / ↓)" data-i18n-title="tip.replay">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1.5 4.5 1.5 10.5 7.5 10.5"/><path d="M4 15a9 9 0 1 0 2.13-9.36L1.5 10.5"/></svg>
         </button>
-        <button class="icon" id="next-btn" title="Frase siguiente (D / →)">
+        <button class="icon" id="next-btn" title="Frase siguiente (D / →)" data-i18n-title="tip.next">
           <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20"/><rect x="17.4" y="4" width="2.6" height="16" rx="1"/></svg>
         </button>
         <div id="seek-row">
@@ -157,26 +157,26 @@
           <span id="time-dur" class="tlabel">0:00</span>
         </div>
         <div id="quality-wrap">
-          <button class="icon" id="quality-btn" title="Calidad de streaming" hidden>Auto</button>
+          <button class="icon" id="quality-btn" title="Calidad de streaming" data-i18n-title="tip.quality" hidden>Auto</button>
           <div id="quality-menu" hidden></div>
         </div>
-        <button class="icon" id="speed-btn" title="Velocidad de reproducción">1×</button>
+        <button class="icon" id="speed-btn" title="Velocidad de reproducción" data-i18n-title="tip.speed">1×</button>
         <button class="icon toggle" id="dual-btn" title="Subtítulo dual en español (E)"><svg class="ic"><use href="#i-captions"/></svg></button>
-        <button class="icon toggle" id="autopause-btn" title="Auto-pausa al final de cada frase (P)">
+        <button class="icon toggle" id="autopause-btn" title="Auto-pausa al final de cada frase (P)" data-i18n-title="tip.autopause">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9.2"/><line x1="10" y1="9" x2="10" y2="15"/><line x1="14" y1="9" x2="14" y2="15"/></svg>
         </button>
-        <button class="icon toggle" id="condensed-btn" title="Reproducción condensada: salta los silencios entre frases (K)">
+        <button class="icon toggle" id="condensed-btn" title="Reproducción condensada: salta los silencios entre frases (K)" data-i18n-title="tip.condensed">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
         </button>
-        <div id="offset-ctl" title="Desfase de subtítulos — teclas [ y ]">
-          <button class="icon" id="offset-minus" title="Subtítulos antes ([)">−</button>
+        <div id="offset-ctl" title="Desfase de subtítulos — teclas [ y ]" data-i18n-title="tip.offset">
+          <button class="icon" id="offset-minus" title="Subtítulos antes ([)" data-i18n-title="tip.offset_minus">−</button>
           <span id="offset-val" class="tlabel">0.0s</span>
-          <button class="icon" id="offset-plus" title="Subtítulos después (])">+</button>
+          <button class="icon" id="offset-plus" title="Subtítulos después (])" data-i18n-title="tip.offset_plus">+</button>
         </div>
-        <button class="icon toggle" id="browser-btn" title="Navegador de subtítulos (G)">
+        <button class="icon toggle" id="browser-btn" title="Navegador de subtítulos (G)" data-i18n-title="tip.browser">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="9" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="9" y1="18" x2="21" y2="18"/><line x1="4" y1="6" x2="4.01" y2="6"/><line x1="4" y1="12" x2="4.01" y2="12"/><line x1="4" y1="18" x2="4.01" y2="18"/></svg>
         </button>
-        <button class="icon" id="fs-btn" title="Pantalla completa (F)">
+        <button class="icon" id="fs-btn" title="Pantalla completa (F)" data-i18n-title="tip.fullscreen">
           <svg class="ic-a" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
           <svg class="ic-b" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h3a2 2 0 0 0 2-2V3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/></svg>
         </button>
@@ -194,8 +194,8 @@
         <div class="row meta"><span id="c-meta"></span></div>
         <div class="row">
           <audio id="c-audio" controls></audio>
-          <button id="pad-before" title="Incluir el segmento anterior">⏪+</button>
-          <button id="pad-after" title="Incluir el segmento siguiente">+⏩</button>
+          <button id="pad-before" title="Incluir el segmento anterior" data-i18n-title="tip.pad_before">⏪+</button>
+          <button id="pad-after" title="Incluir el segmento siguiente" data-i18n-title="tip.pad_after">+⏩</button>
         </div>
         <img id="c-image" alt="">
         <div class="row actions">
@@ -215,11 +215,11 @@
           <span id="wp-meta"></span>
         </div>
         <div class="wp-icons">
-          <button id="wp-replay" class="wp-ic" title="Repetir segmento (S)" aria-label="Repetir segmento"><svg class="ic"><use href="#i-volume"/></svg></button>
-          <button id="wp-card" class="wp-ic wp-primary" title="Crear tarjeta (Q)" aria-label="Crear tarjeta"><svg class="ic"><use href="#i-plus"/></svg></button>
-          <button id="wp-edit" class="wp-ic" title="Editar y crear (⇧Q)" aria-label="Editar y crear"><svg class="ic"><use href="#i-pencil"/></svg></button>
-          <button id="wp-say" class="wp-ic" title="Pronunciar palabra" aria-label="Pronunciar palabra" hidden><svg class="ic"><use href="#i-speech"/></svg></button>
-          <button id="wp-dict" class="wp-ic" title="Definición del Viccionari (online)" aria-label="Definición online" hidden><svg class="ic"><use href="#i-globe"/></svg></button>
+          <button id="wp-replay" class="wp-ic" title="Repetir segmento (S)" data-i18n-title="tip.wp_replay" aria-label="Repetir segmento"><svg class="ic"><use href="#i-volume"/></svg></button>
+          <button id="wp-card" class="wp-ic wp-primary" title="Crear tarjeta (Q)" data-i18n-title="tip.wp_card" aria-label="Crear tarjeta"><svg class="ic"><use href="#i-plus"/></svg></button>
+          <button id="wp-edit" class="wp-ic" title="Editar y crear (⇧Q)" data-i18n-title="tip.wp_edit" aria-label="Editar y crear"><svg class="ic"><use href="#i-pencil"/></svg></button>
+          <button id="wp-say" class="wp-ic" title="Pronunciar palabra" data-i18n-title="tip.wp_say" aria-label="Pronunciar palabra" hidden><svg class="ic"><use href="#i-speech"/></svg></button>
+          <button id="wp-dict" class="wp-ic" title="Definición del Viccionari (online)" data-i18n-title="tip.wp_dict" aria-label="Definición online" hidden><svg class="ic"><use href="#i-globe"/></svg></button>
         </div>
         <div id="wp-ctx">
           <div id="wp-sentence-es"></div>
@@ -234,12 +234,12 @@
         <div id="wp-foot"><span class="dim">→</span>
           <span id="wp-word-es" contenteditable="true" spellcheck="false"
                 data-i18n-dph="wp.trans_ph"
-                title="Haz clic para editar la traducción de la tarjeta"></span></div>
+                title="Haz clic para editar la traducción de la tarjeta" data-i18n-title="tip.wp_word_es"></span></div>
         <div id="wp-status">
-          <button data-st="unknown" title="Atajo: 1" data-i18n="st.unknown">Nueva</button>
-          <button data-st="learning" title="Atajo: 2" data-i18n="st.learning">Aprendiendo</button>
-          <button data-st="known" title="Atajo: 3" data-i18n="st.known">Conocida</button>
-          <button data-st="ignored" title="Atajo: 4" data-i18n="st.ignored">Ignorar</button>
+          <button data-st="unknown" title="Atajo: 1" data-i18n-title="tip.sc1" data-i18n="st.unknown">Nueva</button>
+          <button data-st="learning" title="Atajo: 2" data-i18n-title="tip.sc2" data-i18n="st.learning">Aprendiendo</button>
+          <button data-st="known" title="Atajo: 3" data-i18n-title="tip.sc3" data-i18n="st.known">Conocida</button>
+          <button data-st="ignored" title="Atajo: 4" data-i18n-title="tip.sc4" data-i18n="st.ignored">Ignorar</button>
         </div>
       </div>
 
@@ -317,7 +317,7 @@
       <h3 data-i18n="set.sec_anki">Anki</h3>
       <div class="set-row"><label data-i18n="set.deck">Mazo de minado</label><select id="set-deck"></select></div>
       <div class="set-row"><label data-i18n="set.port">Puerto AnkiConnect</label>
-        <input id="set-port" type="number" min="1" max="65535" placeholder="automático"></div>
+        <input id="set-port" type="number" min="1" max="65535" placeholder="automático" data-i18n-ph="set.port_ph"></div>
     </section>
     <section>
       <h3 data-i18n="set.sec_subs">Subtítulos</h3>
@@ -407,7 +407,7 @@
 <div id="progress-pill" hidden>
   <progress id="gp-bar" max="1" value="0"></progress>
   <span id="gp-msg"></span>
-  <button id="gp-close" class="close-btn" hidden title="Cerrar" aria-label="Cerrar"><svg class="ic"><use href="#i-x"/></svg></button>
+  <button id="gp-close" class="close-btn" hidden title="Cerrar" data-i18n-title="tip.close" aria-label="Cerrar"><svg class="ic"><use href="#i-x"/></svg></button>
 </div>
 
 <dialog id="level-dlg">
@@ -445,7 +445,7 @@
     });
   }
 </script>
-<script src="/i18n.js?v=1.14.0"></script>
-<script src="/app.js?v=1.14.0"></script>
+<script src="/i18n.js?v=1.15.0"></script>
+<script src="/app.js?v=1.15.0"></script>
 </body>
 </html>

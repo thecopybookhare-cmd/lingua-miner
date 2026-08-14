@@ -92,3 +92,75 @@ def test_i18n_js_is_valid_json_shaped():
     # y las cadenas no deben llevar comillas sin escapar (rompen el parseo)
     for m in re.finditer(r'"([^"]+)":\s*"((?:[^"\\]|\\.)*)"', I18N_JS):
         json.loads(f'"{m.group(2)}"')
+
+
+# ---------- guardia contra cadenas sin traducir ----------
+
+# Texto en español que SÍ puede quedarse en el HTML, con el motivo. Todo lo
+# demás que suene a español y no lleve data-i18n hace fallar el test.
+_ALLOWED = {
+    # lo reescribe applySettings() con t("hero.sub", idioma)
+    "Mina idiomas desde tus videos — tarjetas con audio, imagen y traducción directas a Anki.",
+    # el <select> de modelos lo rellena JS con t("wh.*"); esto es solo el fallback
+    "Whisper large-v3 catalán (AINA) — máxima calidad",
+    "Whisper large-v3 genérico",
+    "Whisper small — rápido",
+    # nombres de idioma: van en su propio idioma a propósito
+    "Español", "Català", "English",
+    # título de la vista de conjugación, lo pone JS con t("conj.btn")
+    "Conjugació",
+    # etiquetas de la tarjeta y tooltip del dual: los reescribe applySettings()
+    # con el nombre del idioma base activo
+    "Palabra ES", "Frase ES", "Subtítulo dual en español (E)",
+}
+
+_SPANISH = re.compile(
+    r"[áéíóúñü¿¡]|\b(el|la|los|las|del|para|con|sin|una|que|más|está|son|hay|"
+    r"tus|tu|por|como|desde|cuando|todos|clic|palabra|frase|vídeo|video)\b", re.I)
+
+
+def test_no_untranslated_text_in_html():
+    """Un <button>/<p>/<label> con texto español y sin data-i18n se queda en
+    español para siempre — no hay nada que lo reescriba."""
+    bad = []
+    for m in re.finditer(r"<(button|h1|h2|h3|h4|p|label|span|small|option|summary|li|b)"
+                         r"\b([^>]*)>([^<]{3,160})</\1>", INDEX):
+        tag, attrs, txt = m.groups()
+        if "data-i18n" in attrs:
+            continue
+        t = txt.strip()
+        if not t or "${" in t or t in _ALLOWED:
+            continue
+        if _SPANISH.search(t):
+            bad.append(f"<{tag}> {t[:70]}")
+    assert not bad, "texto sin traducir en index.html:\n  " + "\n  ".join(bad)
+
+
+def test_no_untranslated_tooltips():
+    """Los title= son lo que el usuario ve al pasar el ratón: si no llevan
+    data-i18n-title, la interfaz en inglés los enseña en español."""
+    bad = []
+    for m in re.finditer(r'<[a-z]+\b([^>]*\btitle="([^"]{4,200})"[^>]*)>', INDEX):
+        attrs, t = m.groups()
+        if "data-i18n-title" in attrs or t in _ALLOWED:
+            continue
+        if _SPANISH.search(t):
+            idm = re.search(r'id="([^"]+)"', attrs)
+            bad.append(f"{idm.group(1) if idm else '?'}: {t[:60]}")
+    assert not bad, "tooltips sin traducir:\n  " + "\n  ".join(bad)
+
+
+def test_no_untranslated_strings_reaching_the_dom_from_js():
+    js = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+    bad = []
+    for m in re.finditer(r"(innerHTML|textContent|placeholder)\s*=\s*([`\"'])(.*?)\2", js, re.S):
+        t = m.group(3)
+        if "${t(" in t or "t(" == t[:2] or t.strip() in _ALLOWED:
+            continue
+        if _SPANISH.search(t) and len(t.strip()) > 4:
+            bad.append(t.strip()[:70])
+    for m in re.finditer(r"\btoast\(\s*([`\"'])((?:[^\\]|\\.)*?)\1", js):
+        t = m.group(2)
+        if "${t(" not in t and _SPANISH.search(t):
+            bad.append("toast: " + t[:60])
+    assert not bad, "cadenas en español que van al DOM desde app.js:\n  " + "\n  ".join(bad)

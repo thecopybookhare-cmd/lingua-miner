@@ -26,10 +26,10 @@ PROFILES = {
         "piper_voice": "ca/ca_ES/upc_ona/x_low/ca_ES-upc_ona-x_low.onnx",
         "sources": [
             {"name": "3Cat", "kind": "tv", "url": "https://www.3cat.cat/3cat/",
-             "note": "Series y programas de la TV pública catalana"},
+             "note": "Series y programas de la TV pública catalana", "note_en": "Series and shows from Catalan public TV"},
             {"name": "3Cat Podcasts", "kind": "pod",
              "url": "https://www.3cat.cat/3cat/podcasts/",
-             "note": "Podcasts de Catalunya Ràdio"},
+             "note": "Podcasts de Catalunya Ràdio", "note_en": "Podcasts from Catalunya Ràdio"},
         ],
         # idiomas base alternativos: traductor estudio→base (además del es)
         "translate_bases": {
@@ -58,10 +58,10 @@ PROFILES = {
         "piper_voice": "fr/fr_FR/siwis/medium/fr_FR-siwis-medium.onnx",
         "sources": [
             {"name": "france.tv", "kind": "tv", "url": "https://www.france.tv/",
-             "note": "Televisión pública francesa"},
+             "note": "Televisión pública francesa", "note_en": "French public television"},
             {"name": "Radio France", "kind": "pod",
              "url": "https://www.radiofrance.fr/podcasts",
-             "note": "Podcasts de France Inter, Culture…"},
+             "note": "Podcasts de France Inter, Culture…", "note_en": "Podcasts from France Inter, France Culture…"},
         ],
         "translate_bases": {
             "en": {"repo": "gaudi/opus-mt-fr-en-ctranslate2",
@@ -86,10 +86,10 @@ PROFILES = {
         "piper_voice": "en/en_US/amy/low/en_US-amy-low.onnx",
         "sources": [
             {"name": "TED Talks", "kind": "tv", "url": "https://www.ted.com/talks",
-             "note": "Charlas con subtítulos y transcripción"},
+             "note": "Charlas con subtítulos y transcripción", "note_en": "Talks with subtitles and transcripts"},
             {"name": "Archive.org", "kind": "archive",
              "url": "https://archive.org/details/feature_films",
-             "note": "Películas de dominio público"},
+             "note": "Películas de dominio público", "note_en": "Public-domain films"},
         ],
     },
     "de": {
@@ -111,12 +111,12 @@ PROFILES = {
         "sources": [
             {"name": "ARD Mediathek", "kind": "tv",
              "url": "https://www.ardmediathek.de/",
-             "note": "Televisión pública alemana"},
+             "note": "Televisión pública alemana", "note_en": "German public television"},
             {"name": "ZDF", "kind": "tv", "url": "https://www.zdf.de/",
-             "note": "Segunda cadena pública"},
+             "note": "Segunda cadena pública", "note_en": "The second public channel"},
             {"name": "Deutschlandfunk", "kind": "pod",
              "url": "https://www.deutschlandfunk.de/podcasts-100.html",
-             "note": "Podcasts de la radio pública"},
+             "note": "Podcasts de la radio pública", "note_en": "Podcasts from public radio"},
         ],
         "translate_bases": {
             "en": {"repo": "gaudi/opus-mt-de-en-ctranslate2",
@@ -148,13 +148,13 @@ PROFILES = {
         "piper_voice": "pt/pt_PT/tug%C3%A3o/medium/pt_PT-tug%C3%A3o-medium.onnx",
         "sources": [
             {"name": "RTP Play", "kind": "tv", "url": "https://www.rtp.pt/play/",
-             "note": "Televisión pública portuguesa"},
+             "note": "Televisión pública portuguesa", "note_en": "Portuguese public television"},
             {"name": "RTP Arquivos", "kind": "archive",
              "url": "https://arquivos.rtp.pt/",
-             "note": "Archivo histórico de la RTP"},
+             "note": "Archivo histórico de la RTP", "note_en": "RTP's historical archive"},
             {"name": "Antena 1", "kind": "pod",
              "url": "https://www.rtp.pt/antena1/",
-             "note": "Radio pública: programas y podcasts"},
+             "note": "Radio pública: programas y podcasts", "note_en": "Public radio: shows and podcasts"},
         ],
     },
     "it": {
@@ -180,10 +180,10 @@ PROFILES = {
         "piper_voice": "it/it_IT/paola/medium/it_IT-paola-medium.onnx",
         "sources": [
             {"name": "RaiPlay", "kind": "tv", "url": "https://www.raiplay.it/",
-             "note": "Televisión pública italiana"},
+             "note": "Televisión pública italiana", "note_en": "Italian public television"},
             {"name": "RaiPlay Sound", "kind": "pod",
              "url": "https://www.raiplaysound.it/",
-             "note": "Radio y podcasts de la RAI"},
+             "note": "Radio y podcasts de la RAI", "note_en": "RAI radio and podcasts"},
         ],
         "translate_bases": {
             "en": {"repo": "gaudi/opus-mt-it-en-ctranslate2",

@@ -34,17 +34,17 @@ let SPEED_IX = 0;
 async function refreshAnki() {
   const s = await api("/api/anki/status");
   const b = $("anki-badge");
-  const q = s.pending > 0 ? `${s.pending} en cola · ` : "";
-  if (s.up) { b.textContent = s.pending > 0 ? `Anki: enviando ${s.pending}…` : `Anki ✓ (:${s.port})`; b.className = "badge up"; }
-  else if (s.reason === "squatted") { b.textContent = `${q}puerto ocupado — clic`; b.className = "badge err"; }
-  else { b.textContent = q + "Anki cerrado"; b.className = s.pending > 0 ? "badge pending" : "badge"; }
+  const q = s.pending > 0 ? t("anki.queued", s.pending) + " · " : "";
+  if (s.up) { b.textContent = s.pending > 0 ? t("anki.sending", s.pending) : `Anki ✓ (:${s.port})`; b.className = "badge up"; }
+  else if (s.reason === "squatted") { b.textContent = q + t("anki.squatted"); b.className = "badge err"; }
+  else { b.textContent = q + t("anki.closed"); b.className = s.pending > 0 ? "badge pending" : "badge"; }
   b.dataset.reason = s.reason || "";
 }
 $("anki-badge").onclick = () => {
   const reason = $("anki-badge").dataset.reason;
   $("port-msg").textContent = reason === "squatted"
-    ? "Otro servicio ocupa los puertos 8765/8766. En Anki → Herramientas → Complementos → AnkiConnect → Configuración pon \"webBindPort\": 8767 y reinicia Anki (o escribe 8767 aquí)."
-    : "Déjalo vacío para detectarlo automáticamente.";
+    ? t("port.msg_squatted")
+    : t("port.msg_auto");
   $("port-input").value = "";
   $("port-dlg").showModal();
 };
@@ -160,13 +160,13 @@ async function runSearch() {
   $("session-list").hidden = true;
   box.hidden = false;
   if (!results.length) {
-    box.innerHTML = `<p class="dim search-none">Sin resultados para «${esc(q)}»</p>`;
+    box.innerHTML = `<p class="dim search-none">${esc(t("search.none", q))}</p>`;
     return;
   }
   const re = new RegExp("(" + q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "ig");
   const total = results.reduce((n, g) => n + g.hits.length, 0);
   box.innerHTML =
-    `<p class="dim search-count">${total} líneas en ${results.length} videos</p>` +
+    `<p class="dim search-count">${t("search.count", total, results.length)}</p>` +
     results.map((g) => `
       <div class="search-group">
         <div class="search-gt">${sourceBadge(g).t} · ${esc(g.title)}</div>
@@ -398,7 +398,7 @@ async function setVideoSrc(url, isHls) {
 }
 
 async function loadStreamUrl(sid, height) {
-  showProgress(0.5, "Cargando el video…");
+  showProgress(0.5, t("ts.loading_video"));
   const r = await api(`/api/sessions/${sid}/stream-url?height=${height || 0}`);
   hideProgress();
   if (r.error) { showProgress(1, r.error, true); return; }
@@ -521,7 +521,7 @@ function renderSources() {
     <a class="src-card" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">
       <svg class="ic"><use href="#${SRC_ICON[s.kind] || "i-globe"}"/></svg>
       <span class="src-name">${esc(s.name)}</span>
-      <span class="src-note dim">${esc(s.note || "")}</span>
+      <span class="src-note dim">${esc((UILANG === "en" && s.note_en) || s.note || "")}</span>
     </a>`).join("");
 }
 
@@ -1011,7 +1011,7 @@ async function openConj(lemma) {
   // auto-cierra por detrás (si no, al salir el ratón se reanudaba el vídeo).
   V.pause(); RESUME = false;
   PINNED = true; clearTimeout(CLOSE_TIMER);
-  $("conj-title").textContent = "Conjugació — " + lemma;
+  $("conj-title").textContent = t("conj.btn") + " — " + lemma;
   $("conj-body").innerHTML = '<p class="dim">…</p>';
   $("conj-view").hidden = false;
   const t = await api("/api/conjugation?lemma=" + encodeURIComponent(lemma));
@@ -1398,13 +1398,11 @@ $("stats-close").onclick = () => { $("stats-view").hidden = true; };
 $("stats-view").onclick = (e) => { if (e.target === $("stats-view")) $("stats-view").hidden = true; };
 
 // ---------- configuración ⚙️ ----------
-const ACTION_LABEL = {
-  prev: "Frase anterior", next: "Frase siguiente", replay: "Repetir frase",
-  mine: "Crear tarjeta (⇧ = editar)", subs: "Ocultar subtítulos (⇧ = línea ES)",
-  browser: "Navegador de subtítulos", copy: "Copiar frase",
-  dual: "Subtítulo dual", autopause: "Auto-pausa",
-  fullscreen: "Pantalla completa", recommended: "Siguiente recomendada",
-};
+// el orden fija cómo se listan en ⚙️ y en la ayuda; la etiqueta se resuelve
+// al pintar (con un objeto fijo se quedaría en el idioma de carga)
+const ACTIONS = ["prev", "next", "replay", "mine", "subs", "browser",
+                 "copy", "dual", "autopause", "fullscreen", "recommended"];
+const actionLabel = (a) => t("act." + a);
 
 function rebuildKeymap() {
   KEY2ACTION = {};
@@ -1498,29 +1496,30 @@ async function saveSettings(partial) {
 
 function renderKeyEditor() {
   const km = SETTINGS?.keymap || DEFAULT_KEYMAP;
-  $("set-keys").innerHTML = Object.keys(ACTION_LABEL).map((a) =>
-    `<div class="set-row"><label>${ACTION_LABEL[a]}</label>
+  $("set-keys").innerHTML = ACTIONS.map((a) =>
+    `<div class="set-row"><label>${actionLabel(a)}</label>
      <button class="keybtn" data-act="${a}">${CAPTURING === a ? "pulsa una tecla…" : (km[a] || "?").toUpperCase()}</button></div>`).join("");
   for (const b of $("set-keys").querySelectorAll(".keybtn"))
     b.onclick = () => { CAPTURING = b.dataset.act; renderKeyEditor(); };
 }
 
 // ---------- overlay de ayuda de atajos (tecla ?) ----------
-const HELP_FIXED = [
-  ["Espacio", "Reproducir / pausar"],
-  ["1 – 5", "Estado: nueva · aprendiendo · conocida · ignorar · seguir"],
-  ["Q / ⇧Q", "Crear tarjeta / editar y crear"],
-  ["[  ]", "Sincronía de subtítulos (−/+ 0,1 s)"],
-  ["K", "Reproducción condensada (saltar silencios)"],
-  ["⏎", "Enviar la tarjeta a Anki"],
-  ["? ", "Esta ayuda · Esc cierra"],
+// se resuelve al pintar para que siga al idioma activo
+const helpFixed = () => [
+  ["Espacio", t("hf.space")],
+  ["1 – 5", t("hf.states")],
+  ["Q / ⇧Q", t("hf.card")],
+  ["[  ]", t("hf.sync")],
+  ["K", t("hf.condensed")],
+  ["⏎", t("hf.send")],
+  ["? ", t("hf.help")],
 ];
 function renderHelp() {
   const km = SETTINGS?.keymap || DEFAULT_KEYMAP;
   const row = (k, d) => `<div class="help-row"><kbd>${k}</kbd><span>${d}</span></div>`;
-  const remap = Object.keys(ACTION_LABEL)
-    .map((a) => row((km[a] || "?").toUpperCase(), ACTION_LABEL[a])).join("");
-  const fixed = HELP_FIXED.map(([k, d]) => row(k, d)).join("");
+  const remap = ACTIONS
+    .map((a) => row((km[a] || "?").toUpperCase(), actionLabel(a))).join("");
+  const fixed = helpFixed().map(([k, d]) => row(k, d)).join("");
   $("help-body").innerHTML =
     `<div class="help-cols">
        <div><h3>${t("help.playback")}</h3>${remap}</div>
@@ -1531,8 +1530,8 @@ function renderHelp() {
        <span><i class="rec-sw green"></i>${t("help.rec_green", (km.recommended || "r").toUpperCase())}</span>
        <span><i class="rec-sw blue"></i>${t("help.rec_blue")}</span>
      </div>
-     <p class="dim">Solo se recomiendan palabras frecuentes y útiles (no nombres propios ni palabras raras). Ajusta el nivel en Ajustes → Recomendaciones.</p>
-     <p class="dim">Las letras se cambian en Ajustes → Atajos de teclado.</p>`;
+     <p class="dim">${t("help.rec_note")}</p>
+     <p class="dim">${t("help.remap_note")}</p>`;
 }
 function toggleHelp() {
   const v = $("help-view");
@@ -1608,10 +1607,10 @@ function renderShare(s) {
     b.onclick = () => { navigator.clipboard?.writeText(b.dataset.url); toast(t("ts.link_copied"), "ok"); };
   });
   let note = "";
-  if (s.running) note += "⚠️ Quien abra el enlace en tu red o tailnet tiene acceso completo — compártelo solo con amigos de confianza. ";
-  if (!s.tailscale) note += "Instala Tailscale para que entren amigos fuera de tu wifi (y para HTTPS + instalación como app).";
-  else if (!s.tailscale_up) note += "Tailscale está instalado pero apagado: ábrelo para obtener un enlace 100.x accesible desde cualquier sitio.";
-  else note += "Tailscale activo ✓ — usa su enlace para amigos remotos.";
+  if (s.running) note += t("share.warn") + " ";
+  if (!s.tailscale) note += t("share.ts_missing");
+  else if (!s.tailscale_up) note += t("share.ts_off");
+  else note += t("share.ts_on");
   $("share-note").textContent = note;
 }
 
