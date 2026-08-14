@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/thecopybookhare-cmd/lingua-miner/actions/workflows/ci.yml/badge.svg)](https://github.com/thecopybookhare-cmd/lingua-miner/actions)
 ![license](https://img.shields.io/badge/license-MIT-blue)
-![version](https://img.shields.io/badge/version-1.17.0-8b7cf8)
+![version](https://img.shields.io/badge/version-1.17.1-8b7cf8)
 ![python](https://img.shields.io/badge/python-3.12-3776ab)
 
 **Local, Migaku-style flashcard miner — learn languages from the videos you love.**
@@ -16,6 +16,9 @@ frequency. Everything runs **100% locally** — no accounts, no paid APIs.
 
 *One click on an unknown word → dictionary → a card with the sentence audio, the
 video frame and the translation, ready for Anki.*
+
+**▶️ [Watch the 3-minute walkthrough](https://youtu.be/_Iu7WcnNXAo)** — every
+feature, narrated.
 
 ## Features
 

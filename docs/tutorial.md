@@ -3,6 +3,9 @@
 A walkthrough of everything the app does, in the order you'll meet it. Each
 section has a clip, so you can skim the pictures and only read what you need.
 
+**Prefer video?** The same tour, narrated, in three minutes:
+[youtu.be/_Iu7WcnNXAo](https://youtu.be/_Iu7WcnNXAo)
+
 Haven't installed it yet? Start with the
 [step-by-step install guide](install-guide.md), then come back.
 
