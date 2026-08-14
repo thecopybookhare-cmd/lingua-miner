@@ -215,6 +215,39 @@ PROFILES = {
                    "dir": "translate-rus-eng", "eos": True},
         },
     },
+    "zh": {
+        "name": "中文",
+        "wordfreq": "zh",
+        "espeak": "cmn",
+        # OBLIGATORIO, no opcional como en los demás: el chino no separa las
+        # palabras con espacios, así que sin este modelo el tokenizador de
+        # reserva devuelve la frase entera como un solo token y no hay nada
+        # que minar. Ver docs/adding-a-language.md.
+        "spacy": "zh_core_web_sm",
+        "spacy_required": True,
+        "whisper_models": {"large-v3": "large-v3", "small": "small"},
+        "default_whisper": "large-v3",
+        # sin zh→es: Tatoeba no tiene zho-spa (404) ni hay CT2 pre-hecho
+        "translate_repo": None,
+        "translate_zip": None,
+        "translate_dir": "translate-zho-spa",
+        "bidix_url": None,
+        "bidix_file": "apertium-spa-zho.dix",
+        "forms_url": None,
+        "wikdict_url": None,                  # las glosas de kaikki son es→X
+        "piper_voice": "zh/zh_CN/huayan/medium/zh_CN-huayan-medium.onnx",
+        "sources": [
+            {"name": "CCTV 央视网", "kind": "tv", "url": "https://tv.cctv.com/",
+             "note": "Televisión pública china", "note_en": "Chinese public television"},
+            {"name": "Bilibili", "kind": "tv", "url": "https://www.bilibili.com/",
+             "note": "Vídeos con subtítulos, muy usado para inmersión",
+             "note_en": "Videos with subtitles, an immersion staple"},
+        ],
+        "translate_bases": {
+            "en": {"repo": "gaudi/opus-mt-zh-en-ctranslate2",
+                   "dir": "translate-zho-eng", "eos": True},
+        },
+    },
 }
 
 # nombres de los idiomas base para la UI

@@ -73,3 +73,38 @@ def test_italian_reuses_the_romance_model_with_the_spanish_token():
     assert it["translate_token"] == ">>spa<<"
     assert it["translate_zip"] == L.PROFILES["pt"]["translate_zip"]
     assert it["translate_dir"] != L.PROFILES["pt"]["translate_dir"]
+
+
+# ---------- chino: el caso que más se puede romper en silencio ----------
+
+def test_chinese_needs_spacy_and_says_so():
+    """Sin zh_core_web_sm el tokenizador de reserva devuelve la frase entera
+    como UN token, porque el chino no separa palabras con espacios. El perfil
+    lo marca para que no se trate como opcional."""
+    zh = L.PROFILES["zh"]
+    assert zh["spacy"] == "zh_core_web_sm"
+    assert zh.get("spacy_required") is True
+    assert zh["wordfreq"] == "zh"
+
+
+def test_chinese_offers_english_only():
+    assert L.bases("zh") == ["en"]
+    assert L.has_spanish_base("zh") is False
+    assert "zh" in L.activable()
+
+
+def test_chinese_frequencies_need_jieba():
+    """wordfreq no tokeniza chino sin jieba, y sin frecuencias la
+    recomendación i+1 se apaga entera sin dar ningún error."""
+    import wordfreq
+    assert wordfreq.zipf_frequency("电影", "zh") > 4.0, (
+        "wordfreq devuelve 0 para el chino: falta el extra [jieba]")
+
+
+def test_jieba_is_declared_as_a_dependency():
+    import tomllib
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    data = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    deps = " ".join(data["project"]["dependencies"])
+    assert "wordfreq[jieba]" in deps, "wordfreq debe instalarse con el extra jieba"

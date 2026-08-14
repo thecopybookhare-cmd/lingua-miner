@@ -34,8 +34,16 @@ only splits on spaces and gives no lemma.
 **One language where the fallback is fatal.** Chinese doesn't put spaces
 between words. Run the regex tokenizer on 我昨天晚上看了一部很好的电影。 and you
 get a single token, the entire sentence. Chinese only works because
-`zh_core_web_sm` exists and does the segmentation. Bulgarian, by contrast,
-degrades gracefully: the regex splits it fine, you just lose the lemmas.
+`zh_core_web_sm` exists and does the segmentation, which is why its profile
+carries `spacy_required`. Bulgarian, by contrast, degrades gracefully: the
+regex splits it fine, you just lose the lemmas.
+
+**And one where frequency needs an extra.** wordfreq can't tokenize Chinese
+without `jieba`, and it doesn't complain — it just returns 0 for every word,
+which silently switches off the whole i+1 recommendation. That's why the
+project depends on `wordfreq[jieba]` rather than plain `wordfreq`. If you add a
+CJK language, check `zipf_frequency` returns something non-zero before you
+believe it works.
 
 ## Where the requested languages stand
 
@@ -45,7 +53,7 @@ Measured August 2026 with the script above.
 |---|---|---|---|---|---|---|
 | Italian | yes | yes | yes | yes | yes | **shipped** |
 | Russian | yes | no | yes | yes | yes | **shipped**, English base only |
-| Chinese | yes | no | yes | yes | yes | possible, English base only |
+| Chinese | yes | no | yes | yes | yes | **shipped**, English base only |
 | Bulgarian | yes | yes | yes | yes | **no** | possible but no lemmas |
 | Bengali | yes | no | yes | yes | **no** | possible but no lemmas, English base |
 | Telugu | yes | **no** | **no** | **no** | **no** | blocked, no translator |

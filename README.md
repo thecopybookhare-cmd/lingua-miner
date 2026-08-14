@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/thecopybookhare-cmd/lingua-miner/actions/workflows/ci.yml/badge.svg)](https://github.com/thecopybookhare-cmd/lingua-miner/actions)
 ![license](https://img.shields.io/badge/license-MIT-blue)
-![version](https://img.shields.io/badge/version-1.15.0-8b7cf8)
+![version](https://img.shields.io/badge/version-1.16.0-8b7cf8)
 ![python](https://img.shields.io/badge/python-3.12-3776ab)
 
 **Local, Migaku-style flashcard miner — learn languages from the videos you love.**
@@ -25,10 +25,10 @@ video frame and the translation, ready for Anki.*
   expression) → editable Anki card with segment audio (ffmpeg-trimmed), video
   frame, sentence + translation.
 - 🌍 **Multi-language**: study Catalan, French, English, German, European
-  Portuguese, **Italian** or **Russian**. Neural OPUS-MT translation
-  (CTranslate2, offline) into **Spanish or English** — pick the base under ⚙️
-  *Settings → Translate to*. Russian is English-base only, since no ru→es model
-  exists. Each language downloads its own translator, spaCy model, Wiktionary
+  Portuguese, Italian, Russian or **Mandarin Chinese**. Neural OPUS-MT
+  translation (CTranslate2, offline) into **Spanish or English** — pick the
+  base under ⚙️ *Settings → Translate to*. Russian and Chinese are English-base
+  only, since no →es model exists for either. Each language downloads its own translator, spaCy model, Wiktionary
   glosses and Piper voice on first use.
   [Requesting a language?](docs/adding-a-language.md) — that page lists what
   has to exist and where each candidate currently stands.
@@ -165,7 +165,7 @@ language is mostly adding one entry there.
 ```bash
 uv pip install -p .venv/bin/python -e . --group dev
 .venv/bin/ruff check app/ tests/     # lint
-.venv/bin/python -m pytest tests/    # 166 tests
+.venv/bin/python -m pytest tests/    # 170 tests
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). CI runs lint + tests on

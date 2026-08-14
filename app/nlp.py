@@ -67,13 +67,29 @@ def freq_badge(zipf_value: float) -> str:
     return "rare"
 
 
+_ZIPF_WARNED: set = set()
+
+
 def zipf(word: str) -> float:
+    """Frecuencia Zipf de la palabra en el idioma activo.
+
+    Devolver 0.0 en silencio ocultaba un fallo grave: el chino necesita jieba
+    (wordfreq[jieba]) para tokenizar, y sin él TODAS las palabras salían con
+    zipf 0 — o sea, la recomendación i+1 dejaba de funcionar entera sin que
+    nada lo dijera. Ahora se avisa una vez por idioma.
+    """
+    from . import languages
+    lang = languages.profile()["wordfreq"]
     try:
         from wordfreq import zipf_frequency
-
-        from . import languages
-        return zipf_frequency(word, languages.profile()["wordfreq"])
-    except Exception:
+        return zipf_frequency(word, lang)
+    except Exception as e:                       # noqa: BLE001
+        if lang not in _ZIPF_WARNED:
+            _ZIPF_WARNED.add(lang)
+            import logging
+            logging.getLogger("nlp").warning(
+                "sin frecuencias para «%s» (%s): la recomendación i+1 no podrá "
+                "priorizar palabras", lang, e)
         return 0.0
 
 
@@ -118,6 +134,11 @@ def tokenize(text: str) -> list[dict]:
         lemma, pos = ("", "")
         if is_word:
             lemma, pos = _correct(tok.text, tok.lemma_.lower(), tok.pos_)
+            # Sin lematizador (zh_core_web_sm no trae) spaCy devuelve "" y el
+            # estado de la palabra se guarda POR LEMA: sin esto, en chino no
+            # se podría marcar ninguna palabra. La forma superficial es el
+            # lema en los idiomas sin flexión, así que es la caída correcta.
+            lemma = lemma or tok.text.lower()
         toks.append({"t": tok.text, "lemma": lemma, "pos": pos,
                      "is_word": is_word,
                      "zipf": zipf(tok.text) if is_word else 0.0,
