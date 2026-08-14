@@ -266,7 +266,9 @@ DEFAULT_SETTINGS = {
     "speed_default": 1.0, "ipa_enabled": True, "online_enabled": False,
     # "auto" = el navegador decide (i18n.js); quien ya tenga un idioma guardado
     # lo conserva, esto solo afecta a instalaciones nuevas
-    "audio_trim": False, "ui_lang": "auto", "base_language": "es",
+    # "auto" = el navegador decide (i18n.js); quien ya tenga un idioma guardado
+    # lo conserva, esto solo afecta a instalaciones nuevas
+    "audio_trim": False, "ui_lang": "auto", "base_language": "auto",
     # zipf mínimo para recomendar una palabra (0-7). Solo se recomiendan
     # palabras frecuentes y que no sean nombres propios (nivel de vocabulario).
     "rec_min_zipf": 3.5,
@@ -1425,7 +1427,8 @@ def post_settings(body: dict):
                                 status_code=400)
     if "ui_lang" in body and body["ui_lang"] not in ("auto", "es", "ca", "en"):
         return JSONResponse({"error": "ui_lang no soportado"}, status_code=400)
-    if "base_language" in body and body["base_language"] not in languages.BASE_NAMES:
+    if ("base_language" in body and body["base_language"] != "auto"
+            and body["base_language"] not in languages.BASE_NAMES):
         return JSONResponse({"error": "idioma base no soportado"}, status_code=400)
     if "language" in body and body["language"] not in languages.activable():
         return JSONResponse({"error": "idioma no disponible todavía"},

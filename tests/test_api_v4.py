@@ -103,7 +103,11 @@ def test_base_language_selectable_and_gated(tmp_path):
     # catalán ofrece base español + inglés
     s = c.get("/api/settings").json()
     assert {b["code"] for b in s["bases"]} == {"es", "en"}
-    assert s["base_language_effective"] == "es"
+    # sin nada guardado, "auto" resuelve a inglés: el español dejó de ser el
+    # valor por defecto para todo el mundo (v1.12)
+    assert s["base_language_effective"] == "en"
+    c.post("/api/settings", json={"base_language": "es"})
+    assert c.get("/api/settings").json()["base_language_effective"] == "es"
     # cambiar a base inglés: el traductor apunta al par ca→en y se ocultan
     # las fuentes en español (acepciones/glosas)
     c.post("/api/settings", json={"base_language": "en"})
@@ -334,6 +338,7 @@ def test_lookup_includes_glosses(_tr, _sen, _ipa, tmp_path, monkeypatch):
     monkeypatch.setattr(wikdict, "lookup",
                         lambda t: [("Perro.", "noun")] if t == "gos" else [])
     c = client(tmp_path)
+    c.post("/api/settings", json={"base_language": "es"})   # glosas en español
     r = c.post("/api/lookup",
                json={"selection": "gos", "sentence": "El gos corre"}).json()
     assert r["glosses"] == [{"es": "Perro.", "pos": "noun"}]

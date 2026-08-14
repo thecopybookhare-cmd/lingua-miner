@@ -265,14 +265,23 @@ def bases(code: str | None = None) -> list[str]:
 
 
 def base_code() -> str:
-    """Idioma base activo (al que se traduce). Si el guardado no está
-    disponible para el idioma de estudio actual, cae a la primera base que
-    sí lo esté — que no siempre es el español."""
+    """Idioma base activo (al que se traduce).
+
+    "auto" (por defecto en instalaciones nuevas) sigue al idioma de interfaz:
+    solo quien tenga la interfaz en español traduce a español, el resto a
+    inglés. Antes el español era el valor por defecto para todo el mundo, lo
+    que no tiene sentido para quien llega desde un README en inglés.
+
+    Si el valor guardado no existe para el idioma de estudio actual, cae a la
+    primera base que sí exista — que no siempre es el español.
+    """
     try:
         s = json.loads(config.SETTINGS_PATH.read_text())
-        b = s.get("base_language", "es")
+        b = s.get("base_language", "auto")
+        if b == "auto":
+            b = "es" if s.get("ui_lang") == "es" else "en"
     except Exception:
-        b = "es"
+        b = "en"
     avail = bases(active_code())
     return b if b in avail else avail[0]
 

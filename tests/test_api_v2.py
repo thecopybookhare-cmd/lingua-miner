@@ -30,6 +30,9 @@ def _session(tmp_path, transcript="[]"):
 @patch("app.main.translate.translate", side_effect=lambda t: "ES:" + t)
 def test_lookup_returns_senses_and_translations(_tr, tmp_path):
     c = client(tmp_path)
+    # las acepciones son español→catalán: hay que pedir base española (desde
+    # v1.12 el valor por defecto es "auto", que sin interfaz en español da en)
+    c.post("/api/settings", json={"base_language": "es"})
     main._DICT = main.dictionary.Dictionary({"gos": [("perro", "n")]})
     r = c.post("/api/lookup", json={"selection": "gos",
                                     "sentence": "El gos corre"}).json()

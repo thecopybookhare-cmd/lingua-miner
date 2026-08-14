@@ -1425,6 +1425,12 @@ function applySettings() {
   document.documentElement.style.setProperty("--sub-scale", SETTINGS.sub_scale);
   setUILang(SETTINGS.ui_lang || "auto");         // "auto" → idioma del navegador
   $("set-ui-lang").value = SETTINGS.ui_lang || "auto";
+  // El servidor no ve navigator.languages, así que resuelve "auto" como inglés.
+  // En el primer arranque fijamos aquí el valor real: solo quien tenga la
+  // interfaz en español traduce a español.
+  if (SETTINGS.base_language === "auto") {
+    saveSettings({ base_language: detectUILang() === "es" ? "es" : "en" });
+  }
   rebuildKeymap();
   renderKeyEditor();
   renderHelpLine();
