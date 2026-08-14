@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/thecopybookhare-cmd/lingua-miner/actions/workflows/ci.yml/badge.svg)](https://github.com/thecopybookhare-cmd/lingua-miner/actions)
 ![license](https://img.shields.io/badge/license-MIT-blue)
-![version](https://img.shields.io/badge/version-1.12.0-8b7cf8)
+![version](https://img.shields.io/badge/version-1.13.0-8b7cf8)
 ![python](https://img.shields.io/badge/python-3.12-3776ab)
 
 **Local, Migaku-style flashcard miner — learn languages from the videos you love.**
@@ -115,6 +115,8 @@ first time you transcribe. App data lives in your OS's standard folder
 If Anki is closed, cards queue up and send themselves when it opens.
 
 ## Usage
+
+**→ [Full walkthrough with clips of every feature](docs/tutorial.md)**
 
 On first launch a **Getting started** card walks you through these same three
 steps and shows what is still downloading. The interface follows your system

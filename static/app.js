@@ -53,7 +53,7 @@ $("port-dlg").addEventListener("close", async () => {
   const v = $("port-input").value.trim();
   const port = v === "" ? null : parseInt(v, 10);
   const r = await api("/api/anki/port", { method: "POST", body: JSON.stringify({ port }) });
-  toast(r.port ? `AnkiConnect encontrado en el puerto ${r.port}` : "Aún no encuentro AnkiConnect", r.port ? "ok" : "err");
+  toast(r.port ? t("ts.anki_port", r.port) : t("ts.anki_none"), r.port ? "ok" : "err");
   refreshAnki();
 });
 setInterval(async () => {
@@ -68,7 +68,7 @@ async function syncStatuses() {
     const s = await api("/api/sessions/" + SESSION.id);
     STATUS = s.word_statuses || {};
     renderSegs(); renderOverlay(); updateComp();
-    toast(`${r.synced} palabras actualizadas desde Anki`);
+    toast(t("ts.synced", r.synced));
   }
 }
 // cada 10 min y al volver a la ventana: pedir cardsInfo de TODAS las tarjetas
@@ -220,7 +220,7 @@ async function refreshOnboarding() {
 $("onb-download").onclick = async () => {
   const r = await api("/api/setup/download", { method: "POST" });
   const res = await pollJob(r.job_id, "Descargando…");
-  if (res) { toast("Todo descargado", "ok"); refreshOnboarding(); }
+  if (res) { toast(t("ts.dl_done"), "ok"); refreshOnboarding(); }
 };
 $("onb-recheck").onclick = () => { refreshAnki(); refreshOnboarding(); };
 $("onb-dismiss").onclick = () => { ONB_DISMISSED = true; $("onboarding").hidden = true; };
@@ -437,7 +437,7 @@ $("video").addEventListener("waiting", () => {
     STALLS = [];
     const lower = STREAM_HEIGHTS.filter((h) => h.height < STREAM_H)
       .sort((a, b) => b.height - a.height)[0];
-    if (lower) { toast(`Bajando a ${lower.label} por conexión lenta`); loadStreamUrl(SESSION.id, lower.height); }
+    if (lower) { toast(t("ts.quality_down", lower.label)); loadStreamUrl(SESSION.id, lower.height); }
   }
 });
 
@@ -476,7 +476,7 @@ $("subs-input").onchange = async (e) => {
   fd.append("file", f);
   const r = await fetch(`/api/sessions/${SESSION.id}/subtitles`, { method: "POST", body: fd }).then((x) => x.json());
   if (r.error) { toast(r.error, "err"); return; }
-  toast(`${r.segments} subtítulos cargados`, "ok");
+  toast(t("ts.subs_loaded", r.segments), "ok");
   openSession(SESSION.id);
 };
 
@@ -560,7 +560,7 @@ async function setStatus(lemma, status) {
   else STATUS[r.lemma] = status;
   renderSegs(); renderOverlay(); updateComp();
   if (POP && POP.lemma === r.lemma) markStatusButtons(status);
-  toast(`"${r.lemma}" → ${ST_LABEL[status]}`);
+  toast(`"${r.lemma}" → ${t("stx." + status)}`);
 }
 
 // score de comprensión estilo Migaku: % de palabras del contenido que ya conoces
@@ -614,7 +614,7 @@ function setAutopause(v) {
 function setCondensed(v) {
   CONDENSED = v;
   $("condensed-btn").classList.toggle("on", v);
-  if (v) toast("Condensado: se saltan los silencios entre frases");
+  if (v) toast(t("ts.condensed_on"));
 }
 function setOffset(v) {
   OFFSET = Math.round(v * 10) / 10;      // pasos de 0.1 s
@@ -816,7 +816,7 @@ V.addEventListener("loadedmetadata", () => {
     V.currentTime = target;
     const te = target - OFFSET;
     setCur(SEGS.findIndex((s) => te >= s.start && te <= s.end));
-    if (target > 5) toast(`Reanudado en ${fmtTime(target)}`);
+    if (target > 5) toast(t("ts.resumed", fmtTime(target)));
   }
 });
 
@@ -1145,7 +1145,7 @@ function editFromPopup() {
 
 // minado en segundo plano: crea + envía a Anki sin panel ni pausa
 async function mineQuick(segIndex, selection, paraula_es = "") {
-  toast("Creando tarjeta…");
+  toast(t("ts.card_making"));
   const r = await api("/api/cards/mine", {
     method: "POST",
     body: JSON.stringify({ session_id: SESSION.id, segment_index: segIndex,
@@ -1154,7 +1154,7 @@ async function mineQuick(segIndex, selection, paraula_es = "") {
   if (r.error) { toast(r.error, "err"); return; }
   if (r.word_status) STATUS[r.lema] = r.word_status;
   renderSegs(); renderOverlay(); updateComp(); refreshAnki();
-  toast(r.sent_now ? `«${r.paraula}» → Anki` : `«${r.paraula}» en cola`,
+  toast(r.sent_now ? t("ts.card_sent", r.paraula) : t("ts.card_queued", r.paraula),
         r.sent_now ? "ok" : "err");
 }
 
@@ -1162,7 +1162,7 @@ async function mineQuick(segIndex, selection, paraula_es = "") {
 async function mine(segIndex, selection, padB = 0, padA = 0, extra = {}) {
   V.pause();
   PAD = { b: padB, a: padA };
-  toast("Creando tarjeta…");
+  toast(t("ts.card_making"));
   const p = await api("/api/cards/preview", {
     method: "POST",
     body: JSON.stringify({ session_id: SESSION.id, segment_index: segIndex,
@@ -1207,7 +1207,7 @@ async function sendCard() {
   renderOverlay();
   updateComp();
   refreshAnki();
-  toast(r.sent_now ? "Tarjeta añadida a Anki" : "Tarjeta en cola", r.sent_now ? "ok" : "err");
+  toast(r.sent_now ? t("ts.card_added") : t("ts.card_queue"), r.sent_now ? "ok" : "err");
 }
 $("c-send").onclick = sendCard;
 
@@ -1233,7 +1233,7 @@ document.addEventListener("keydown", (e) => {
   if (statusKeys[e.key]) {
     const lemma = (POP && !$("word-pop").hidden) ? POP.lemma : HOVER?.lemma;
     if (lemma) setStatus(lemma, statusKeys[e.key]);
-    else toast("Pasa el ratón por una palabra y pulsa " + e.key, "err");
+    else toast(t("ts.hover", e.key), "err");
     return;
   }
   if (e.key === "[") { e.preventDefault(); bumpOffset(-0.1); return; }
@@ -1251,12 +1251,12 @@ document.addEventListener("keydown", (e) => {
     else { HIDE_CA = !HIDE_CA; renderOverlay(); }
   }
   else if (act === "browser") toggleBrowser();
-  else if (act === "copy" && CUR >= 0) { navigator.clipboard.writeText(SEGS[CUR].text).then(() => toast("Copiado", "ok")); }
+  else if (act === "copy" && CUR >= 0) { navigator.clipboard.writeText(SEGS[CUR].text).then(() => toast(t("ts.copied"), "ok")); }
   else if (act === "mine") {
     const inPop = POP && !$("word-pop").hidden;
     const seg = inPop ? POP.segIndex : HOVER?.segIndex;
     const sel = inPop ? POP.selection : HOVER?.text;
-    if (sel === undefined) { toast("Pasa el ratón por una palabra y pulsa " + (SETTINGS?.keymap?.mine || "Q").toUpperCase(), "err"); return; }
+    if (sel === undefined) { toast(t("ts.hover", (SETTINGS?.keymap?.mine || "Q").toUpperCase()), "err"); return; }
     const chosen = inPop ? (POP.chosen || "") : "";
     if (inPop) closePopup();
     if (e.shiftKey) mine(seg, sel);
@@ -1548,7 +1548,7 @@ document.addEventListener("keydown", (e) => {
   e.preventDefault(); e.stopPropagation();
   const k = e.key.toLowerCase();
   const act = CAPTURING; CAPTURING = null;
-  if (!/^[a-z]$/.test(k)) { toast("Solo letras a–z", "err"); renderKeyEditor(); return; }
+  if (!/^[a-z]$/.test(k)) { toast(t("ts.keys_az"), "err"); renderKeyEditor(); return; }
   saveSettings({ keymap: { [act]: k } });
 }, true);
 
@@ -1571,11 +1571,11 @@ $("set-userdict-import").onclick = async () => {
   const path = $("set-userdict-path").value.trim();
   if (!path) return;
   $("set-userdict-import").disabled = true;
-  toast("Importando diccionario…");
+  toast(t("ts.dict_import"));
   const r = await api("/api/userdict/import", { method: "POST", body: JSON.stringify({ path }) });
   $("set-userdict-import").disabled = false;
   if (r.error) { toast(r.error, "err"); return; }
-  toast(`${r.name}: ${r.entries} entradas`, "ok");
+  toast(t("ts.dict_done", r.name, r.entries), "ok");
   $("set-userdict-path").value = "";
   renderUserdicts(r.dicts || []);
 };
@@ -1605,7 +1605,7 @@ function renderShare(s) {
       </div>
     </div>`).join("");
   info.querySelectorAll(".share-copy").forEach((b) => {
-    b.onclick = () => { navigator.clipboard?.writeText(b.dataset.url); toast("Enlace copiado", "ok"); };
+    b.onclick = () => { navigator.clipboard?.writeText(b.dataset.url); toast(t("ts.link_copied"), "ok"); };
   });
   let note = "";
   if (s.running) note += "⚠️ Quien abra el enlace en tu red o tailnet tiene acceso completo — compártelo solo con amigos de confianza. ";
@@ -1626,8 +1626,8 @@ $("set-share").onchange = async () => {
   try {
     const s = await api(path, { method: "POST" });
     renderShare(s);
-    toast(s.running ? "Modo compartir activado" : "Modo compartir desactivado", s.running ? "ok" : "");
-  } catch { toast("No se pudo cambiar el modo compartir", "err"); refreshShare(); }
+    toast(s.running ? t("ts.share_on") : t("ts.share_off"), s.running ? "ok" : "");
+  } catch { toast(t("ts.share_err"), "err"); refreshShare(); }
   $("set-share").disabled = false;
 };
 $("settings-btn").onclick = openSettings;
@@ -1667,12 +1667,12 @@ $("settings-view").onclick = (e) => { if (e.target === $("settings-view")) $("se
 
 $("set-deck").onchange = async () => {
   await api("/api/anki/deck", { method: "POST", body: JSON.stringify({ deck: $("set-deck").value }) });
-  toast("Mazo: " + $("set-deck").value, "ok");
+  toast(t("ts.deck", $("set-deck").value), "ok");
 };
 $("set-port").onchange = async () => {
   const v = $("set-port").value.trim();
   const r = await api("/api/anki/port", { method: "POST", body: JSON.stringify({ port: v === "" ? null : parseInt(v, 10) }) });
-  toast(r.port ? `AnkiConnect en el puerto ${r.port}` : "Aún no encuentro AnkiConnect", r.port ? "ok" : "err");
+  toast(r.port ? t("ts.anki_port", r.port) : t("ts.anki_none"), r.port ? "ok" : "err");
   refreshAnki();
 };
 $("set-sub-scale").oninput = () => {
@@ -1714,9 +1714,9 @@ $("set-import").onchange = async (e) => {
       body: JSON.stringify({ statuses: data.statuses || data, overwrite: false }),
     });
     if (r.error) { toast(r.error, "err"); return; }
-    toast(`${r.imported} palabras importadas (${r.skipped} ya existían)`, "ok");
+    toast(t("ts.imported", r.imported, r.skipped), "ok");
     if (SESSION) openSession(SESSION.id);
-  } catch { toast("JSON inválido", "err"); }
+  } catch { toast(t("ts.bad_json"), "err"); }
   e.target.value = "";
 };
 
@@ -1787,12 +1787,12 @@ $("vocab-level-btn").onclick = () => $("level-dlg").showModal();
 $("level-n").oninput = () => { $("level-val").textContent = $("level-n").value; };
 $("level-dlg").addEventListener("close", async () => {
   if ($("level-dlg").returnValue !== "ok") return;
-  toast("⏳ Marcando vocabulario…");
+  toast(t("ts.marking"));
   const r = await api("/api/words/bulk-known", {
     method: "POST",
     body: JSON.stringify({ top_n: parseInt($("level-n").value, 10) }),
   });
-  toast(`${r.marked} palabras marcadas como conocidas`, "ok");
+  toast(t("ts.marked", r.marked), "ok");
   if (SESSION) {
     const s = await api("/api/sessions/" + SESSION.id);
     STATUS = s.word_statuses || {};
@@ -1848,7 +1848,7 @@ function updateRecs() {
 }
 
 function nextRec() {
-  if (!RECS.length) { toast("No hay frases i+1 ahora mismo", "err"); return; }
+  if (!RECS.length) { toast(t("ts.no_recs"), "err"); return; }
   const t = V.currentTime;
   const nxt = RECS.find((i) => SEGS[i].start > t + 0.05) ?? RECS[0];
   gotoSeg(nxt);
