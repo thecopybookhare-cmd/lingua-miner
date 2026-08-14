@@ -157,15 +157,81 @@ PROFILES = {
              "note": "Radio pública: programas y podcasts"},
         ],
     },
+    "it": {
+        "name": "Italiano",
+        "wordfreq": "it",
+        "espeak": "it",
+        "spacy": "it_core_news_sm",
+        "whisper_models": {"large-v3": "large-v3", "small": "small"},
+        "default_whisper": "large-v3",
+        # mismo modelo romance multilingüe que el portugués (itc-itc), solo
+        # cambia el token de destino; si ya lo bajaste para pt, se reaprovecha
+        "translate_repo": None,
+        "translate_zip": ("https://object.pouta.csc.fi/Tatoeba-MT-models/"
+                          "itc-itc/opus-2020-07-07.zip"),
+        "translate_token": ">>spa<<",
+        "translate_eos": True,
+        "translate_dir": "translate-ita-spa",
+        "bidix_url": None,                    # sentidos vía Wikcionario (español)
+        "bidix_file": "apertium-spa-ita.dix",
+        "forms_url": None,                    # spaCy it_core_news_sm lematiza
+        "wikdict_url": ("https://kaikki.org/eswiktionary/Italiano/"
+                        "kaikki.org-dictionary-Italiano.jsonl"),
+        "piper_voice": "it/it_IT/paola/medium/it_IT-paola-medium.onnx",
+        "sources": [
+            {"name": "RaiPlay", "kind": "tv", "url": "https://www.raiplay.it/",
+             "note": "Televisión pública italiana"},
+            {"name": "RaiPlay Sound", "kind": "pod",
+             "url": "https://www.raiplaysound.it/",
+             "note": "Radio y podcasts de la RAI"},
+        ],
+        "translate_bases": {
+            "en": {"repo": "gaudi/opus-mt-it-en-ctranslate2",
+                   "dir": "translate-ita-eng", "eos": True},
+        },
+    },
+    "ru": {
+        "name": "Русский",
+        "wordfreq": "ru",
+        "espeak": "ru",
+        "spacy": "ru_core_news_sm",
+        "whisper_models": {"large-v3": "large-v3", "small": "small"},
+        "default_whisper": "large-v3",
+        # No hay OPUS-MT ru→es en CT2 ni zip Marian en Tatoeba (comprobado:
+        # rus-spa/ da 404). Este idioma solo ofrece base inglesa; en cuanto
+        # exista un ru→es se añade aquí y bases() lo recoge solo.
+        "translate_repo": None,
+        "translate_zip": None,
+        "translate_dir": "translate-rus-spa",
+        "bidix_url": None,
+        "bidix_file": "apertium-spa-rus.dix",
+        "forms_url": None,                    # spaCy ru_core_news_sm lematiza
+        "wikdict_url": ("https://kaikki.org/eswiktionary/Ruso/"
+                        "kaikki.org-dictionary-Ruso.jsonl"),
+        "piper_voice": "ru/ru_RU/irina/medium/ru_RU-irina-medium.onnx",
+        "sources": [],
+        "translate_bases": {
+            "en": {"repo": "gaudi/opus-mt-ru-en-ctranslate2",
+                   "dir": "translate-rus-eng", "eos": True},
+        },
+    },
 }
 
 # nombres de los idiomas base para la UI
 BASE_NAMES = {"es": "Español", "en": "English"}
 
 
+def has_spanish_base(code: str) -> bool:
+    """¿Existe traductor de este idioma al español? No todos lo tienen: para
+    el ruso no hay ni CT2 pre-hecho ni zip Marian en Tatoeba."""
+    p = PROFILES.get(code) or {}
+    return bool(p.get("translate_repo") or p.get("translate_zip"))
+
+
 def available(code: str) -> bool:
+    """Activable si tiene traductor a CUALQUIER base, no solo al español."""
     p = PROFILES.get(code)
-    return bool(p and (p.get("translate_repo") or p.get("translate_zip")))
+    return bool(p and (has_spanish_base(code) or p.get("translate_bases")))
 
 
 def activable() -> list[str]:
@@ -186,20 +252,29 @@ def profile() -> dict:
 
 
 def bases(code: str | None = None) -> list[str]:
-    """Idiomas base disponibles para un idioma de estudio (es siempre)."""
-    p = PROFILES.get(code or active_code()) or {}
-    return ["es", *(p.get("translate_bases") or {})]
+    """Idiomas base disponibles para un idioma de estudio.
+
+    El español ya no se da por hecho: un idioma sin traductor →es (el ruso)
+    solo ofrece las bases que declare en translate_bases.
+    """
+    c = code or active_code()
+    p = PROFILES.get(c) or {}
+    out = ["es"] if has_spanish_base(c) else []
+    out += [b for b in (p.get("translate_bases") or {}) if b not in out]
+    return out or ["es"]
 
 
 def base_code() -> str:
     """Idioma base activo (al que se traduce). Si el guardado no está
-    disponible para el idioma de estudio actual, cae a español."""
+    disponible para el idioma de estudio actual, cae a la primera base que
+    sí lo esté — que no siempre es el español."""
     try:
         s = json.loads(config.SETTINGS_PATH.read_text())
         b = s.get("base_language", "es")
     except Exception:
         b = "es"
-    return b if b in bases(active_code()) else "es"
+    avail = bases(active_code())
+    return b if b in avail else avail[0]
 
 
 def translate_spec() -> dict:

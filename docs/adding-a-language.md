@@ -1,0 +1,105 @@
+# Adding a language
+
+Short version: adding a language is mostly one entry in
+[`app/languages.py`](../app/languages.py). Whether that entry can exist at all
+depends on whether five open datasets cover your language, and I can't will
+them into being.
+
+Check yours in one command:
+
+```bash
+.venv/bin/python scripts/check-language.py ru zh bn
+```
+
+## What a language needs
+
+| Piece | What it does | Without it |
+|---|---|---|
+| **Whisper** | transcribes the audio | nothing works, hard stop |
+| **OPUS-MT** translator (→es or →en) | translates the sentence on the card | nothing works, hard stop |
+| **wordfreq** | word frequency | the i+1 recommendation can't tell a word worth learning from a rare one |
+| **spaCy** model | lemma + part of speech | word forms don't group together, and proper nouns get recommended |
+| **Piper** voice | neural pronunciation | no TTS button; everything else fine |
+
+The first two decide whether a language is possible. The next two decide
+whether it arrives complete or crippled.
+
+**Why spaCy matters more than it looks.** The whole point of the
+recommendation is that a word must be unknown, *frequent enough*, and *not a
+proper noun*. Frequency comes from wordfreq, "not a proper noun" comes from
+spaCy's POS tagger. Drop spaCy and you're back to the naive version that
+recommends every name in the show. There's a regex fallback tokenizer, but it
+only splits on spaces and gives no lemma.
+
+**One language where the fallback is fatal.** Chinese doesn't put spaces
+between words. Run the regex tokenizer on 我昨天晚上看了一部很好的电影。 and you
+get a single token, the entire sentence. Chinese only works because
+`zh_core_web_sm` exists and does the segmentation. Bulgarian, by contrast,
+degrades gracefully: the regex splits it fine, you just lose the lemmas.
+
+## Where the requested languages stand
+
+Measured August 2026 with the script above.
+
+| Language | Whisper | →es | →en | wordfreq | spaCy | Verdict |
+|---|---|---|---|---|---|---|
+| Italian | yes | yes | yes | yes | yes | **shipped** |
+| Russian | yes | no | yes | yes | yes | **shipped**, English base only |
+| Chinese | yes | no | yes | yes | yes | possible, English base only |
+| Bulgarian | yes | yes | yes | yes | **no** | possible but no lemmas |
+| Bengali | yes | no | yes | yes | **no** | possible but no lemmas, English base |
+| Telugu | yes | **no** | **no** | **no** | **no** | blocked, no translator |
+| Kazakh | yes | **no** | **no** | **no** | **no** | blocked, no translator |
+
+Telugu and Kazakh aren't a matter of effort. There is no OPUS-MT model for
+either, so there is nothing to translate the sentence with. If one appears, or
+if you know of another offline-capable model, open an issue and I'll look.
+
+For Bulgarian and Bengali the missing piece is a lemmatizer. spaCy has no model
+for either. [Stanza](https://stanfordnlp.github.io/stanza/) covers both and
+would slot in behind the same interface, but it's a second NLP stack to install
+and I haven't done that work.
+
+## Actually adding one
+
+Copy an existing profile in `app/languages.py`. Italian is the good template
+for a Romance language, Russian for one that only has an English base.
+
+```python
+"it": {
+    "name": "Italiano",
+    "wordfreq": "it",
+    "espeak": "it",
+    "spacy": "it_core_news_sm",
+    "whisper_models": {"large-v3": "large-v3", "small": "small"},
+    "default_whisper": "large-v3",
+    "translate_repo": None,
+    "translate_zip": "https://…/itc-itc/opus-2020-07-07.zip",
+    "translate_token": ">>spa<<",
+    "translate_eos": True,
+    "translate_dir": "translate-ita-spa",
+    "piper_voice": "it/it_IT/paola/medium/it_IT-paola-medium.onnx",
+    "translate_bases": {
+        "en": {"repo": "gaudi/opus-mt-it-en-ctranslate2",
+               "dir": "translate-ita-eng", "eos": True},
+    },
+},
+```
+
+Three ways to get a translator, in order of preference:
+
+1. **A prebuilt CTranslate2 model** on Hugging Face → `translate_repo`.
+2. **A Marian zip** from Tatoeba-MT-models → `translate_zip`. It gets converted
+   locally without torch. Multilingual models also need `translate_token`
+   (`>>spa<<`) to pick the target.
+3. Nothing exists → the language can't be added yet.
+
+Italian uses the same multilingual Romance model as Portuguese and just changes
+the target token, so if you already study Portuguese the download is reused.
+
+If a language has no →es translator, leave `translate_repo` and
+`translate_zip` as `None` and declare only `translate_bases`. `bases()` works
+that out on its own and the Spanish option stops being offered.
+
+Finally, add the display name to `static/i18n.js` under `lang.<code>` in all
+three UI languages. `tests/test_i18n.py` fails if you forget one.
