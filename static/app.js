@@ -181,16 +181,9 @@ async function runSearch() {
 }
 
 // ---------- asistente de primer arranque ----------
-const ONB_LABEL = {
-  ffmpeg: ["ffmpeg (recorte de audio/imagen)", "Instala con: brew install ffmpeg"],
-  translator: ["Traductor catalán→español", "Se descarga (~1.5 GB) — pulsa el botón"],
-  dictionary: ["Diccionario de acepciones", "Se descarga con el traductor"],
-  forms: ["Diccionario de formas (lemas)", "Se descarga con el traductor"],
-  spacy: ["Modelo lingüístico spaCy", "Ejecuta install.sh de nuevo si falta"],
-  anki: ["Anki + AnkiConnect (para las tarjetas)", "Abre Anki con el complemento 2055492159; sin él, las tarjetas quedan en cola"],
-  espeak: ["espeak-ng (pronunciación IPA, opcional)", "Opcional: brew install espeak-ng"],
-  tts: ["Voz neural Piper (pronunciación, opcional)", "Se descarga (~20 MB) con el botón"],
-};
+// se resuelve al pintar, no al cargar: si fuera un objeto fijo se quedaría en
+// el idioma que hubiera activo al arrancar
+const onbLabel = (k) => [t("onb." + k), t("onb." + k + "_hint")];
 const ONB_ORDER = ["ffmpeg", "translator", "dictionary", "forms", "spacy", "anki", "tts", "espeak"];
 const ONB_OPTIONAL = new Set(["espeak", "tts"]);
 let ONB_DISMISSED = false;
@@ -208,7 +201,7 @@ async function refreshOnboarding() {
   $("onb-need").hidden = !!s.has_sessions;
   $("onb-checks").innerHTML = ONB_ORDER.map((k) => {
     const ok = s.checks[k];
-    const [label, hint] = ONB_LABEL[k];
+    const [label, hint] = onbLabel(k);
     const dot = ok ? "ok" : (ONB_OPTIONAL.has(k) ? "opt" : "warn");
     return `<li class="${ok ? "ok" : ""}"><span><span class="onb-dot ${dot}"></span>${label}</span>${ok ? "" : `<small>${hint}</small>`}</li>`;
   }).join("");
@@ -402,13 +395,13 @@ async function loadStreamUrl(sid, height) {
   const r = await api(`/api/sessions/${sid}/stream-url?height=${height || 0}`);
   hideProgress();
   if (r.error) { showProgress(1, r.error, true); return; }
-  const t = V.currentTime || 0, playing = !V.paused;
+  const at = V.currentTime || 0, playing = !V.paused;
   STREAM_HEIGHTS = r.is_hls ? [] : (r.heights || []);   // HLS: ABR automático
   STREAM_H = r.height || 0;
   await setVideoSrc(r.url, r.is_hls);
   if (height) {   // cambio de calidad: preservar el punto
     V.addEventListener("loadedmetadata", () => {
-      V.currentTime = t; if (playing) V.play();
+      V.currentTime = at; if (playing) V.play();
     }, { once: true });
   }
   renderQualityMenu();
@@ -1014,8 +1007,8 @@ async function openConj(lemma) {
   $("conj-title").textContent = t("conj.btn") + " — " + lemma;
   $("conj-body").innerHTML = '<p class="dim">…</p>';
   $("conj-view").hidden = false;
-  const t = await api("/api/conjugation?lemma=" + encodeURIComponent(lemma));
-  $("conj-body").innerHTML = renderConjTable(t);
+  const table = await api("/api/conjugation?lemma=" + encodeURIComponent(lemma));
+  $("conj-body").innerHTML = renderConjTable(table);
 }
 
 function renderConjTable(t) {
@@ -1848,8 +1841,8 @@ function updateRecs() {
 
 function nextRec() {
   if (!RECS.length) { toast(t("ts.no_recs"), "err"); return; }
-  const t = V.currentTime;
-  const nxt = RECS.find((i) => SEGS[i].start > t + 0.05) ?? RECS[0];
+  const now = V.currentTime;
+  const nxt = RECS.find((i) => SEGS[i].start > now + 0.05) ?? RECS[0];
   gotoSeg(nxt);
 }
 $("rec-chip").onclick = () => nextRec();

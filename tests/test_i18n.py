@@ -164,3 +164,28 @@ def test_no_untranslated_strings_reaching_the_dom_from_js():
         if "${t(" not in t and _SPANISH.search(t):
             bad.append("toast: " + t[:60])
     assert not bad, "cadenas en español que van al DOM desde app.js:\n  " + "\n  ".join(bad)
+
+
+def test_no_function_shadows_the_translator():
+    """`const t = …` dentro de una función que llama a t("clave") revienta.
+
+    `t` es la función de traducción global. Si una función declara una variable
+    local con ese nombre, cualquier t("…") anterior a la declaración lanza
+    ReferenceError por la zona muerta temporal, y la función entera deja de
+    funcionar. Pasó de verdad: al traducir el aviso "Cargando el video…"
+    dentro de loadStreamUrl, que tenía `const t = V.currentTime`, se rompió el
+    streaming por completo durante tres versiones. Los tests de traducción no
+    lo vieron porque solo miran texto, no ejecutan JS.
+    """
+    js = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+    lines = js.split("\n")
+    starts = [i for i, ln in enumerate(lines)
+              if re.match(r"^(async )?function \w+|^\s*\$\(.*\)\.on\w+ = (async )?\(", ln)]
+    starts.append(len(lines))
+    bad = []
+    for a, b in zip(starts, starts[1:]):
+        body = "\n".join(lines[a:b])
+        if re.search(r"\b(const|let)\s+t\s*=", body) and re.search(r'[^.\w]t\("', body):
+            bad.append(f"línea {a + 1}: {lines[a].strip()[:60]}")
+    assert not bad, ("funciones que declaran `t` local y llaman al traductor:\n  "
+                     + "\n  ".join(bad))
