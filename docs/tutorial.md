@@ -125,6 +125,16 @@ part of speech.
 **If Anki is closed, nothing is lost.** Cards queue up locally and send
 themselves the next time the app sees Anki running.
 
+
+### What lands in Anki
+
+![The card: word, sentence, animated clip, audio, then translations](screenshots/anki-card.gif)
+
+The front has the sentence, an **animated clip** of the moment (not a
+still) and the audio of that line. The back adds the word and sentence
+in your language, the episode and timestamp it came from, and how
+common the word is.
+
 ## 5. Jumping around with the transcript
 
 ![The subtitle browser](tutorial/04-transcript.gif)

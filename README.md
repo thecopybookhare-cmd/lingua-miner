@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/thecopybookhare-cmd/lingua-miner/actions/workflows/ci.yml/badge.svg)](https://github.com/thecopybookhare-cmd/lingua-miner/actions)
 ![license](https://img.shields.io/badge/license-MIT-blue)
-![version](https://img.shields.io/badge/version-1.20.0-8b7cf8)
+![version](https://img.shields.io/badge/version-1.21.0-8b7cf8)
 ![python](https://img.shields.io/badge/python-3.12-3776ab)
 
 **Local, Migaku-style flashcard miner — learn languages from the videos you love.**
@@ -19,6 +19,14 @@ video frame and the translation, ready for Anki.*
 
 **▶️ [Watch the 3-minute walkthrough](https://youtu.be/_Iu7WcnNXAo)** — every
 feature, narrated.
+
+### And this is the card you get
+
+![The Anki card: word, sentence, animated clip, audio, then the translations](docs/screenshots/anki-card.gif)
+
+Front carries the sentence, a short **animated clip** of the moment (not a
+frozen frame) and the sentence audio. Back adds the word and sentence in your
+language, plus where it came from and how common the word is.
 
 ## Features
 

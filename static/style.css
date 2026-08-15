@@ -838,9 +838,20 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 
 /* ---------- móvil (≤ 480px): sin scroll horizontal jamás ---------- */
 @media (max-width: 480px) {
+  /* En una fila, «Abrir archivo» se estiraba a la altura del grupo de URL
+     (que apila input + 2 botones) y salía un cuadrado de 163x137. En columna
+     cada cosa mide lo que le toca. */
+  .new-session { flex-direction: column; gap: 10px; }
+  .filebtn.primary { justify-content: center; }
   .yt { flex-wrap: wrap; min-width: 0; }
   .yt input { min-width: 0; flex-basis: 100%; }
   .yt button { flex: 1; }
+  /* objetivos táctiles: 28x28 es la mitad de lo que recomiendan Apple (44pt)
+     y Google (48dp), y borrar una sesión no se deshace */
+  .scard-del { width: 40px; height: 40px; }
+  .close-btn { min-width: 40px; min-height: 40px; }
+  #stats-btn, #settings-btn { min-width: 42px; min-height: 40px; }
+  button.small { min-height: 40px; }
   main { padding: 18px 14px; }
   header { padding: 10px 14px; }
   .header-right { gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
