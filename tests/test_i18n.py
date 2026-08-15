@@ -183,7 +183,7 @@ def test_no_function_shadows_the_translator():
               if re.match(r"^(async )?function \w+|^\s*\$\(.*\)\.on\w+ = (async )?\(", ln)]
     starts.append(len(lines))
     bad = []
-    for a, b in zip(starts, starts[1:]):
+    for a, b in zip(starts, starts[1:], strict=False):
         body = "\n".join(lines[a:b])
         if re.search(r"\b(const|let)\s+t\s*=", body) and re.search(r'[^.\w]t\("', body):
             bad.append(f"línea {a + 1}: {lines[a].strip()[:60]}")
