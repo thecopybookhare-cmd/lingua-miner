@@ -52,12 +52,56 @@ Measured August 2026 with the script above.
 | Language | Whisper | →es | →en | wordfreq | spaCy | Verdict |
 |---|---|---|---|---|---|---|
 | Italian | yes | yes | yes | yes | yes | **shipped** |
+| Dutch | yes | no | yes | yes | yes | **shipped**, English base only |
 | Russian | yes | no | yes | yes | yes | **shipped**, English base only |
 | Chinese | yes | no | yes | yes | yes | **shipped**, English base only |
+| Cantonese | yes | **no** | **no** | borrows `zh` | borrows `zh` | **shipped** via NLLB, see below |
 | Bulgarian | yes | yes | yes | yes | **no** | possible but no lemmas |
 | Bengali | yes | no | yes | yes | **no** | possible but no lemmas, English base |
 | Telugu | yes | **no** | **no** | **no** | **no** | blocked, no translator |
 | Kazakh | yes | **no** | **no** | **no** | **no** | blocked, no translator |
+
+### Cantonese, and the third way to get a translator
+
+Cantonese has no OPUS-MT model in any direction, which by the rules above
+should have made it impossible. It isn't, because **NLLB-200 covers 200
+languages** including `yue_Hant`, and someone has already converted it to
+CTranslate2. So a profile can declare an NLLB pair instead of an OPUS one:
+
+```python
+"translate_bases": {
+    "en": {"repo": "JustFrederik/nllb-200-distilled-600M-ct2-int8",
+           "dir": "translate-nllb-600m",
+           "nllb": {"src": "yue_Hant", "tgt": "eng_Latn"}},
+},
+```
+
+NLLB is invoked differently from OPUS-MT: the *source* language token goes at
+the start of the input, and the target language is forced as a decoder prefix
+rather than being a single token. `_Engine` handles both.
+
+It's worth being blunt about what Cantonese does and doesn't get:
+
+- **Transcription: good.** There are Whisper models fine-tuned on Cantonese and
+  already converted to CTranslate2. Generic Whisper transcribes Cantonese as if
+  it were Mandarin, so this matters.
+- **Translation: good.** 我尋日睇咗一齣好好睇嘅電影。 comes out as "I saw a really
+  good movie yesterday" — that's real Cantonese vocabulary (尋日, 睇咗, 嘅), not
+  Mandarin.
+- **Segmentation: approximate.** There is no Cantonese spaCy model, so
+  `zh_core_web_sm` does the work and it was trained on Mandarin. It splits 睇咗
+  as one unit instead of verb + perfective particle, and mislabels some parts
+  of speech.
+- **Frequencies: approximate.** wordfreq has no `yue` list. The `zh` one covers
+  traditional characters and even some Cantonese-only words (睇 3.38, 唔 4.10),
+  but those are Chinese-wide numbers, so words that are everyday in spoken
+  Cantonese score lower than they should. Recommendations work; they're just
+  biased.
+- **No TTS.** rhasspy/piper-voices has no Cantonese voice, so `piper_voice` is
+  `None` and the pronunciation button stays quiet.
+
+If a Cantonese spaCy model or a `yue` frequency list ever appears, both are a
+one-line change in the profile.
 
 Telugu and Kazakh aren't a matter of effort. There is no OPUS-MT model for
 either, so there is nothing to translate the sentence with. If one appears, or

@@ -73,10 +73,20 @@ def piper_ok(code: str, cache: dict) -> bool:
     return code in cache["p"]
 
 
-def verdict(w: bool, tr: dict, wf: bool, sp: list[str]) -> str:
+# NLLB-200 cubre 200 idiomas y hay conversión CTranslate2 hecha; se usa cuando
+# OPUS-MT no llega (el cantonés no tiene modelo bilingüe). Códigos en
+# https://github.com/facebookresearch/flores/blob/main/flores200
+NLLB = {"yue": "yue_Hant", "bn": "ben_Beng", "te": "tel_Telu", "kk": "kaz_Cyrl",
+        "bg": "bul_Cyrl", "zh": "zho_Hans", "nl": "nld_Latn"}
+
+
+def verdict(w: bool, tr: dict, wf: bool, sp: list[str], code: str = "") -> str:
     if not w:
         return "NO — Whisper no transcribe este idioma"
     if not any(tr.values()):
+        if code in NLLB:
+            return (f"SIN OPUS-MT, pero NLLB-200 lo cubre como {NLLB[code]} — "
+                    "así se añadió el cantonés (ver translate_bases con clave nllb)")
         return "NO — no hay traductor OPUS-MT ni a español ni a inglés"
     if not wf and not sp:
         return "MUY LIMITADO — sin frecuencia ni lemas: la recomendación i+1 no funciona"
@@ -108,7 +118,7 @@ def main(codes: list[str]) -> int:
         print(f"  wordfreq     {'sí' if wf else 'NO'}")
         print(f"  spaCy        {sp[0] if sp else 'NINGUNO'}")
         print(f"  voz Piper    {'sí' if pv else 'no'} (opcional)")
-        v = verdict(w, tr, wf, sp)
+        v = verdict(w, tr, wf, sp, code)
         print(f"  → {v}")
         worst = max(worst, 0 if v.startswith("SÍ") else 1)
     return worst

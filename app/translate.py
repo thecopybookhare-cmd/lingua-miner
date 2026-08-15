@@ -28,13 +28,17 @@ def _find_sp(model_dir: Path) -> Path:
 
 class _Engine:
     def __init__(self, model_dir: Path, eos: bool = False,
-                 target_token: str | None = None):
+                 target_token: str | None = None, nllb: dict | None = None):
         import ctranslate2
         import sentencepiece as spm
         self.sp = spm.SentencePieceProcessor(model_file=str(_find_sp(model_dir)))
         self.eos = eos                        # OPUS-MT necesita </s> en la fuente
         # modelos multilingües (romance): token de idioma destino al inicio
         self.target_token = target_token
+        # NLLB: para pares que OPUS-MT no cubre (el cantonés no tiene modelo
+        # bilingüe). Marca el idioma de ORIGEN al inicio y fuerza el de destino
+        # como prefijo del decodificador, en vez de un solo token de destino.
+        self.nllb = nllb
         ct2_dir = model_dir
         if not (model_dir / "model.bin").exists():
             cands = list(model_dir.glob("**/model.bin"))
@@ -48,6 +52,15 @@ class _Engine:
         if not text:
             return ""
         toks = self.sp.encode(text, out_type=str)
+        if self.nllb:
+            src, tgt = self.nllb["src"], self.nllb["tgt"]
+            res = self.tr.translate_batch([[src] + toks + ["</s>"]],
+                                          target_prefix=[[tgt]],
+                                          beam_size=4, max_batch_size=1)
+            out = res[0].hypotheses[0]
+            if out and out[0] == tgt:        # el prefijo forzado no es traducción
+                out = out[1:]
+            return detok(out)
         if self.target_token:
             toks = [self.target_token] + toks
         if self.eos:
@@ -123,7 +136,8 @@ def translate(text: str) -> str:
                 download()
             spec = languages.translate_spec()
             _ENGINES[key] = _Engine(model_dir(), eos=bool(spec.get("eos")),
-                                    target_token=spec.get("token"))
+                                    target_token=spec.get("token"),
+                                    nllb=spec.get("nllb"))
             _FAILED_AT.pop(key, None)
         except Exception:
             _ENGINES[key] = None

@@ -138,3 +138,49 @@ def test_wikdict_picks_the_file_that_matches_the_base(tmp_path, monkeypatch):
         p.write_text(f'{{"language": "ca", "base_language": "{base}"}}', encoding="utf-8")
         url = wikdict._url_for(L.active_code(), L.base_code())
         assert url and esperado in url, (base, url)
+
+
+# ---------- neerlandés y cantonés ----------
+
+def test_dutch_is_complete_except_for_the_spanish_base():
+    nl = L.PROFILES["nl"]
+    assert L.bases("nl") == ["en"]        # no hay CT2 nl→es ni zip Tatoeba
+    assert nl["spacy"] == "nl_core_news_sm"
+    assert nl["wordfreq"] == "nl"
+    assert nl["piper_voice"]
+    assert nl["wikdict_url_en"]
+
+
+def test_cantonese_translates_through_nllb_not_opus():
+    """No existe OPUS-MT para el cantonés (yue-eng/ da 404 en Tatoeba). NLLB-200
+    sí lo cubre, y necesita otra forma de invocarse: token de ORIGEN al inicio
+    y el de destino forzado como prefijo del decodificador."""
+    spec = L.PROFILES["yue"]["translate_bases"]["en"]
+    assert "nllb" in spec, "el cantonés debe declarar el par NLLB"
+    assert spec["nllb"] == {"src": "yue_Hant", "tgt": "eng_Latn"}
+    assert L.bases("yue") == ["en"]
+
+
+def test_cantonese_uses_a_cantonese_whisper_model():
+    """Whisper genérico transcribe cantonés como si fuera mandarín."""
+    wm = L.PROFILES["yue"]["whisper_models"]
+    assert L.PROFILES["yue"]["default_whisper"] == "yue-large"
+    assert "cantonese" in wm["yue-large"].lower()
+
+
+def test_cantonese_borrows_chinese_frequencies_on_purpose():
+    """No hay lista cantonesa; se usa la china, que cubre el tradicional y
+    parte del vocabulario cantonés. Es aproximado y está documentado."""
+    yue = L.PROFILES["yue"]
+    assert yue["wordfreq"] == "zh"
+    assert yue.get("spacy_required") is True
+    import wordfreq
+    assert wordfreq.zipf_frequency("睇", "zh") > 0, (
+        "sin frecuencia para vocabulario cantonés la recomendación no prioriza")
+
+
+def test_profiles_without_piper_voice_are_explicit():
+    """piper_voice None es una decisión (no hay voz yue), no un olvido:
+    piper_tts.speak() devuelve '' y la app no se rompe."""
+    for code, p in L.PROFILES.items():
+        assert "piper_voice" in p, f"{code} no declara piper_voice"

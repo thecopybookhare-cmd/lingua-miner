@@ -227,6 +227,43 @@ PROFILES = {
                    "dir": "translate-rus-eng", "eos": True},
         },
     },
+    "nl": {
+        "name": "Nederlands",
+        "wordfreq": "nl",
+        "espeak": "nl",
+        "spacy": "nl_core_news_sm",
+        "whisper_models": {"large-v3": "large-v3", "small": "small"},
+        "default_whisper": "large-v3",
+        # Solo base inglesa: no hay CT2 nl→es pre-hecho ni zip Marian en
+        # Tatoeba (nld-spa/ da 404). El nl→en sí existe convertido.
+        "translate_repo": None,
+        "translate_zip": None,
+        "translate_dir": "translate-nld-spa",
+        "bidix_url": None,
+        "bidix_file": "apertium-spa-nld.dix",
+        "forms_url": None,                    # spaCy nl_core_news_sm lematiza
+        "wikdict_url": ("https://kaikki.org/eswiktionary/Neerland%C3%A9s/"
+                        "kaikki.org-dictionary-Neerland%C3%A9s.jsonl"),
+        # glosas en inglés (Wikcionario EN vía kaikki)
+        "wikdict_url_en": "https://kaikki.org/dictionary/Dutch/kaikki.org-dictionary-Dutch.jsonl",
+        "piper_voice": "nl/nl_NL/mls/medium/nl_NL-mls-medium.onnx",
+        "sources": [
+            {"name": "NPO Start", "kind": "tv", "url": "https://npo.nl/start",
+             "note": "Televisión pública neerlandesa",
+             "note_en": "Dutch public television"},
+            {"name": "VRT MAX", "kind": "tv", "url": "https://www.vrt.be/vrtmax/",
+             "note": "Televisión pública flamenca (Bélgica)",
+             "note_en": "Flemish public television (Belgium)"},
+            {"name": "NPO Radio 1", "kind": "pod",
+             "url": "https://www.nporadio1.nl/podcasts",
+             "note": "Podcasts de la radio pública",
+             "note_en": "Podcasts from Dutch public radio"},
+        ],
+        "translate_bases": {
+            "en": {"repo": "gaudi/opus-mt-nl-en-ctranslate2",
+                   "dir": "translate-nld-eng", "eos": True},
+        },
+    },
     "zh": {
         "name": "中文",
         "wordfreq": "zh",
@@ -260,6 +297,55 @@ PROFILES = {
         "translate_bases": {
             "en": {"repo": "gaudi/opus-mt-zh-en-ctranslate2",
                    "dir": "translate-zho-eng", "eos": True},
+        },
+    },
+    "yue": {
+        "name": "粵語",
+        # No hay lista de frecuencias cantonesa: wordfreq solo trae "zh". Sirve
+        # (el chino cubre el carácter tradicional y hasta palabras propias del
+        # cantonés: 睇 3.38, 唔 4.10) pero son frecuencias de chino en general,
+        # así que subestima lo que en cantonés hablado es cotidiano. La
+        # recomendación funciona, con ese sesgo. Ver docs/adding-a-language.md.
+        "wordfreq": "zh",
+        "espeak": "yue",
+        # zh_core_web_sm segmenta cantonés escrito de forma aproximada: está
+        # entrenado en mandarín. Es lo mejor que hay y sin él no habría nada
+        # que minar, porque el chino no separa palabras con espacios.
+        "spacy": "zh_core_web_sm",
+        "spacy_required": True,
+        # Whisper genérico transcribe cantonés como si fuera mandarín; estos
+        # están afinados para cantonés y ya vienen en CTranslate2.
+        "whisper_models": {
+            "yue-large": "JackyHoCL/whisper-large-v3-turbo-cantonese-yue-english-ct2",
+            "yue-small": "JackyHoCL/whisper-small-cantonese-yue-english-ct2",
+            "large-v3": "large-v3",
+        },
+        "default_whisper": "yue-large",
+        # Ni OPUS-MT ni Tatoeba tienen cantonés (yue-eng/ da 404). NLLB-200 sí
+        # lo cubre como yue_Hant, y hay conversión CTranslate2 hecha.
+        "translate_repo": None,
+        "translate_zip": None,
+        "translate_dir": "translate-yue-spa",
+        "bidix_url": None,
+        "bidix_file": "apertium-spa-yue.dix",
+        "forms_url": None,
+        "wikdict_url": None,
+        "wikdict_url_en": ("https://kaikki.org/dictionary/Cantonese/"
+                           "kaikki.org-dictionary-Cantonese.jsonl"),
+        "piper_voice": None,                  # rhasspy/piper-voices no trae yue
+        "sources": [
+            {"name": "RTHK 香港電台", "kind": "tv", "url": "https://www.rthk.hk/",
+             "note": "Radiotelevisión pública de Hong Kong",
+             "note_en": "Hong Kong public broadcaster"},
+            {"name": "RTHK Podcasts", "kind": "pod",
+             "url": "https://www.rthk.hk/podcast",
+             "note": "Programas de radio en cantonés",
+             "note_en": "Radio shows in Cantonese"},
+        ],
+        "translate_bases": {
+            "en": {"repo": "JustFrederik/nllb-200-distilled-600M-ct2-int8",
+                   "dir": "translate-nllb-600m",
+                   "nllb": {"src": "yue_Hant", "tgt": "eng_Latn"}},
         },
     },
 }
