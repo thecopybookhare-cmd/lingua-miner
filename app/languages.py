@@ -299,6 +299,74 @@ PROFILES = {
                    "dir": "translate-zho-eng", "eos": True},
         },
     },
+    "ja": {
+        "name": "日本語",
+        # wordfreq necesita MeCab para el japonés; sin él devuelve 0 para todo
+        # y la recomendación i+1 se apaga en silencio. De ahí wordfreq[cjk].
+        "wordfreq": "ja",
+        "espeak": "ja",
+        # obligatorio: el japonés tampoco separa palabras con espacios
+        "spacy": "ja_core_news_sm",
+        "spacy_required": True,
+        "whisper_models": {"large-v3": "large-v3", "small": "small"},
+        "default_whisper": "large-v3",
+        "translate_repo": None,           # no hay ja→es en CT2
+        "translate_zip": None,
+        "translate_dir": "translate-jpn-spa",
+        "bidix_url": None,
+        "bidix_file": "apertium-spa-jpn.dix",
+        "forms_url": None,
+        "wikdict_url": None,
+        "wikdict_url_en": ("https://kaikki.org/dictionary/Japanese/"
+                           "kaikki.org-dictionary-Japanese.jsonl"),
+        "piper_voice": None,              # rhasspy/piper-voices no trae ja
+        "sources": [
+            {"name": "NHK", "kind": "tv", "url": "https://www.nhk.or.jp/",
+             "note": "Televisión pública japonesa",
+             "note_en": "Japanese public broadcaster"},
+            {"name": "NHK ラジオ", "kind": "pod",
+             "url": "https://www.nhk.or.jp/radio/",
+             "note": "Radio y podcasts de la NHK",
+             "note_en": "NHK radio and podcasts"},
+        ],
+        "translate_bases": {
+            "en": {"repo": "gaudi/opus-mt-ja-en-ctranslate2",
+                   "dir": "translate-jpn-eng", "eos": True},
+        },
+    },
+    "ko": {
+        "name": "한국어",
+        "wordfreq": "ko",                 # MeCab-ko, vía wordfreq[cjk]
+        # ko_core_news_sm encadena morfemas en el lema (영화+를); el estado de
+        # la palabra se guarda por lema, así que nos quedamos con el primero
+        "lemma_split": "+",
+        "espeak": "ko",
+        "spacy": "ko_core_news_sm",
+        "whisper_models": {"large-v3": "large-v3", "small": "small"},
+        "default_whisper": "large-v3",
+        "translate_repo": None,           # no hay ko→es en CT2
+        "translate_zip": None,
+        "translate_dir": "translate-kor-spa",
+        "bidix_url": None,
+        "bidix_file": "apertium-spa-kor.dix",
+        "forms_url": None,
+        "wikdict_url": None,
+        "wikdict_url_en": ("https://kaikki.org/dictionary/Korean/"
+                           "kaikki.org-dictionary-Korean.jsonl"),
+        "piper_voice": "ko/ko_KR/kss/medium/ko_KR-kss-medium.onnx",
+        "sources": [
+            {"name": "KBS", "kind": "tv", "url": "https://www.kbs.co.kr/",
+             "note": "Televisión pública coreana",
+             "note_en": "Korean public broadcaster"},
+            {"name": "EBS", "kind": "tv", "url": "https://www.ebs.co.kr/",
+             "note": "Cadena educativa pública",
+             "note_en": "Public educational channel"},
+        ],
+        "translate_bases": {
+            "en": {"repo": "gaudi/opus-mt-ko-en-ctranslate2",
+                   "dir": "translate-kor-eng", "eos": True},
+        },
+    },
     "yue": {
         "name": "粵語",
         # No hay lista de frecuencias cantonesa: wordfreq solo trae "zh". Sirve

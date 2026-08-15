@@ -107,7 +107,9 @@ def test_jieba_is_declared_as_a_dependency():
     root = Path(__file__).resolve().parent.parent
     data = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
     deps = " ".join(data["project"]["dependencies"])
-    assert "wordfreq[jieba]" in deps, "wordfreq debe instalarse con el extra jieba"
+    assert "wordfreq[cjk]" in deps, (
+        "wordfreq necesita el extra [cjk]: jieba para el chino y MeCab para el "
+        "japonés y el coreano")
 
 
 # ---------- glosas del Wikcionario según la base ----------
@@ -184,3 +186,46 @@ def test_profiles_without_piper_voice_are_explicit():
     piper_tts.speak() devuelve '' y la app no se rompe."""
     for code, p in L.PROFILES.items():
         assert "piper_voice" in p, f"{code} no declara piper_voice"
+
+
+# ---------- japonés y coreano ----------
+
+def test_japanese_and_korean_need_mecab_not_just_jieba():
+    """wordfreq tokeniza chino con jieba pero japonés y coreano con MeCab. Sin
+    el extra correcto devuelve 0 para todo y apaga la recomendación sin avisar,
+    igual que pasó con el chino."""
+    import wordfreq
+    assert wordfreq.zipf_frequency("映画", "ja") > 4.0, "falta MeCab para el japonés"
+    assert wordfreq.zipf_frequency("영화", "ko") > 4.0, "falta MeCab-ko para el coreano"
+
+
+def test_japanese_requires_spacy_like_chinese():
+    ja = L.PROFILES["ja"]
+    assert ja.get("spacy_required") is True   # tampoco separa con espacios
+    assert L.bases("ja") == ["en"]
+
+
+def test_korean_splits_morpheme_lemmas():
+    """ko_core_news_sm devuelve 영화+를; el estado se guarda por lema, así que
+    la misma palabra con dos partículas contaría como dos palabras."""
+    assert L.PROFILES["ko"]["lemma_split"] == "+"
+    assert L.bases("ko") == ["en"]
+
+
+def test_head_morpheme_only_applies_where_declared(tmp_path, monkeypatch):
+    from app import config, nlp
+    p = tmp_path / "settings.json"
+    monkeypatch.setattr(config, "SETTINGS_PATH", p)
+    p.write_text('{"language": "ko", "base_language": "en"}', encoding="utf-8")
+    assert nlp._head_morpheme("영화+를") == "영화"
+    p.write_text('{"language": "ca", "base_language": "es"}', encoding="utf-8")
+    assert nlp._head_morpheme("a+b") == "a+b", "el catalán no declara lemma_split"
+
+
+def test_zipf_falls_back_to_the_lemma(monkeypatch):
+    """En idiomas aglutinantes la forma conjugada no está en la lista y salía
+    con 0, o sea descartada por rara siendo cotidiana."""
+    from app import nlp
+    monkeypatch.setattr(nlp, "zipf", lambda w: 5.0 if w == "lema" else 0.0)
+    assert nlp._zipf_of("formarara", "lema") == 5.0
+    assert nlp._zipf_of("lema", "lema") == 5.0

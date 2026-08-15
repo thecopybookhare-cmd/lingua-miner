@@ -46,6 +46,22 @@ def _correct(form: str, lemma: str, pos: str) -> tuple[str, str]:
     return cl.lower(), cp or pos
 
 
+def _head_morpheme(lemma: str) -> str:
+    """Primer morfema del lema, para los idiomas cuyo modelo spaCy los encadena.
+
+    El coreano devuelve «영화+를» (nombre + partícula) y «좋+ㄴ». Como el estado
+    de cada palabra se guarda por lema, sin esto la misma palabra con dos
+    partículas distintas contaría como dos palabras diferentes y nunca llegaría
+    a marcarse como conocida.
+    """
+    from . import languages
+    sep = languages.profile().get("lemma_split")
+    if sep and sep in lemma:
+        head = lemma.split(sep, 1)[0].strip()
+        return head or lemma
+    return lemma
+
+
 def _spacy():
     from . import languages
     code = languages.active_code()
@@ -91,6 +107,18 @@ def zipf(word: str) -> float:
                 "sin frecuencias para «%s» (%s): la recomendación i+1 no podrá "
                 "priorizar palabras", lang, e)
         return 0.0
+
+
+def _zipf_of(surface: str, lemma: str) -> float:
+    """Frecuencia de la forma; si no está en la lista, la del lema.
+
+    En coreano «봤어요» no aparece (es una forma conjugada) y salía con 0, o
+    sea, descartada por rara cuando es de lo más común. El lema sí está.
+    """
+    z = zipf(surface)
+    if z <= 0 and lemma and lemma != surface.lower():
+        z = zipf(lemma)
+    return z
 
 
 def naive_tokenize(text: str) -> list[dict]:
@@ -139,9 +167,10 @@ def tokenize(text: str) -> list[dict]:
             # se podría marcar ninguna palabra. La forma superficial es el
             # lema en los idiomas sin flexión, así que es la caída correcta.
             lemma = lemma or tok.text.lower()
+            lemma = _head_morpheme(lemma)
         toks.append({"t": tok.text, "lemma": lemma, "pos": pos,
                      "is_word": is_word,
-                     "zipf": zipf(tok.text) if is_word else 0.0,
+                     "zipf": _zipf_of(tok.text, lemma) if is_word else 0.0,
                      "ws": tok.whitespace_})
     return toks
 

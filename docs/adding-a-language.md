@@ -38,12 +38,21 @@ get a single token, the entire sentence. Chinese only works because
 carries `spacy_required`. Bulgarian, by contrast, degrades gracefully: the
 regex splits it fine, you just lose the lemmas.
 
-**And one where frequency needs an extra.** wordfreq can't tokenize Chinese
-without `jieba`, and it doesn't complain — it just returns 0 for every word,
-which silently switches off the whole i+1 recommendation. That's why the
-project depends on `wordfreq[jieba]` rather than plain `wordfreq`. If you add a
-CJK language, check `zipf_frequency` returns something non-zero before you
-believe it works.
+**And the CJK languages need an extra.** wordfreq can't tokenize Chinese
+without `jieba`, or Japanese and Korean without MeCab, and it doesn't complain
+— it just returns 0 for every word, which silently switches off the whole i+1
+recommendation. That's why the project depends on `wordfreq[cjk]` rather than
+plain `wordfreq`. If you add a CJK language, check `zipf_frequency` returns
+something non-zero before you believe it works. This bit me twice.
+
+**Two more traps that only show up in agglutinative languages.** Korean's spaCy
+model returns lemmas as morpheme chains — 영화를 becomes `영화+를`. Word status
+is stored per lemma, so the same noun with two different particles would count
+as two different words and never get marked known. A profile can declare
+`"lemma_split": "+"` and the head morpheme is used instead. Separately, the
+frequency lookup used the surface form only, so a conjugated form absent from
+the list (봤어요) scored 0 and got treated as rare when it's everyday; it now
+falls back to the lemma.
 
 ## Where the requested languages stand
 
@@ -52,6 +61,8 @@ Measured August 2026 with the script above.
 | Language | Whisper | →es | →en | wordfreq | spaCy | Verdict |
 |---|---|---|---|---|---|---|
 | Italian | yes | yes | yes | yes | yes | **shipped** |
+| Japanese | yes | no | yes | needs MeCab | yes | **shipped**, English base only |
+| Korean | yes | no | yes | needs MeCab | yes | **shipped**, English base only |
 | Dutch | yes | no | yes | yes | yes | **shipped**, English base only |
 | Russian | yes | no | yes | yes | yes | **shipped**, English base only |
 | Chinese | yes | no | yes | yes | yes | **shipped**, English base only |

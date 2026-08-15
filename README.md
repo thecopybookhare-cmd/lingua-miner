@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/thecopybookhare-cmd/lingua-miner/actions/workflows/ci.yml/badge.svg)](https://github.com/thecopybookhare-cmd/lingua-miner/actions)
 ![license](https://img.shields.io/badge/license-MIT-blue)
-![version](https://img.shields.io/badge/version-1.19.0-8b7cf8)
+![version](https://img.shields.io/badge/version-1.20.0-8b7cf8)
 ![python](https://img.shields.io/badge/python-3.12-3776ab)
 
 **Local, Migaku-style flashcard miner — learn languages from the videos you love.**
@@ -27,12 +27,14 @@ feature, narrated.
 - 🖱️ **One-click mining**: click any subtitle word (or drag to select an
   expression) → editable Anki card with segment audio (ffmpeg-trimmed), video
   frame, sentence + translation.
-- 🌍 **Ten languages**: Catalan, French, English, German, European Portuguese,
-  Italian, **Dutch**, Russian, Mandarin Chinese and **Cantonese**. Neural
+- 🌍 **Twelve languages**: Catalan, French, English, German, European
+  Portuguese, Italian, Dutch, Russian, Mandarin Chinese, Cantonese,
+  **Japanese** and **Korean**. Neural
   translation runs offline via CTranslate2 (OPUS-MT, or NLLB-200 for pairs
   OPUS doesn't cover) into **Spanish or English** — pick the base under ⚙️
-  *Settings → Translate to*. Dutch, Russian, Chinese and Cantonese are
-  English-base only, since no →es model exists for them. Each language downloads its own translator, spaCy model, Wiktionary
+  *Settings → Translate to*. Catalan, French, German, Portuguese, Italian and
+  English translate into either; the rest are English-base only, since no →es
+  model exists for them. Each language downloads its own translator, spaCy model, Wiktionary
   glosses and Piper voice on first use.
   [Requesting a language?](docs/adding-a-language.md) — that page lists what
   has to exist and where each candidate currently stands.
@@ -174,7 +176,7 @@ language is mostly adding one entry there.
 ```bash
 uv pip install -p .venv/bin/python -e . --group dev
 .venv/bin/ruff check app/ tests/     # lint
-.venv/bin/python -m pytest tests/    # 179 tests
+.venv/bin/python -m pytest tests/    # 184 tests
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). CI runs lint + tests on
