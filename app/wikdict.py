@@ -13,7 +13,7 @@ from pathlib import Path
 
 import requests
 
-from . import config
+from . import config, failures
 
 _CONS: dict = {}          # (code, base) -> conexión sqlite (o None si falló)
 
@@ -93,7 +93,11 @@ def _con():
             with open(jsonl, encoding="utf-8") as f:
                 build_from_lines(f, dbp)
         _CONS[key] = sqlite3.connect(str(dbp), check_same_thread=False)
-    except Exception:
+    except Exception as e:
+        failures.warn_once(
+            f"wikdict-{key}",
+            f"sin glosas del Wikcionario para {key[0]} (base {key[1]}): el "
+            "popup se quedará sin definiciones", e)
         _CONS[key] = None
     return _CONS[key]
 

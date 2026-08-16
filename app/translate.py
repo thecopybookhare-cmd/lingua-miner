@@ -2,7 +2,7 @@
 import re
 from pathlib import Path
 
-from . import config
+from . import config, failures
 
 _LEAD = re.compile(r"[^\W\d_]+", re.UNICODE)
 
@@ -139,13 +139,19 @@ def translate(text: str) -> str:
                                     target_token=spec.get("token"),
                                     nllb=spec.get("nllb"))
             _FAILED_AT.pop(key, None)
-        except Exception:
+        except Exception as e:
             _ENGINES[key] = None
             _FAILED_AT[key] = time.time()
+            failures.warn_once(
+                f"translate-load-{key}",
+                f"no pude cargar el traductor {key[0]}→{key[1]}; las tarjetas "
+                "saldrán sin traducción", e)
             return ""
     try:
         return _ENGINES[key].translate(text)
-    except Exception:
+    except Exception as e:
+        failures.warn_once(f"translate-run-{key}",
+                           f"el traductor {key[0]}→{key[1]} falló al traducir", e)
         return ""
 
 

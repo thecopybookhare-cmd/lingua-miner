@@ -7,6 +7,8 @@ re-resuelven al abrir la sesión y al minar."""
 import re
 import time
 
+from . import failures
+
 _DIRECT = re.compile(r"\.(mp4|m3u8|webm|mov|m4v)(\?|$)", re.I)
 
 # Abrir una sesión de streaming dispara varias llamadas a yt-dlp seguidas
@@ -134,7 +136,10 @@ def resolve(url: str) -> dict:
         return cached
     try:
         info = _extract(url)
-    except Exception:
+    except Exception as e:
+        failures.warn_once("stream-resolve",
+                           "yt-dlp no pudo resolver un enlace; «Ver online» "
+                           "fallará hasta que se actualice o cambie el sitio", e)
         return {}
     formats = _progressive(info)            # ideal: mp4 progresivo (mejor para ffmpeg)
     is_hls = is_audio = False

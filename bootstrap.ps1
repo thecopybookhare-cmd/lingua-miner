@@ -16,10 +16,24 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 if (Test-Path (Join-Path $Dest ".git")) {
   Write-Host "-- Actualizando copia en $Dest --"
   git -C $Dest pull --ff-only
+  # tolerante como la version de bash: si no se puede actualizar, seguimos
+  if ($LASTEXITCODE -ne 0) { Write-Host "(no pude actualizar; sigo con lo que hay)" }
 } else {
   Write-Host "-- Clonando en $Dest --"
   git clone --depth 1 $Repo $Dest
+  # $ErrorActionPreference no aborta con programas externos: sin esto, un
+  # clone fallido seguia adelante y el error que veia el usuario era otro
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host ""
+    Write-Host "ERROR: no se pudo clonar $Repo" -ForegroundColor Red
+    Write-Host "Comprueba tu conexion, o clona el repo a mano y ejecuta install.ps1"
+    exit 1
+  }
 }
 
+if (-not (Test-Path (Join-Path $Dest "install.ps1"))) {
+  Write-Host "ERROR: $Dest existe pero no contiene LinguaMiner." -ForegroundColor Red
+  exit 1
+}
 Set-Location $Dest
 powershell -ExecutionPolicy Bypass -File .\install.ps1

@@ -18,6 +18,7 @@ from . import (
     db,
     dictionary,
     examples,
+    failures,
     forms,
     ipa,
     jobs,
@@ -661,7 +662,10 @@ def _stream_subs_transcript(r: dict) -> tuple[str, str]:
             return "[]", "none"
         kind = "youtube_auto" if r.get("subs_auto") else "youtube_subs"
         return json.dumps(tokens_for_existing(segs)), kind
-    except Exception:
+    except Exception as e:
+        failures.warn_once("stream-subs",
+                           "no pude traer los subtítulos del propio vídeo; "
+                           "habrá que transcribir con Whisper", e)
         return "[]", "none"
 
 
