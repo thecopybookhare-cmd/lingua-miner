@@ -85,6 +85,7 @@ def test_user_message_stays_clean_and_detail_goes_to_the_report():
 
 def test_health_tells_the_frontend_what_is_degraded(tmp_path):
     from fastapi.testclient import TestClient
+
     import app.main as main
     main.CON = main.db.connect(tmp_path / "t.db")
     c = TestClient(main.app)
