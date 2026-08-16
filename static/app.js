@@ -1487,6 +1487,32 @@ async function saveSettings(partial) {
   applySettings();
 }
 
+// ---------- reportar un problema ----------
+// Nada se manda solo: se prepara el texto, se enseña, y abrir GitHub (donde
+// hay que pulsar "Submit") lo decide el usuario.
+async function buildReport() {
+  const what = $("report-what").value.trim();
+  const r = await api("/api/diagnostics?extra=" + encodeURIComponent(what));
+  if (r.error) { toast(r.error, "err"); return null; }
+  $("report-text").textContent = r.report;
+  $("report-preview").hidden = false;
+  return r;
+}
+$("report-open").onclick = async () => {
+  const r = await buildReport();
+  if (r) window.open(r.issue_url, "_blank", "noopener");
+};
+$("report-copy").onclick = async () => {
+  const r = await buildReport();
+  if (!r) return;
+  try {
+    await navigator.clipboard.writeText(r.report);
+    toast(t("ts.report_copied"), "ok");
+  } catch {
+    toast(t("ts.report_manual"), "err");
+  }
+};
+
 function renderKeyEditor() {
   const km = SETTINGS?.keymap || DEFAULT_KEYMAP;
   $("set-keys").innerHTML = ACTIONS.map((a) =>

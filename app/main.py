@@ -7,7 +7,7 @@ import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -330,6 +330,19 @@ def _setup_checks() -> dict:
         "tts": piper_tts.is_downloaded(),
         "anki": anki.is_up(_settings().get("anki_port")),
     }
+
+
+@app.get("/api/diagnostics")
+def diagnostics_report(request: Request, extra: str = ""):
+    """Informe para reportar un problema. NO se envía nada: devuelve el texto
+    y la URL de GitHub con el issue redactado, para que el usuario lo lea,
+    lo edite si quiere y decida él si lo manda."""
+    if not _is_local_client(request):
+        return JSONResponse({"error": "solo desde el equipo anfitrión"},
+                            status_code=403)
+    from . import diagnostics
+    return {"report": diagnostics.report(extra),
+            "issue_url": diagnostics.issue_url(extra)}
 
 
 @app.get("/api/setup-status")

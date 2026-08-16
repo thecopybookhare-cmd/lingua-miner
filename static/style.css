@@ -887,3 +887,15 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .src-card .ic { grid-row: span 2; color: var(--vio); width: 19px; height: 19px; }
 .src-name { font-family: var(--display); font-weight: 600; font-size: 14px; }
 .src-note { font-size: 12px; line-height: 1.35; }
+
+/* Reportar un problema: el campo de "qué pasó" necesita sitio para una frase
+   entera, y la vista previa se lee mejor con scroll propio. */
+#report-what { flex: 1; min-width: 260px; background: var(--panel2); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px;
+  font: inherit; font-size: 14px; }
+#report-what:focus { outline: none; border-color: var(--vio); }
+#report-preview { margin-top: 10px; }
+#report-preview summary { cursor: pointer; color: var(--dim); font-size: 13.5px; }
+#report-text { background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px; font-size: 12px; line-height: 1.5; color: #b9bccb;
+  max-height: 40vh; overflow: auto; white-space: pre-wrap; margin-top: 8px; }

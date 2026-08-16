@@ -1,0 +1,43 @@
+name: Bug report
+description: Something doesn't work
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Shortcut:** the app can fill most of this in for you.
+        Open ⚙️ → *Report a problem* → **Open on GitHub**, and it arrives with
+        your version, your system and the last lines of the log already
+        written. Nothing is sent until you press Submit — you can read and edit
+        it first.
+
+        If the app won't even open, its error screen has the same button.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got instead.
+      placeholder: |
+        I clicked Transcribe on a 40-minute video and the progress bar never moved.
+    validations:
+      required: true
+
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment and log
+      description: >
+        Paste what the app's report gave you. If you can't open the app, paste
+        the last lines of desktop.log — the error screen shows where it lives.
+      render: text
+    validations:
+      required: false
+
+  - type: input
+    id: language
+    attributes:
+      label: Language you were studying
+      placeholder: Japanese → English
+    validations:
+      required: false

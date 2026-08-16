@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>LinguaMiner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="icon" href="/favicon.png?v=1.21.2">
+<link rel="icon" href="/favicon.png?v=1.22.0">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#0c0d13">
@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="LinguaMiner">
-<link rel="stylesheet" href="/style.css?v=1.21.2">
+<link rel="stylesheet" href="/style.css?v=1.22.0">
 </head>
 <body>
 <!-- sprite de iconos (estilo Lucide: 24×24, trazo 2, sin relleno) -->
@@ -303,6 +303,21 @@
         </span>
       </div>
     </section>
+    <section id="report-section">
+      <h3 data-i18n="set.sec_report">Reportar un problema</h3>
+      <p class="dim" data-i18n="set.report_desc">Prepara un informe con la versión, tu sistema y las últimas líneas del registro, y abre GitHub con todo escrito. Nada se envía solo: lo lees, lo editas si quieres y decides tú si lo mandas.</p>
+      <div class="set-row">
+        <input id="report-what" type="text" placeholder="¿Qué pasó? (opcional)" data-i18n-ph="set.report_ph">
+        <span>
+          <button id="report-copy" class="small" data-i18n="set.report_copy">Copiar informe</button>
+          <button id="report-open" class="small primary" data-i18n="set.report_open">Abrir en GitHub</button>
+        </span>
+      </div>
+      <details id="report-preview" hidden>
+        <summary data-i18n="set.report_preview">Ver lo que se va a enviar</summary>
+        <pre id="report-text"></pre>
+      </details>
+    </section>
     <section id="share-section">
       <h3 data-i18n="set.sec_share">Compartir con amigos</h3>
       <p class="dim" data-i18n="set.share_desc">Sirve la app a tu red local o a tu <b>Tailscale</b> para que un amigo (o tu móvil) la use en el navegador. Solo mientras esté activo — nada se expone hasta que lo enciendes.</p>
@@ -445,7 +460,7 @@
     });
   }
 </script>
-<script src="/i18n.js?v=1.21.2"></script>
-<script src="/app.js?v=1.21.2"></script>
+<script src="/i18n.js?v=1.22.0"></script>
+<script src="/app.js?v=1.22.0"></script>
 </body>
 </html>

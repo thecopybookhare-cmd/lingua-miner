@@ -27,7 +27,11 @@ if sys.platform == "darwin":
 def _setup_logging():
     """La app empaquetada no tiene terminal — stdout/stderr van a /dev/null.
     Sin esto, cualquier excepción del servidor es indiagnosticable."""
-    handler = logging.FileHandler(str(LOG_PATH))
+    # rotación: el log llevaba ~95.000 líneas de accesos y crecía para
+    # siempre. 1 MB × 2 basta para diagnosticar y no se come el disco.
+    from logging.handlers import RotatingFileHandler
+    handler = RotatingFileHandler(str(LOG_PATH), maxBytes=1_000_000,
+                                  backupCount=2, encoding="utf-8")
     handler.setFormatter(logging.Formatter(
         "%(asctime)s %(levelname)s %(name)s: %(message)s"))
     root = logging.getLogger()
@@ -111,6 +115,18 @@ def _error_html(port_busy: bool) -> str:
     else:
         causa = "The LinguaMiner server didn't start."
         arreglo = "This is usually a missing dependency from the install step."
+    # El servidor está caído, así que el informe se arma aquí mismo. Si hasta
+    # diagnostics falla (import roto), se degrada a pedir el log a mano.
+    try:
+        from . import diagnostics
+        url = diagnostics.issue_url("The app opened but the window was empty.",
+                                    title="Bug: app doesn't start")
+        boton = (f'<a class="btn" href="{_html.escape(url)}">Report this on GitHub</a>'
+                 "  <span class=\"s\">— opens your browser with the report already "
+                 "written. Nothing is sent until you press Submit there.</span>")
+    except Exception:                                # noqa: BLE001
+        boton = ("If you open an issue, pasting the lines below is the single "
+                 "most useful thing you can include.")
     return f"""<!doctype html><meta charset="utf-8">
 <style>
  body {{ background:#0c0d13; color:#e9e9f2; margin:0; padding:44px 40px;
@@ -122,13 +138,15 @@ def _error_html(port_busy: bool) -> str:
         padding:14px; font-size:12.5px; overflow:auto; max-height:44vh;
         white-space:pre-wrap; color:#b9bccb; }}
  .b {{ color:#e5a04c; }}
+ .btn {{ display:inline-block; background:#8b7cf8; color:#14102b; font-weight:600;
+        padding:9px 16px; border-radius:12px; text-decoration:none; }}
+ .s {{ font-size:13.5px; color:#8f93a8; }}
 </style>
 <h1>LinguaMiner couldn't start</h1>
 <p class="b">{causa}</p>
 <p>{arreglo} The full log is at:</p>
 <p><code>{_html.escape(str(LOG_PATH))}</code></p>
-<p>If you open an issue, pasting the lines below is the single most useful
-thing you can include.</p>
+<p>{boton}</p>
 <pre>{_html.escape(_tail_log())}</pre>
 """
 
