@@ -36,7 +36,24 @@ print("diccionario:", "ok" if dictionary.load().lookup("gos") else "ERROR")
 print("formas:", "ok" if forms.lookup("ets") else "ERROR")
 PY
 
-# 5) lanzador
+# 5) comprobación de arranque
+# Si la app no puede ni importarse, la ventana de escritorio salía en blanco y
+# el usuario no tenía forma de saber por qué. Mejor fallar aquí, con el error
+# delante, que en el primer doble clic.
+echo "-- Comprobando que la app arranca --"
+if ! .venv/bin/python -c "from app.main import app" 2>/tmp/linguaminer-smoke.log; then
+  echo
+  echo "ERROR: la instalación terminó pero la app no arranca."
+  echo "Esto es lo que falló:"
+  echo
+  sed 's/^/    /' /tmp/linguaminer-smoke.log
+  echo
+  echo "Copia esas líneas en https://github.com/thecopybookhare-cmd/lingua-miner/issues"
+  exit 1
+fi
+echo "   ok"
+
+# 6) lanzador
 if [ "$(uname)" = "Darwin" ]; then
   ./make-app.sh || echo "AVISO: no se pudo crear LinguaMiner.app"
   echo

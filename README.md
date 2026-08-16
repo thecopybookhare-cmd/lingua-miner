@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/thecopybookhare-cmd/lingua-miner/actions/workflows/ci.yml/badge.svg)](https://github.com/thecopybookhare-cmd/lingua-miner/actions)
 ![license](https://img.shields.io/badge/license-MIT-blue)
-![version](https://img.shields.io/badge/version-1.21.0-8b7cf8)
+![version](https://img.shields.io/badge/version-1.21.1-8b7cf8)
 ![python](https://img.shields.io/badge/python-3.12-3776ab)
 
 **Local, Migaku-style flashcard miner — learn languages from the videos you love.**
@@ -159,6 +159,7 @@ playback · `G` subtitle browser · `P` auto-pause · `F` fullscreen ·
 
 | Problem | Fix |
 |---|---|
+| Blank white window on launch | The app now tells you what failed instead of showing an empty window. If you still get one, you are on an old version — update, and check `desktop.log` in your app data folder |
 | "Anki closed" badge | Open Anki with AnkiConnect installed; the queue sends itself |
 | Video won't play | `.mkv` files are remuxed to mp4 automatically on import |
 | Empty translations | Run `./install.sh` again (downloads the translator) |
@@ -184,7 +185,7 @@ language is mostly adding one entry there.
 ```bash
 uv pip install -p .venv/bin/python -e . --group dev
 .venv/bin/ruff check app/ tests/     # lint
-.venv/bin/python -m pytest tests/    # 184 tests
+.venv/bin/python -m pytest tests/    # 190 tests
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). CI runs lint + tests on
