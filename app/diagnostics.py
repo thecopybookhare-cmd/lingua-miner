@@ -75,6 +75,11 @@ def _log_tail(n: int = 40) -> str:
     return out
 
 
+def _degraded() -> list[str]:
+    from . import failures
+    return failures.details()
+
+
 def report(extra: str = "") -> str:
     """Informe en texto plano, listo para pegar en un issue."""
     from . import languages
@@ -94,6 +99,8 @@ def report(extra: str = "") -> str:
         "",
         *_packages(),
         "```\n",
+        *(["### Degraded right now\n", "```",
+           *_degraded(), "```\n"] if _degraded() else []),
         "### Log (last 40 lines)\n",
         "```",
         _log_tail(),

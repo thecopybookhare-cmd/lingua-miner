@@ -67,3 +67,35 @@ def test_the_warning_reaches_the_diagnostics_report():
     from app import diagnostics
     linea = "2026-01-01 WARNING degradado: no pude cargar el traductor ca→es"
     assert diagnostics._interesting(linea) is True
+
+
+# ---------- lo degradado tiene que llegar al usuario ----------
+
+def test_user_message_stays_clean_and_detail_goes_to_the_report():
+    """Volcar la excepción cruda en la interfaz da avisos de seis líneas:
+    yt-dlp mete el traceback entero dentro del mensaje."""
+    failures.warn_once("s", "«Ver online» no funciona",
+                       RuntimeError("ERROR: [generic] blah " + "x" * 400))
+    visible = failures.active()
+    assert visible == ["«Ver online» no funciona"]
+    assert len(visible[0]) < 60, "el aviso de la interfaz debe caber en una línea"
+    detalle = failures.details()[0]
+    assert "RuntimeError" in detalle and "x" * 50 in detalle
+
+
+def test_health_tells_the_frontend_what_is_degraded(tmp_path):
+    from fastapi.testclient import TestClient
+    import app.main as main
+    main.CON = main.db.connect(tmp_path / "t.db")
+    c = TestClient(main.app)
+    assert c.get("/api/health").json()["degraded"] == []
+    failures.warn_once("x", "el traductor no carga")
+    assert c.get("/api/health").json()["degraded"] == ["el traductor no carga"]
+
+
+def test_the_report_includes_the_degraded_section():
+    from app import diagnostics
+    failures.warn_once("y", "sin glosas", ValueError("db corrupta"))
+    r = diagnostics.report()
+    assert "### Degraded right now" in r
+    assert "sin glosas" in r and "db corrupta" in r

@@ -311,7 +311,10 @@ def _fmt_ts(secs: float) -> str:
 @app.get("/api/health")
 def health():
     return {"ok": True, "anki": anki.is_up(),
-            "translator": translate.is_downloaded()}
+            "translator": translate.is_downloaded(),
+            # lo que está degradado ahora mismo: el frontend lo enseña para
+            # que el usuario sepa que no es normal y pueda reportarlo
+            "degraded": failures.active()}
 
 
 def _setup_checks() -> dict:

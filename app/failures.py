@@ -13,7 +13,10 @@ jieba y el hilo del servidor muriendo sin dejar rastro.
 """
 import logging
 
-_SEEN: set[str] = set()
+# clave -> (mensaje para el usuario, detalle técnico). Separados a propósito:
+# volcar la excepción cruda en la interfaz da avisos de seis líneas ilegibles
+# (yt-dlp suelta el traceback entero dentro del mensaje).
+_SEEN: dict[str, tuple[str, str]] = {}
 
 
 def warn_once(key: str, msg: str, exc: BaseException | None = None) -> None:
@@ -24,12 +27,25 @@ def warn_once(key: str, msg: str, exc: BaseException | None = None) -> None:
     """
     if key in _SEEN:
         return
-    _SEEN.add(key)
-    log = logging.getLogger("degradado")
-    if exc is None:
-        log.warning("%s", msg)
-    else:
-        log.warning("%s (%s: %s)", msg, type(exc).__name__, exc)
+    detalle = "" if exc is None else f"{type(exc).__name__}: {exc}"
+    _SEEN[key] = (msg, detalle)
+    logging.getLogger("degradado").warning(
+        "%s", msg if not detalle else f"{msg} ({detalle})")
+
+
+def active() -> list[str]:
+    """Lo que va degradado, en cristiano y sin la excepción.
+
+    El log lo mira quien ya sabe que hay un problema. Esto es para que la app
+    lo DIGA: si el traductor está roto, el usuario ve las tarjetas vacías y
+    supone que es normal. Nadie reporta lo que cree normal.
+    """
+    return [msg for msg, _ in _SEEN.values()]
+
+
+def details() -> list[str]:
+    """Con la excepción: para el informe de diagnóstico, no para la interfaz."""
+    return [f"{msg} ({det})" if det else msg for msg, det in _SEEN.values()]
 
 
 def reset() -> None:

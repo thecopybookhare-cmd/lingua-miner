@@ -899,3 +899,18 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 #report-text { background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
   padding: 12px; font-size: 12px; line-height: 1.5; color: #b9bccb;
   max-height: 40vh; overflow: auto; white-space: pre-wrap; margin-top: 8px; }
+
+/* Aviso de degradación: visible pero sin gritar. Va bajo la cabecera, ámbar
+   (no rojo: la app sigue funcionando, solo peor). */
+#degraded {
+  display: flex; align-items: center; gap: 10px;
+  max-width: 960px; margin: 12px auto 0; padding: 10px 14px;
+  background: #3d2d09; border: 1px solid #5c4715; border-radius: 12px;
+  color: #e5cba4; font-size: 14px;
+}
+#degraded .ic { width: 16px; height: 16px; flex-shrink: 0; stroke: var(--amber); }
+#degraded-msg { flex: 1; min-width: 0; }
+#degraded button { padding: 5px 11px; font-size: 13px; }
+#degraded-report { background: var(--amber); color: #2a1d05; border-color: transparent; }
+#degraded-report:hover { background: #f0b263; }
+@media (max-width: 700px) { #degraded { margin: 10px 14px 0; flex-wrap: wrap; } }

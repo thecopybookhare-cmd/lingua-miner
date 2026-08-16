@@ -39,7 +39,31 @@ async function refreshAnki() {
   else if (s.reason === "squatted") { b.textContent = q + t("anki.squatted"); b.className = "badge err"; }
   else { b.textContent = q + t("anki.closed"); b.className = s.pending > 0 ? "badge pending" : "badge"; }
   b.dataset.reason = s.reason || "";
+  refreshDegraded();
 }
+
+// Avisar de lo que va roto. Sin esto, alguien con el traductor caído ve las
+// tarjetas sin traducción y asume que la app es así — y nadie reporta lo que
+// cree normal.
+let DEG_HIDDEN = false;
+async function refreshDegraded() {
+  if (DEG_HIDDEN) return;
+  const h = await api("/api/health").catch(() => null);
+  const list = h?.degraded || [];
+  const box = $("degraded");
+  box.hidden = !list.length;
+  if (!list.length) return;
+  $("degraded-msg").textContent = list.length === 1
+    ? list[0] : t("deg.several", list.length);
+  box.title = list.join("\n");
+}
+$("degraded-hide").onclick = () => { DEG_HIDDEN = true; $("degraded").hidden = true; };
+$("degraded-report").onclick = async () => {
+  const h = await api("/api/health").catch(() => null);
+  const what = (h?.degraded || []).join("; ");
+  const r = await api("/api/diagnostics?extra=" + encodeURIComponent(what));
+  if (r?.issue_url) window.open(r.issue_url, "_blank", "noopener");
+};
 $("anki-badge").onclick = () => {
   const reason = $("anki-badge").dataset.reason;
   $("port-msg").textContent = reason === "squatted"
