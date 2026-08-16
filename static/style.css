@@ -914,3 +914,8 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 #degraded-report { background: var(--amber); color: #2a1d05; border-color: transparent; }
 #degraded-report:hover { background: #f0b263; }
 @media (max-width: 700px) { #degraded { margin: 10px 14px 0; flex-wrap: wrap; } }
+
+/* Llamada a probar el ejemplo: solo con la biblioteca vacía */
+#sample-cta { display: flex; flex-direction: column; align-items: center;
+  gap: 10px; text-align: center; padding: 24px 10px 6px; }
+#sample-cta small { max-width: 460px; line-height: 1.5; }

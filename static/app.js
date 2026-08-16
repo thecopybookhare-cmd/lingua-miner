@@ -59,6 +59,18 @@ async function refreshDegraded() {
 }
 // Importar el vocabulario que ya sabes desde otra herramienta. Sin esto, quien
 // viene de Migaku con 8000 palabras ve su primer vídeo rojo entero.
+// Probar el bucle sin buscar contenido ni esperar a Whisper.
+$("sample-btn").onclick = async () => {
+  const b = $("sample-btn");
+  b.disabled = true;
+  toast(t("sample.building"), "ok");
+  const r = await api("/api/sessions/sample", { method: "POST" }).catch(() => null);
+  b.disabled = false;
+  if (!r || r.error) { toast(r?.error || t("sample.err"), "err"); return; }
+  await loadSessions();
+  openSession(r.session_id);
+};
+
 $("seed-file").onchange = async (e) => {
   const f = e.target.files[0];
   if (!f) return;
@@ -167,6 +179,9 @@ async function loadSessions() {
     };
   }
   $("library-empty").hidden = list.length > 0;
+  // el ejemplo solo tiene sentido con la biblioteca vacía, y solo donde hay
+  // frases validadas para ese idioma
+  $("sample-cta").hidden = !($("library-empty").hidden === false && SETTINGS?.has_sample);
   $("lib-search-sec").hidden = list.length === 0;
   refreshOnboarding();
 }

@@ -26,6 +26,7 @@ from . import (
     media,
     nlp,
     piper_tts,
+    sample,
     share,
     stream,
     subs,
@@ -119,6 +120,7 @@ _ADMIN_POSTS = {
     "/api/settings", "/api/anki/deck", "/api/anki/port",
     "/api/setup/download", "/api/words/import", "/api/words/import-list",
     "/api/sessions/upload", "/api/sessions/youtube", "/api/sessions/stream",
+    "/api/sessions/sample",
     "/api/update/apply", "/api/words/seed-anki",
 }
 
@@ -1309,6 +1311,34 @@ def words_export():
                  "attachment; filename=linguaminer-paraules.json"})
 
 
+@app.post("/api/sessions/sample")
+def create_sample():
+    """Sesión de ejemplo, generada al vuelo y ya transcrita.
+
+    Un usuario nuevo tiene que buscar contenido y esperar minutos a Whisper
+    antes de ver una tarjeta. Esto le da el bucle completo en treinta segundos.
+    """
+    code = _lang()
+    if not sample.available(code):
+        return JSONResponse(
+            {"error": f"todavía no hay ejemplo para «{code}»"}, status_code=400)
+    r = sample.build_safe(code)
+    if not r:
+        return JSONResponse(
+            {"error": "no pude generar el ejemplo (¿falta la voz neural?)"},
+            status_code=500)
+    from .transcribe import tokens_for_existing
+    sid = db.create_session(
+        # sin language la sesión nace etiquetada "ca" por defecto y la
+        # biblioteca, que filtra por idioma, no la enseña nunca
+        CON, language=code,
+        title=f"{languages.PROFILES[code]['name']} — sample",
+        source_type="local", media_path=r["path"], srt_source="sample",
+        model_size="-", duration_secs=r["duration"],
+        transcript_json=json.dumps(tokens_for_existing(r["segments"])))
+    return {"session_id": sid}
+
+
 @app.post("/api/words/import-list")
 async def words_import_list(file: UploadFile = File(...)):
     """Sembrar vocabulario desde la exportación de otra herramienta.
@@ -1435,6 +1465,8 @@ def _settings_payload() -> dict:
     # fuentes públicas recomendadas del idioma activo (descubrir contenido sin
     # tener que saberse las URLs de memoria)
     s["sources"] = list(prof.get("sources") or [])
+    # el botón de «probar con un ejemplo» solo donde hay frases validadas
+    s["has_sample"] = sample.available(languages.active_code())
     return s
 
 
