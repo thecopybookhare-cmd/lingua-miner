@@ -123,6 +123,27 @@ for either. [Stanza](https://stanfordnlp.github.io/stanza/) covers both and
 would slot in behind the same interface, but it's a second NLP stack to install
 and I haven't done that work.
 
+### A voice existing isn't the same as a voice working
+
+Japanese has a Piper voice (`ja_JA-hi_fi_captain`) and it still ships with TTS
+switched off. The voice declares `phoneme_type: "japanese"`, which needs
+piper >= 1.7 **and** the `pyopenjtalk-plus` phonemizer. That package publishes
+wheels for Windows, Linux and Intel macOS, but **not for Apple Silicon** — so
+adding it as a dependency would force a C++ build on most Macs sold today and
+break installation for everyone, in every language, to give one language a
+pronunciation button.
+
+If you're on Windows, Linux or an Intel Mac and want it, this is enough:
+
+```bash
+.venv/bin/python -m pip install 'piper-tts[ja]>=1.7'
+```
+
+then set `piper_voice` in the `ja` profile. The download is 77 MB. Check that
+`piper_tts.speak("こんにちは")` returns a filename before believing it works:
+the voice downloads fine and fails at synthesis, which looks identical to
+having no voice at all.
+
 ## Actually adding one
 
 Copy an existing profile in `app/languages.py`. Italian is the good template

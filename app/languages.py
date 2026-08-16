@@ -319,6 +319,12 @@ PROFILES = {
         "wikdict_url": None,
         "wikdict_url_en": ("https://kaikki.org/dictionary/Japanese/"
                            "kaikki.org-dictionary-Japanese.jsonl"),
+        # Sin voz, y no por falta de modelo: existe ja_JA-hi_fi_captain, pero usa
+        # phoneme_type "japanese", que necesita piper>=1.7 MÁS el fonemizador
+        # pyopenjtalk-plus. Ese paquete no publica rueda para macOS Apple
+        # Silicon, así que añadirlo obligaría a compilar C++ en la mayoría de
+        # los Mac de hoy y reventaría la instalación para todos. Ver
+        # docs/adding-a-language.md.
         "piper_voice": None,              # rhasspy/piper-voices no trae ja
         "sources": [
             {"name": "NHK", "kind": "tv", "url": "https://www.nhk.or.jp/",
