@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/thecopybookhare-cmd/lingua-miner/actions/workflows/ci.yml/badge.svg)](https://github.com/thecopybookhare-cmd/lingua-miner/actions)
 ![license](https://img.shields.io/badge/license-MIT-blue)
-![version](https://img.shields.io/badge/version-1.24.0-8b7cf8)
+![version](https://img.shields.io/badge/version-1.25.0-8b7cf8)
 ![python](https://img.shields.io/badge/python-3.12-3776ab)
 
 **Local, Migaku-style flashcard miner — learn languages from the videos you love.**
@@ -53,9 +53,11 @@ language, plus where it came from and how common the word is.
   unknown *and* frequent enough to be worth your time *and* not a proper noun —
   the frequency floor follows your vocabulary level, so you get the words that
   pay off, not every name you happen not to recognise.
-- 🌱 **Seed from your Anki decks**: already studying this language? Point
-  LinguaMiner at one of your decks and it marks those words as known — it never
-  overwrites a status you set yourself.
+- 🌱 **Bring the vocabulary you already have**: coming from Migaku, jpdb,
+  LingQ or an Anki deck? Upload their export (txt, csv, tsv or json) or point
+  at a deck, and those words start out known instead of red. It never
+  overwrites a status you set yourself, and words the export marks as
+  *learning* or *new* stay that way.
 - 📺 **Watch online**: paste a YouTube / direct / HLS link and it streams
   instantly (yt-dlp resolves the best format); cards cut audio + image
   straight from the stream. Quality selector included.
@@ -190,7 +192,7 @@ language is mostly adding one entry there.
 ```bash
 uv pip install -p .venv/bin/python -e . --group dev
 .venv/bin/ruff check app/ tests/     # lint
-.venv/bin/python -m pytest tests/    # 218 tests
+.venv/bin/python -m pytest tests/    # 241 tests
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). CI runs lint + tests on

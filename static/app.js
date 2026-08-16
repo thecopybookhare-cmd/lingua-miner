@@ -57,6 +57,23 @@ async function refreshDegraded() {
     ? list[0] : t("deg.several", list.length);
   box.title = list.join("\n");
 }
+// Importar el vocabulario que ya sabes desde otra herramienta. Sin esto, quien
+// viene de Migaku con 8000 palabras ve su primer vídeo rojo entero.
+$("seed-file").onchange = async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  e.target.value = "";
+  const st = $("seedfile-status");
+  st.textContent = t("seedfile.working");
+  const fd = new FormData();
+  fd.append("file", f);
+  const r = await fetch("/api/words/import-list", { method: "POST", body: fd })
+    .then((x) => x.json()).catch(() => null);
+  if (!r || r.error) { st.textContent = r?.error || t("seedfile.err"); return; }
+  st.textContent = t("seedfile.done", r.marked, r.read, r.skipped);
+  toast(t("seedfile.done", r.marked, r.read, r.skipped), "ok");
+};
+
 $("degraded-hide").onclick = () => { DEG_HIDDEN = true; $("degraded").hidden = true; };
 $("degraded-report").onclick = async () => {
   const h = await api("/api/health").catch(() => null);

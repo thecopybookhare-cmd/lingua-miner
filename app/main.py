@@ -34,6 +34,7 @@ from . import (
     userdict,
     vocab,
     wikdict,
+    wordlist,
 )
 
 
@@ -116,7 +117,7 @@ _ADMIN_POSTS = {
     "/api/userdict/import", "/api/userdict/remove",
     "/api/share/start", "/api/share/stop",
     "/api/settings", "/api/anki/deck", "/api/anki/port",
-    "/api/setup/download", "/api/words/import",
+    "/api/setup/download", "/api/words/import", "/api/words/import-list",
     "/api/sessions/upload", "/api/sessions/youtube", "/api/sessions/stream",
     "/api/update/apply", "/api/words/seed-anki",
 }
@@ -1306,6 +1307,31 @@ def words_export():
          "statuses": db.word_statuses(CON, _lang())},
         headers={"Content-Disposition":
                  "attachment; filename=linguaminer-paraules.json"})
+
+
+@app.post("/api/words/import-list")
+async def words_import_list(file: UploadFile = File(...)):
+    """Sembrar vocabulario desde la exportación de otra herramienta.
+
+    Quien viene de Migaku, jpdb o LingQ ya sabe miles de palabras; sin esto el
+    primer vídeo le sale rojo entero y la recomendación no le sirve. Acepta
+    txt, csv, tsv y json — ver app/wordlist.py sobre por qué es un lector
+    tolerante y no un soporte por formato.
+    """
+    raw = await file.read()
+    if len(raw) > 20 * 1024 * 1024:
+        return JSONResponse({"error": "archivo demasiado grande (máx. 20 MB)"},
+                            status_code=400)
+    try:
+        words = wordlist.parse(raw)
+    except Exception as e:                            # noqa: BLE001
+        return JSONResponse({"error": f"no pude leer el archivo: {e}"},
+                            status_code=400)
+    if not words:
+        return JSONResponse(
+            {"error": "no encontré ninguna palabra en el archivo"},
+            status_code=400)
+    return vocab.seed_words(CON, words, _lang())
 
 
 class ImportReq(BaseModel):
