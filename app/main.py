@@ -30,6 +30,7 @@ from . import (
     share,
     stream,
     subs,
+    textimport,
     translate,
     tts,
     userdict,
@@ -120,6 +121,7 @@ _ADMIN_POSTS = {
     "/api/settings", "/api/anki/deck", "/api/anki/port",
     "/api/setup/download", "/api/words/import", "/api/words/import-list",
     "/api/sessions/upload", "/api/sessions/youtube", "/api/sessions/stream",
+    "/api/sessions/text",
     "/api/sessions/sample",
     "/api/update/apply", "/api/words/seed-anki",
 }
@@ -592,6 +594,41 @@ def search(q: str):
         if len(results) >= 40:
             break
     return {"results": results}
+
+
+@app.post("/api/sessions/text")
+async def upload_text(file: UploadFile = File(...)):
+    """Importa un libro o artículo (.txt, .epub) como sesión de lectura.
+
+    Reutiliza toda la maquinaria de subtítulos: las frases van al mismo formato
+    de segmentos, así que el tokenizado, los estados de palabra, la
+    recomendación i+1 y las tarjetas funcionan sin una segunda ruta.
+    """
+    nombre = Path(file.filename or "texto").name or "texto"
+    if not nombre.lower().endswith((".txt", ".epub")):
+        return JSONResponse({"error": "solo .txt o .epub"}, status_code=400)
+    dest = config.DL_DIR / (uuid.uuid4().hex[:6] + "-" + nombre)
+    with dest.open("wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    def work(jid):
+        from .transcribe import tokens_for_existing
+        jobs.set_progress(jid, 0.2, "Leyendo el texto…")
+        crudo = textimport.read_text(dest)
+        jobs.set_progress(jid, 0.45, "Partiendo en frases…")
+        segs = textimport.to_segments(crudo)
+        if not segs:
+            raise ValueError("el archivo no tiene texto legible")
+        jobs.set_progress(jid, 0.7, f"Analizando {len(segs)} frases…")
+        sid = db.create_session(
+            CON, language=languages.active_code(),
+            title=textimport.title_from(dest, crudo),
+            source_type="text", media_path=str(dest), srt_source="text",
+            model_size="-", duration_secs=float(len(segs)),
+            transcript_json=json.dumps(tokens_for_existing(segs)))
+        return {"session_id": sid, "sentences": len(segs)}
+
+    return {"job_id": jobs.start(work, label="text")}
 
 
 @app.post("/api/sessions/upload")
