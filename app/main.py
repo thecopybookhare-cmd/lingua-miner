@@ -622,7 +622,9 @@ async def upload_text(file: UploadFile = File(...)):
         jobs.set_progress(jid, 0.7, f"Analizando {len(segs)} frases…")
         sid = db.create_session(
             CON, language=languages.active_code(),
-            title=textimport.title_from(dest, crudo),
+            # el nombre real, no el del temporal: dest lleva un prefijo
+            # aleatorio para no pisar archivos y salía en la biblioteca
+            title=textimport.title_from(dest, crudo, nombre),
             source_type="text", media_path=str(dest), srt_source="text",
             model_size="-", duration_secs=float(len(segs)),
             transcript_json=json.dumps(tokens_for_existing(segs)))

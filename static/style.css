@@ -919,3 +919,42 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 #sample-cta { display: flex; flex-direction: column; align-items: center;
   gap: 10px; text-align: center; padding: 24px 10px 6px; }
 #sample-cta small { max-width: 460px; line-height: 1.5; }
+
+/* ---------- lector de texto ---------- */
+/* Los colores de palabra son los MISMOS que en el subtítulo (.t / .st-* /
+   .rec-w1 / .rec-w2): el lector solo aporta la maquetación de página. */
+#reader { max-width: 820px; margin: 0 auto; padding: 18px 22px 30px; }
+#reader-top { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+#reader-top .spacer { flex: 1; }
+#reader-title { font-family: var(--display); font-weight: 600; font-size: 14.5px;
+  color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 46%; }
+#reader-pos { font-size: 13px; min-width: 62px; text-align: center; }
+#reader-top button.small { padding: 7px 10px; }
+#reader-top button:disabled { opacity: .35; cursor: default; }
+#reader-top button:disabled:hover { border-color: var(--line); background: var(--panel2); }
+
+#reader-page {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+  padding: 30px 34px; min-height: 52vh;
+  /* medida de lectura: 66 caracteres es lo cómodo para leer seguido */
+  font-size: 19px; line-height: 1.85;
+}
+.rd-p { margin: 0 0 18px; }
+.rd-p:last-child { margin-bottom: 0; }
+/* la frase es solo el ancla para minar: no rompe el flujo del párrafo */
+.rd-s { display: inline; }
+/* la palabra del lector es la misma que la del subtítulo, con algo más de aire
+   porque aquí se lee, no se ojea */
+#reader-page .t { padding: 1px 2px; border-radius: 4px; }
+
+#reader-foot { margin-top: 14px; }
+#reader-bar { height: 4px; background: var(--panel2); border-radius: 999px; overflow: hidden; }
+#reader-fill { display: block; height: 100%; background: var(--vio);
+  border-radius: 999px; transition: width .2s ease; }
+
+@media (max-width: 640px) {
+  #reader { padding: 12px 14px 24px; }
+  #reader-page { padding: 20px 18px; font-size: 17.5px; line-height: 1.8; }
+  #reader-title { max-width: 34%; }
+}

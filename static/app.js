@@ -376,7 +376,16 @@ async function openSession(sid, opts = {}) {
   SEGS.forEach((seg, i) => {
     if (seg.text_es && (seg.es_b || "es") === base) ES_CACHE[i] = seg.text_es;
   });
-  $("home").hidden = true; $("player").hidden = false;
+  // las sesiones de texto no tienen vídeo: van al lector, no al reproductor
+  if (s.source_type === "text") {
+    $("home").hidden = true; $("player").hidden = true; $("reader").hidden = false;
+    $("reader-title").textContent = s.title || "";
+    READ_PAGE = Math.floor((s.resume_pos || 0) / READ_PER_PAGE);
+    if (opts.seg != null) READ_PAGE = Math.floor(opts.seg / READ_PER_PAGE);
+    renderReader();
+    return;
+  }
+  $("home").hidden = true; $("player").hidden = false; $("reader").hidden = true;
   STALLS = [];
   if (s.source_type === "stream") {
     await loadStreamUrl(sid, 0);        // URL fresca (las de yt-dlp caducan)
@@ -783,6 +792,10 @@ function renderSegs() {
 }
 
 function renderOverlay() {
+  // Con una sesión de texto no hay subtítulo que pintar: lo que hay que
+  // repintar es la página. Se delega aquí y no en cada sitio que llama,
+  // porque son tres y era fácil olvidarse de uno.
+  if (!$("reader").hidden) { renderReader(); return; }
   const ca = $("overlay-ca");
   if (CUR < 0 || !SEGS[CUR]) { ca.innerHTML = ""; $("overlay-es").textContent = ""; return; }
   const long = SEGS[CUR].text.length > 140;
@@ -1873,6 +1886,87 @@ $("level-dlg").addEventListener("close", async () => {
     renderSegs(); renderOverlay(); updateComp();
   }
 });
+
+// ---------- lector (sesiones de texto) ----------
+// Reutiliza tokenHtml() y bindTokenEvents() del reproductor: mismos colores,
+// mismo popup, misma recomendación i+1. Lo único propio es paginar.
+const READ_PER_PAGE = 12;         // frases por página, ~una pantalla cómoda
+let READ_PAGE = 0;
+
+function readerPages() {
+  return Math.max(1, Math.ceil(SEGS.length / READ_PER_PAGE));
+}
+
+function renderReader() {
+  const total = readerPages();
+  READ_PAGE = Math.min(Math.max(0, READ_PAGE), total - 1);
+  const desde = READ_PAGE * READ_PER_PAGE;
+  const frases = SEGS.slice(desde, desde + READ_PER_PAGE);
+  // Las frases del mismo párrafo van seguidas dentro de un <p>: si cada una
+  // ocupa su línea, esto se lee como una lista de subtítulos y no como un
+  // libro. Cada frase mantiene su propio <span> para poder minarla.
+  let html = "", parAbierto = null;
+  frases.forEach((seg, k) => {
+    const np = seg.para ?? (desde + k);
+    if (np !== parAbierto) {
+      if (parAbierto !== null) html += "</p>";
+      html += '<p class="rd-p">';
+      parAbierto = np;
+    }
+    html += `<span class="rd-s" data-i="${desde + k}">${tokenHtml(seg)}</span> `;
+  });
+  if (parAbierto !== null) html += "</p>";
+  $("reader-page").innerHTML = html;
+  for (const fr of $("reader-page").querySelectorAll(".rd-s")) {
+    bindTokenEvents(fr, Number(fr.dataset.i));
+  }
+  $("reader-pos").textContent = `${READ_PAGE + 1} / ${total}`;
+  $("reader-fill").style.width = ((READ_PAGE + 1) / total * 100) + "%";
+  $("reader-prev").disabled = READ_PAGE === 0;
+  $("reader-next").disabled = READ_PAGE >= total - 1;
+  $("reader-page").scrollTop = 0;
+  updateComp();
+  saveReadPos(desde);
+}
+
+// saveResume() vive del elemento <video>, que aquí no existe. La posición del
+// lector es el índice de la primera frase de la página: encaja con resume_pos
+// porque los segmentos de texto llevan el índice como "tiempo".
+function saveReadPos(idx) {
+  if (!SESSION) return;
+  api("/api/sessions/" + SESSION.id + "/position",
+      { method: "POST", body: JSON.stringify({ pos: idx }) }).catch(() => {});
+}
+
+function readerGo(delta) {
+  const antes = READ_PAGE;
+  READ_PAGE += delta;
+  renderReader();
+  if (READ_PAGE !== antes) $("word-pop").hidden = true;
+}
+
+$("text-input").onchange = async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const fd = new FormData();
+  fd.append("file", f);
+  const r = await uploadWithProgress("/api/sessions/text", fd).catch(() => null);
+  e.target.value = "";
+  if (!r?.job_id) return;
+  const res = await pollJob(r.job_id, t("hero.text"));
+  if (res?.session_id) {
+    toast(t("rd.imported", res.sentences), "ok");
+    openSession(res.session_id);
+  }
+};
+
+$("reader-prev").onclick = () => readerGo(-1);
+$("reader-next").onclick = () => readerGo(1);
+$("reader-back").onclick = () => {
+  $("reader").hidden = true; $("home").hidden = false;
+  SESSION = null; loadSessions();
+};
+
 
 // ---------- recomendadas i+1 ----------
 // frase óptima para minar = exactamente 1 lema desconocido (estilo Migaku)

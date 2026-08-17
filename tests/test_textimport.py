@@ -172,3 +172,11 @@ def test_an_empty_file_fails_with_a_message(tmp_path):
 def test_text_import_is_admin_only():
     """Un invitado del modo compartir estudia, no mete archivos."""
     assert "/api/sessions/text" in main._ADMIN_POSTS
+
+
+def test_title_drops_the_random_prefix(tmp_path):
+    """El archivo en disco lleva un prefijo aleatorio para no pisar otros; ese
+    prefijo salía en la biblioteca ("969f93-libro")."""
+    p = tmp_path / "969f93-El nom de la rosa.txt"
+    p.write_text("Text.", encoding="utf-8")
+    assert T.title_from(p, "", "El nom de la rosa.txt") == "El nom de la rosa"

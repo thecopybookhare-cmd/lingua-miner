@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>LinguaMiner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="icon" href="/favicon.png?v=1.26.0">
+<link rel="icon" href="/favicon.png?v=1.27.0">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#0c0d13">
@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="LinguaMiner">
-<link rel="stylesheet" href="/style.css?v=1.26.0">
+<link rel="stylesheet" href="/style.css?v=1.27.0">
 </head>
 <body>
 <!-- sprite de iconos (estilo Lucide: 24×24, trazo 2, sin relleno) -->
@@ -39,6 +39,8 @@
   <symbol id="i-share" viewBox="0 0 24 24"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"/></symbol>
   <symbol id="i-captions" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M7 12h2M13 12h4M7 15.5h4M15 15.5h2"/></symbol>
   <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M18 14h.01M9 14h6"/></symbol>
+  <symbol id="i-chevron-l" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></symbol>
+  <symbol id="i-chevron-r" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></symbol>
   <symbol id="i-wave" viewBox="0 0 24 24"><path d="M2 12h2l2-7 3 14 3-10 2 6 2-3h6"/></symbol>
 </svg>
 <header>
@@ -66,6 +68,9 @@
     <div class="new-session">
       <label class="filebtn primary"><svg class="ic"><use href="#i-folder"/></svg><span data-i18n="hero.open">Abrir archivo</span>
         <input type="file" id="file-input" accept="video/*,audio/*,.mkv,.srt,.vtt">
+      </label>
+      <label class="filebtn"><svg class="ic"><use href="#i-book"/></svg><span data-i18n="hero.text">Abrir libro</span>
+        <input type="file" id="text-input" accept=".txt,.epub,text/plain,application/epub+zip">
       </label>
       <div class="yt">
         <input type="url" id="yt-url" placeholder="URL de YouTube o enlace directo (.mp4, .m3u8)…" data-i18n-ph="hero.url_ph">
@@ -118,6 +123,21 @@
   </p>
   <p id="library-empty" class="dim" hidden data-i18n="lib.empty">Tu biblioteca está vacía. Abre un archivo, o pega un enlace de <b>YouTube / 3cat</b> y pulsa <b>Ver online</b> para empezar.</p>
   </section>
+</main>
+
+<main id="reader" hidden>
+  <div id="reader-top">
+    <button id="reader-back" data-i18n="pl.back">← Biblioteca</button>
+    <span id="reader-title" class="dim"></span>
+    <span class="spacer"></span>
+    <button id="reader-prev" class="small" data-i18n-title="rd.prev" title="Página anterior (A / ←)"><svg class="ic"><use href="#i-chevron-l"/></svg></button>
+    <span id="reader-pos" class="dim"></span>
+    <button id="reader-next" class="small" data-i18n-title="rd.next" title="Página siguiente (D / →)"><svg class="ic"><use href="#i-chevron-r"/></svg></button>
+  </div>
+  <article id="reader-page"></article>
+  <div id="reader-foot">
+    <div id="reader-bar"><i id="reader-fill"></i></div>
+  </div>
 </main>
 
 <main id="player" hidden>
@@ -478,7 +498,7 @@
     });
   }
 </script>
-<script src="/i18n.js?v=1.26.0"></script>
-<script src="/app.js?v=1.26.0"></script>
+<script src="/i18n.js?v=1.27.0"></script>
+<script src="/app.js?v=1.27.0"></script>
 </body>
 </html>

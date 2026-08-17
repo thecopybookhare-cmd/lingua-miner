@@ -117,13 +117,18 @@ def read_text(path: Path) -> str:
 
 
 def split_sentences(text: str) -> list[str]:
-    """Frases, respetando los párrafos.
+    """Solo las frases, sin la marca de párrafo. Ver `split_paragraphs`."""
+    return [f for f, _ in split_paragraphs(text)]
 
-    Se corta primero por párrafo: sin eso, un salto de línea en medio de un
-    diálogo pega dos frases que no van juntas.
+
+def split_paragraphs(text: str) -> list[tuple[str, int]]:
+    """(frase, nº de párrafo).
+
+    El párrafo importa para que el lector se lea como un libro: sin él, cada
+    frase cae en su propia línea y lo que sale es una lista de subtítulos.
     """
-    fuera: list[str] = []
-    for parrafo in re.split(r"\n\s*\n+", text):
+    fuera: list[tuple[str, int]] = []
+    for np, parrafo in enumerate(re.split(r"\n\s*\n+", text)):
         parrafo = " ".join(parrafo.split())
         if not parrafo:
             continue
@@ -134,10 +139,10 @@ def split_sentences(text: str) -> list[str]:
             acum += trozo
             # "J. R. R." no termina frase: la inicial suelta sigue abierta
             if acum.strip() and not _INICIAL.search(acum):
-                fuera.append(acum.strip())
+                fuera.append((acum.strip(), np))
                 acum = ""
         if acum.strip():
-            fuera.append(acum.strip())
+            fuera.append((acum.strip(), np))
     return fuera
 
 
@@ -147,13 +152,18 @@ def to_segments(text: str) -> list[dict]:
     `start`/`end` llevan el índice, no un tiempo: mantiene el orden y el
     indexado que ya usa todo el código sin inventar una segunda ruta.
     """
-    frases = split_sentences(text[:MAX_CHARS])
-    return [{"start": float(i), "end": float(i + 1), "text": f, "text_es": ""}
-            for i, f in enumerate(frases)]
+    frases = split_paragraphs(text[:MAX_CHARS])
+    return [{"start": float(i), "end": float(i + 1), "text": f, "text_es": "",
+             "para": np}
+            for i, (f, np) in enumerate(frases)]
 
 
-def title_from(path: Path, text: str) -> str:
-    """Título del libro: el del epub si lo trae, si no el nombre del archivo."""
+def title_from(path: Path, text: str, original: str | None = None) -> str:
+    """Título del libro: el del epub si lo trae, si no el nombre del archivo.
+
+    `original` es el nombre que subió el usuario: el archivo en disco lleva un
+    prefijo aleatorio para no pisar otros, y ese prefijo no debe verse.
+    """
     if path.suffix.lower() == ".epub":
         try:
             with zipfile.ZipFile(path) as z:
@@ -166,4 +176,4 @@ def title_from(path: Path, text: str) -> str:
         except Exception:
             pass
     del text
-    return path.stem[:120]
+    return Path(original or path.name).stem[:120]
