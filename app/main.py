@@ -1060,6 +1060,13 @@ def _build_preview(s: dict, segment_index: int, selection: str,
                    offset: float = 0.0) -> dict:
     segs = json.loads(s["transcript_json"])
     seg = segs[segment_index]
+
+    # Un libro no tiene de dónde cortar audio ni sacar un fotograma: sin esta
+    # rama se lanzaban tres ffmpeg contra un .txt, fallaban los tres y la
+    # tarjeta salía muda. La voz la pone Piper, que ya está para pronunciar.
+    if s.get("source_type") == "text":
+        return _text_preview(s, segs, segment_index, selection, pad_before, pad_after)
+
     start = max(0.0, segs[max(0, segment_index - pad_before)]["start"] + offset)
     end = max(0.0, segs[min(len(segs) - 1, segment_index + pad_after)]["end"] + offset)
     mid = max(0.0, (seg["start"] + seg["end"]) / 2 + offset)
@@ -1144,6 +1151,45 @@ def _build_preview(s: dict, segment_index: int, selection: str,
         "image_file": image_name if image_ok else "",
         "clip_file": clip_name if clip_ok else "",
         "font": f"{s['title']} @ {_fmt_ts(seg['start'])}",
+    }
+
+
+def _text_preview(s: dict, segs: list, idx: int, selection: str,
+                  pad_before: int = 0, pad_after: int = 0) -> dict:
+    """Tarjeta desde un libro: frase, traducción y voz neural. Sin imagen.
+
+    Los ⏪+ / +⏩ del editor siguen valiendo — amplían la frase con la anterior
+    o la siguiente, que es lo mismo que hacen en vídeo con el audio.
+    """
+    desde = max(0, idx - pad_before)
+    hasta = min(len(segs) - 1, idx + pad_after)
+    frase = " ".join(x["text"] for x in segs[desde:hasta + 1])
+
+    audio_name = ""
+    try:
+        audio_name = piper_tts.speak(frase)
+    except Exception as e:                              # noqa: BLE001
+        failures.warn_once("text-tts", "sin voz para las tarjetas de texto", e)
+
+    lemma, pos = nlp.analyze_selection(selection, frase)
+    z = nlp.zipf(selection)
+    senses = _senses(selection, lemma) if languages.spanish_sources_active() else []
+    frase_es = translate.sentence(frase)
+    word_es = _word_es(selection, lemma)
+    return {
+        "paraula": selection,
+        "lema": lemma, "pos": pos,
+        "paraula_es": word_es,
+        "senses": [{"es": es, "pos": p} for es, p in senses[:8]],
+        "active": _active_sense(senses[:8], frase_es, word_es),
+        "frase": frase,
+        "frase_es": frase_es,
+        "freq_zipf": z, "freq_rank": nlp.freq_badge(z),
+        "audio_file": audio_name,
+        "image_file": "",
+        "clip_file": "",
+        # en un libro el "@ 07:16" no significa nada: va el número de frase
+        "font": f"{s['title']} · {idx + 1}/{len(segs)}",
     }
 
 

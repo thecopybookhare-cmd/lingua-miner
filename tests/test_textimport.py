@@ -180,3 +180,65 @@ def test_title_drops_the_random_prefix(tmp_path):
     p = tmp_path / "969f93-El nom de la rosa.txt"
     p.write_text("Text.", encoding="utf-8")
     assert T.title_from(p, "", "El nom de la rosa.txt") == "El nom de la rosa"
+
+
+# ---------- tarjetas desde un libro ----------
+
+def test_card_from_a_book_has_no_video_and_does_not_call_ffmpeg(tmp_path, monkeypatch):
+    """Sin la rama de texto se lanzaban tres ffmpeg contra un .txt: fallaban
+    los tres y la tarjeta salía muda."""
+    c = client(tmp_path)
+    llamadas = []
+    for fn in ("cut_audio", "snapshot", "animated_clip"):
+        monkeypatch.setattr(main.media, fn,
+                            lambda *a, _f=fn, **k: llamadas.append(_f))
+    monkeypatch.setattr(main.piper_tts, "speak", lambda txt: "piper-x.wav")
+    monkeypatch.setattr(main.translate, "sentence", lambda t: "EN:" + t)
+    monkeypatch.setattr(main.translate, "translate", lambda t: "EN:" + t)
+
+    data = b"El gos corre. Fa fred avui."
+    r = c.post("/api/sessions/text",
+               files={"file": ("l.txt", io.BytesIO(data), "text/plain")}).json()
+    sid = _wait(r["job_id"])["result"]["session_id"]
+
+    p = c.post("/api/cards/preview", json={
+        "session_id": sid, "segment_index": 0, "selection": "gos"}).json()
+    assert llamadas == [], f"no debería tocar ffmpeg: {llamadas}"
+    assert p["audio_file"] == "piper-x.wav", "la voz la pone Piper"
+    assert p["image_file"] == "" and p["clip_file"] == ""
+    assert p["frase"] == "El gos corre."
+    # el "@ 07:16" de un vídeo no significa nada en un libro
+    assert "1/2" in p["font"]
+
+
+def test_padding_extends_the_sentence_in_a_book(tmp_path, monkeypatch):
+    """⏪+ / +⏩ en vídeo amplían el audio; en texto, la frase."""
+    c = client(tmp_path)
+    monkeypatch.setattr(main.piper_tts, "speak", lambda txt: "a.wav")
+    monkeypatch.setattr(main.translate, "sentence", lambda t: "")
+    monkeypatch.setattr(main.translate, "translate", lambda t: "")
+    data = b"Una. Dos. Tres."
+    r = c.post("/api/sessions/text",
+               files={"file": ("l.txt", io.BytesIO(data), "text/plain")}).json()
+    sid = _wait(r["job_id"])["result"]["session_id"]
+    p = c.post("/api/cards/preview", json={
+        "session_id": sid, "segment_index": 1, "selection": "Dos",
+        "pad_before": 1, "pad_after": 1}).json()
+    assert p["frase"] == "Una. Dos. Tres."
+
+
+def test_a_book_card_survives_a_missing_voice(tmp_path, monkeypatch):
+    """El cantonés y el japonés no tienen voz Piper: la tarjeta sale igual,
+    sin audio, en vez de romperse."""
+    c = client(tmp_path)
+    monkeypatch.setattr(main.piper_tts, "speak", lambda txt: "")
+    monkeypatch.setattr(main.translate, "sentence", lambda t: "")
+    monkeypatch.setattr(main.translate, "translate", lambda t: "")
+    data = b"Una frase."
+    r = c.post("/api/sessions/text",
+               files={"file": ("l.txt", io.BytesIO(data), "text/plain")}).json()
+    sid = _wait(r["job_id"])["result"]["session_id"]
+    p = c.post("/api/cards/preview", json={
+        "session_id": sid, "segment_index": 0, "selection": "frase"}).json()
+    assert p["audio_file"] == ""
+    assert p["frase"] == "Una frase."

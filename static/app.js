@@ -1242,8 +1242,16 @@ async function mine(segIndex, selection, padB = 0, padA = 0, extra = {}) {
     `<span class="sense" data-es="${esc(s.es)}">${esc(s.es)} <small>${esc(s.pos)}</small></span>`).join("");
   for (const sp of $("senses").children)
     sp.onclick = () => { $("c-paraula-es").value = sp.dataset.es; };
-  $("c-audio").src = p.audio_file ? "/media/" + p.audio_file : "";
-  $("c-image").src = CARD.image_file ? "/media/" + CARD.image_file : "";
+  // Un src="" deja el icono de imagen rota (y en algún navegador vuelve a
+  // pedir la página). Las tarjetas de libro no llevan imagen, así que el
+  // elemento se esconde en vez de quedarse vacío.
+  const conAudio = !!p.audio_file, conImagen = !!CARD.image_file;
+  $("c-audio").hidden = !conAudio;
+  $("c-image").hidden = !conImagen;
+  if (conAudio) $("c-audio").src = "/media/" + p.audio_file;
+  else $("c-audio").removeAttribute("src");
+  if (conImagen) $("c-image").src = "/media/" + CARD.image_file;
+  else $("c-image").removeAttribute("src");
   $("card-panel").hidden = false;
   if (p.audio_file) $("c-audio").play().catch(() => {});
 }
