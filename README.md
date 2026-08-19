@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/thecopybookhare-cmd/lingua-miner/actions/workflows/ci.yml/badge.svg)](https://github.com/thecopybookhare-cmd/lingua-miner/actions)
 ![license](https://img.shields.io/badge/license-MIT-blue)
-![version](https://img.shields.io/badge/version-1.28.0-8b7cf8)
+![version](https://img.shields.io/badge/version-1.29.0-8b7cf8)
 ![python](https://img.shields.io/badge/python-3.12-3776ab)
 
 **Local, Migaku-style flashcard miner — learn languages from the videos you love.**
@@ -61,6 +61,13 @@ language, plus where it came from and how common the word is.
 - 📺 **Watch online**: paste a YouTube / direct / HLS link and it streams
   instantly (yt-dlp resolves the best format); cards cut audio + image
   straight from the stream. Quality selector included.
+- 📖 **Read books and articles too**: import a `.txt` or `.epub` and it
+  becomes a reading session with the same clickable words, the same popup and
+  the same i+1 highlighting — a LingQ-style reader that sends cards to Anki
+  with the sentence read aloud by Piper. Pages remember where you left off,
+  **sentence mode** puts one sentence in front of you with its audio, and
+  turning the page can mark whatever you didn't touch as known — off by
+  default, always telling you how many, always undoable.
 - 🎧 **Condensed audio**: export an MP3 with *only* the dialogue of an
   episode (a 50-min show becomes ~20 min) for passive listening on your
   phone — the immersion-method staple.
@@ -192,7 +199,7 @@ language is mostly adding one entry there.
 ```bash
 uv pip install -p .venv/bin/python -e . --group dev
 .venv/bin/ruff check app/ tests/     # lint
-.venv/bin/python -m pytest tests/    # 269 tests
+.venv/bin/python -m pytest tests/    # 301 tests
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). CI runs lint + tests on

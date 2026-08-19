@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>LinguaMiner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="icon" href="/favicon.png?v=1.28.0">
+<link rel="icon" href="/favicon.png?v=1.29.0">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#0c0d13">
@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="LinguaMiner">
-<link rel="stylesheet" href="/style.css?v=1.28.0">
+<link rel="stylesheet" href="/style.css?v=1.29.0">
 </head>
 <body>
 <!-- sprite de iconos (estilo Lucide: 24×24, trazo 2, sin relleno) -->
@@ -130,6 +130,8 @@
     <button id="reader-back" data-i18n="pl.back">← Biblioteca</button>
     <span id="reader-title" class="dim"></span>
     <span class="spacer"></span>
+    <button id="reader-say" class="small" hidden data-i18n-title="rd.say" title="Escuchar la frase (S / ↓)"><svg class="ic"><use href="#i-volume"/></svg></button>
+    <button id="reader-mode" class="small" data-i18n-title="rd.mode" title="Frase a frase"><svg class="ic"><use href="#i-speech"/></svg></button>
     <button id="reader-prev" class="small" data-i18n-title="rd.prev" title="Página anterior (A / ←)"><svg class="ic"><use href="#i-chevron-l"/></svg></button>
     <span id="reader-pos" class="dim"></span>
     <button id="reader-next" class="small" data-i18n-title="rd.next" title="Página siguiente (D / →)"><svg class="ic"><use href="#i-chevron-r"/></svg></button>
@@ -137,6 +139,9 @@
   <article id="reader-page"></article>
   <div id="reader-foot">
     <div id="reader-bar"><i id="reader-fill"></i></div>
+    <label id="reader-auto" data-i18n-title="rd.auto_tip" title="Al pasar de página, lo que no marcaste pasa a conocido. Siempre te dice cuántas y puedes deshacerlo.">
+      <input type="checkbox" id="reader-auto-cb"><span data-i18n="rd.auto">Al pasar de página, marcar el resto como conocido</span>
+    </label>
   </div>
 </main>
 
@@ -274,7 +279,6 @@
         </div>
       </div>
 
-      <div id="toast" hidden></div>
     </div>
     <aside id="side-panel" hidden>
       <div id="panel-tabs">
@@ -290,6 +294,10 @@
     </aside>
   </div>
 </main>
+
+<!-- fuera de <main>: los avisos tienen que verse igual en el reproductor,
+     en el lector y en la biblioteca -->
+<div id="toast" hidden></div>
 
 <div id="settings-view" class="modal-view" hidden>
   <div id="settings-box" class="modal-box">
@@ -498,7 +506,7 @@
     });
   }
 </script>
-<script src="/i18n.js?v=1.28.0"></script>
-<script src="/app.js?v=1.28.0"></script>
+<script src="/i18n.js?v=1.29.0"></script>
+<script src="/app.js?v=1.29.0"></script>
 </body>
 </html>

@@ -949,6 +949,20 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 #reader-page .t { padding: 1px 2px; border-radius: 4px; }
 
 #reader-foot { margin-top: 14px; }
+/* el interruptor de "marcar el resto al pasar de página" vive donde se usa,
+   no enterrado en ajustes: es una decisión sobre tu propio recuento */
+#reader-auto { display: flex; align-items: center; gap: 8px; cursor: pointer;
+  margin-top: 10px; font-size: 12.5px; color: var(--dim); }
+#reader-auto:hover { color: var(--fg); }
+#reader-auto input { accent-color: var(--vio); cursor: pointer; }
+/* modo frase: la frase sola, grande y centrada, sin nada que la rodee */
+#reader-page.one { display: flex; align-items: center; min-height: 52vh; }
+.rd-one { font-size: 26px; line-height: 1.7; text-align: center; width: 100%;
+  margin: 0; }
+@media (max-width: 640px) { .rd-one { font-size: 21px; } }
+#reader-mode.on { border-color: var(--vio); color: var(--fg); }
+.toast-do { margin-left: 12px; padding: 4px 11px; font-size: 12.5px;
+  border-radius: 999px; }
 #reader-bar { height: 4px; background: var(--panel2); border-radius: 999px; overflow: hidden; }
 #reader-fill { display: block; height: 100%; background: var(--vio);
   border-radius: 999px; transition: width .2s ease; }

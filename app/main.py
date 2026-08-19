@@ -278,6 +278,9 @@ DEFAULT_SETTINGS = {
     # zipf mínimo para recomendar una palabra (0-7). Solo se recomiendan
     # palabras frecuentes y que no sean nombres propios (nivel de vocabulario).
     "rec_min_zipf": 3.5,
+    # al pasar de página en el lector, ¿las palabras que quedaron sin tocar
+    # pasan a conocidas? Apagado: se activa a mano y siempre se puede deshacer.
+    "reader_mark_known": False,
     "keymap": {"prev": "a", "next": "d", "replay": "s", "mine": "q",
                "subs": "w", "browser": "g", "copy": "c", "dual": "e",
                "autopause": "p", "fullscreen": "f", "recommended": "r"},
@@ -1352,6 +1355,40 @@ def words_bulk_known(req: BulkKnownReq):
     return {"marked": vocab.bulk_known(CON, n, _lang())}
 
 
+class PageKnownReq(BaseModel):
+    lemmas: list[str]
+    undo: bool = False
+
+
+@app.post("/api/words/page-known")
+def words_page_known(req: PageKnownReq):
+    """Al pasar de página, lo que quedó sin tocar pasa a conocido.
+
+    Es la mecánica central de LingQ, con dos diferencias: no toca ningún
+    estado que hayas puesto tú, y devuelve la lista exacta de lo que cambió.
+    Sin esa lista no hay deshacer, y sin deshacer el recuento deja de ser de
+    fiar — que es la queja de siempre con el contador de LingQ.
+    """
+    actuales = db.word_statuses(CON, _lang())
+    hechas = []
+    for bruto in req.lemmas[:2000]:
+        lm = str(bruto).strip().lower()
+        if not lm:
+            continue
+        if req.undo:
+            if actuales.get(lm) != "known":
+                continue          # la cambiaste después: no es nuestra
+            db.set_word_status(CON, lm, "unknown", _lang())
+            actuales.pop(lm, None)
+        else:
+            if lm in actuales:
+                continue          # ya tenía estado tuyo
+            db.set_word_status(CON, lm, "known", _lang())
+            actuales[lm] = "known"
+        hechas.append(lm)
+    return {"marked": len(hechas), "lemmas": hechas}
+
+
 @app.get("/api/anki/decks")
 def anki_decks():
     """Mazos disponibles, para sembrar vocabulario desde los que ya estudias."""
@@ -1568,6 +1605,7 @@ _SETTING_TYPES = {
     "speed_default": (int, float), "ipa_enabled": bool, "online_enabled": bool,
     "audio_trim": bool, "ui_lang": str, "keymap": dict,
     "base_language": str, "rec_min_zipf": (int, float),
+    "reader_mark_known": bool,
 }
 _SETTING_RANGES = {"sub_scale": (0.3, 3.0), "speed_default": (0.25, 3.0),
                    "anki_port": (1, 65535), "rec_min_zipf": (0, 7)}

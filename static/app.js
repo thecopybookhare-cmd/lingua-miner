@@ -7,10 +7,22 @@ const api = async (path, opts = {}) => {
   });
   return r.json();
 };
-const toast = (msg, cls = "ok") => {
+let TOAST_T = null;
+// el tercer argumento pinta un botón dentro del aviso. Lo pide el "deshacer"
+// del lector: dar un recuento sin marcha atrás es lo que hace que la gente
+// desconfíe de su propio contador.
+const toast = (msg, cls = "ok", accion = null) => {
   const t = $("toast");
+  clearTimeout(TOAST_T);
   t.textContent = msg; t.className = cls; t.hidden = false;
-  setTimeout(() => (t.hidden = true), 2600);
+  if (accion) {
+    const b = document.createElement("button");
+    b.className = "toast-do";
+    b.textContent = accion.label;
+    b.onclick = () => { t.hidden = true; accion.fn(); };
+    t.appendChild(b);
+  }
+  TOAST_T = setTimeout(() => (t.hidden = true), accion ? 7000 : 2600);
 };
 
 let SESSION = null, SEGS = [], CARD = null, PAD = { b: 0, a: 0 };
@@ -380,6 +392,11 @@ async function openSession(sid, opts = {}) {
   if (s.source_type === "text") {
     $("home").hidden = true; $("player").hidden = true; $("reader").hidden = false;
     $("reader-title").textContent = s.title || "";
+    READ_ONE = -1;                      // cada libro empieza en modo página
+    $("reader-mode").classList.remove("on");
+    $("reader-say").hidden = true;
+    $("reader-auto").hidden = false;
+    $("reader-auto-cb").checked = !!SETTINGS?.reader_mark_known;
     READ_PAGE = Math.floor((s.resume_pos || 0) / READ_PER_PAGE);
     if (opts.seg != null) READ_PAGE = Math.floor(opts.seg / READ_PER_PAGE);
     renderReader();
@@ -1296,6 +1313,9 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (e.key === "?") { e.preventDefault(); toggleHelp(); return; }
+  if (!$("reader").hidden && $("settings-view").hidden && !CAPTURING) {
+    readerKey(e); return;
+  }
   if ($("player").hidden || !$("settings-view").hidden || CAPTURING) return;
   const k = e.key.toLowerCase();
   const statusKeys = { "1": "unknown", "2": "learning", "3": "known", "4": "ignored", "5": "tracking" };
@@ -1627,7 +1647,8 @@ function renderHelp() {
        <span><i class="rec-sw blue"></i>${t("help.rec_blue")}</span>
      </div>
      <p class="dim">${t("help.rec_note")}</p>
-     <p class="dim">${t("help.remap_note")}</p>`;
+     <p class="dim">${t("help.remap_note")}</p>
+     <p class="dim">${t("help.reader_note")}</p>`;
 }
 function toggleHelp() {
   const v = $("help-view");
@@ -1900,12 +1921,17 @@ $("level-dlg").addEventListener("close", async () => {
 // mismo popup, misma recomendación i+1. Lo único propio es paginar.
 const READ_PER_PAGE = 12;         // frases por página, ~una pantalla cómoda
 let READ_PAGE = 0;
+let READ_ONE = -1;                // >= 0 = modo frase, con esa frase delante
+let RD_AUDIO = null;
+const readerOne = () => READ_ONE >= 0;
 
 function readerPages() {
   return Math.max(1, Math.ceil(SEGS.length / READ_PER_PAGE));
 }
 
 function renderReader() {
+  if (readerOne()) { renderSentence(); return; }
+  $("reader-page").classList.remove("one");
   const total = readerPages();
   READ_PAGE = Math.min(Math.max(0, READ_PAGE), total - 1);
   const desde = READ_PAGE * READ_PER_PAGE;
@@ -1946,11 +1972,143 @@ function saveReadPos(idx) {
       { method: "POST", body: JSON.stringify({ pos: idx }) }).catch(() => {});
 }
 
+// Modo frase: una frase delante, grande, con su audio. El texto lo pinta el
+// mismo tokenHtml(), así que colores, popup y recomendación son los de siempre.
+function renderSentence() {
+  READ_ONE = Math.min(Math.max(0, READ_ONE), Math.max(0, SEGS.length - 1));
+  const seg = SEGS[READ_ONE];
+  const caja = $("reader-page");
+  caja.classList.add("one");
+  if (!seg) { caja.innerHTML = ""; return; }
+  caja.innerHTML = `<p class="rd-p rd-one"><span class="rd-s" data-i="${READ_ONE}">`
+    + tokenHtml(seg) + "</span></p>";
+  bindTokenEvents(caja.querySelector(".rd-s"), READ_ONE);
+  const total = SEGS.length || 1;
+  $("reader-pos").textContent = `${READ_ONE + 1} / ${total}`;
+  $("reader-fill").style.width = ((READ_ONE + 1) / total * 100) + "%";
+  $("reader-prev").disabled = READ_ONE === 0;
+  $("reader-next").disabled = READ_ONE >= SEGS.length - 1;
+  caja.scrollTop = 0;
+  updateComp();
+  saveReadPos(READ_ONE);
+}
+
+function setReaderMode(frase) {
+  if (frase && !readerOne()) READ_ONE = READ_PAGE * READ_PER_PAGE;
+  else if (!frase && readerOne()) {
+    READ_PAGE = Math.floor(READ_ONE / READ_PER_PAGE);
+    READ_ONE = -1;
+  }
+  $("reader-mode").classList.toggle("on", frase);
+  $("reader-say").hidden = !frase;
+  // en modo frase no existe "el resto de la página", así que el interruptor
+  // no tendría a qué referirse
+  $("reader-auto").hidden = frase;
+  $("word-pop").hidden = true;
+  renderReader();
+}
+
+async function saySentence() {
+  const i = readerOne() ? READ_ONE : -1;
+  if (i < 0 || !SEGS[i]) return;
+  const btn = $("reader-say");
+  btn.disabled = true;
+  try {
+    const r = await api("/api/tts?text=" + encodeURIComponent(SEGS[i].text));
+    if (!r.file) { toast(t("rd.novoice"), "err"); return; }
+    if (RD_AUDIO) RD_AUDIO.pause();
+    RD_AUDIO = new Audio("/media/" + r.file);
+    RD_AUDIO.play().catch(() => {});
+  } catch { toast(t("rd.novoice"), "err"); }
+  finally { btn.disabled = false; }
+}
+
+// Las palabras de la página que siguen sin estado: exactamente lo que LingQ
+// marcaría en silencio al pasar de página.
+function pageUnknownLemmas() {
+  const desde = READ_PAGE * READ_PER_PAGE;
+  const s = new Set();
+  for (const seg of SEGS.slice(desde, desde + READ_PER_PAGE))
+    for (const tk of (seg.tokens || []))
+      if (tk.is_word && tk.lemma && stOf(tk.lemma) === "unknown") s.add(tk.lemma);
+  return [...s];
+}
+
+async function markPageKnown(lemas) {
+  const r = await api("/api/words/page-known",
+      { method: "POST", body: JSON.stringify({ lemmas: lemas }) }).catch(() => null);
+  if (!r?.marked) return;
+  for (const lm of r.lemmas) STATUS[lm] = "known";
+  renderReader();
+  toast(t("rd.marked", r.marked), "ok",
+        { label: t("rd.undo"), fn: () => undoPageKnown(r.lemmas) });
+}
+
+async function undoPageKnown(lemas) {
+  const r = await api("/api/words/page-known",
+      { method: "POST", body: JSON.stringify({ lemmas: lemas, undo: true }) })
+      .catch(() => null);
+  if (!r) return;
+  for (const lm of (r.lemmas || [])) delete STATUS[lm];
+  renderReader();
+  toast(t("rd.undone", r.marked || 0), "ok");
+}
+
+// El lector nació sin teclado, y sus botones ya prometían A/← y D/→. Usa el
+// mismo mapa remapeable del reproductor; las teclas que aquí no significan
+// nada (pausa, subtítulos, pantalla completa) simplemente no hacen nada.
+function readerKey(e) {
+  const estados = { "1": "unknown", "2": "learning", "3": "known",
+                    "4": "ignored", "5": "tracking" };
+  if (estados[e.key]) {
+    const lemma = (POP && !$("word-pop").hidden) ? POP.lemma : HOVER?.lemma;
+    if (lemma) setStatus(lemma, estados[e.key]);
+    else toast(t("ts.hover", e.key), "err");
+    return;
+  }
+  const k = e.key.toLowerCase();
+  const act = KEY2ACTION[k] ||
+    ({ ArrowLeft: "prev", ArrowRight: "next", ArrowDown: "replay" })[e.key];
+  if (act === "prev") { e.preventDefault(); readerGo(-1); }
+  else if (act === "next") { e.preventDefault(); readerGo(1); }
+  else if (act === "replay") { e.preventDefault(); saySentence(); }
+  else if (act === "copy") {
+    const txt = readerOne() ? (SEGS[READ_ONE]?.text || "")
+                            : $("reader-page").textContent.trim();
+    if (txt) navigator.clipboard.writeText(txt)
+        .then(() => toast(t("ts.copied"), "ok"));
+  }
+  else if (act === "mine") {
+    const inPop = POP && !$("word-pop").hidden;
+    const seg = inPop ? POP.segIndex : HOVER?.segIndex;
+    const sel = inPop ? POP.selection : HOVER?.text;
+    if (sel === undefined) {
+      toast(t("ts.hover", (SETTINGS?.keymap?.mine || "Q").toUpperCase()), "err");
+      return;
+    }
+    const chosen = inPop ? (POP.chosen || "") : "";
+    if (inPop) closePopup();
+    if (e.shiftKey) mine(seg, sel);
+    else mineQuick(seg, sel, chosen);
+  }
+}
+
 function readerGo(delta) {
+  if (readerOne()) {
+    const antes = READ_ONE;
+    READ_ONE += delta;
+    renderReader();
+    if (READ_ONE !== antes) $("word-pop").hidden = true;
+    return;
+  }
   const antes = READ_PAGE;
+  // se calcula ANTES de mover: son las palabras de la página que dejas atrás
+  const lemas = (delta > 0 && READ_PAGE < readerPages() - 1
+                 && $("reader-auto-cb").checked) ? pageUnknownLemmas() : [];
   READ_PAGE += delta;
   renderReader();
   if (READ_PAGE !== antes) $("word-pop").hidden = true;
+  if (READ_PAGE !== antes && lemas.length) markPageKnown(lemas);
 }
 
 $("text-input").onchange = async (e) => {
@@ -1970,8 +2128,13 @@ $("text-input").onchange = async (e) => {
 
 $("reader-prev").onclick = () => readerGo(-1);
 $("reader-next").onclick = () => readerGo(1);
+$("reader-mode").onclick = () => setReaderMode(!readerOne());
+$("reader-say").onclick = saySentence;
+$("reader-auto-cb").onchange = (e) =>
+  saveSettings({ reader_mark_known: e.target.checked });
 $("reader-back").onclick = () => {
   $("reader").hidden = true; $("home").hidden = false;
+  if (RD_AUDIO) { RD_AUDIO.pause(); RD_AUDIO = null; }
   SESSION = null; loadSessions();
 };
 

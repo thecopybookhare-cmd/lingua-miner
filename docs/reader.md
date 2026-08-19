@@ -120,3 +120,27 @@ clone with a lower price — it does something LingQ doesn't.
 4. **Sentence mode and page turn.** Once the basics read well.
 
 Steps 1 and 2 are the ones that decide whether this is worth having.
+
+## What shipped
+
+All four steps. Import is `.txt`/`.epub` (v1.27.0), the reading view reuses the
+player's tokens, popup and word colours unchanged (v1.27.0), cards come out
+with Piper audio and no video frame (v1.28.0), and sentence mode plus the page
+turn landed in v1.29.0.
+
+Two things came out of building step 4 that the research didn't predict.
+
+**The reader had no keyboard at all.** Its buttons had advertised `A`/`←` and
+`D`/`→` since the day it shipped, but the global `keydown` handler returned
+early unless the *player* was visible, so none of them did anything. It now
+shares the same remappable map: page turn, word states `1`–`5`, `Q` to mine,
+`S` to hear the sentence. Keys that mean nothing here — pause, subtitles,
+fullscreen — simply do nothing.
+
+**No toast was visible while reading.** `#toast` lived inside
+`<main id="player">`, which the reader hides, so every notice inherited a
+hidden ancestor: word-state changes, errors, and the undo button this feature
+depends on. It is now a child of `<body>`, with a test that fails if anything
+nests it again.
+
+Both were invisible from the player, which is where the reader was tested.
