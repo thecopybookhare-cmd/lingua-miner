@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/thecopybookhare-cmd/lingua-miner/actions/workflows/ci.yml/badge.svg)](https://github.com/thecopybookhare-cmd/lingua-miner/actions)
 ![license](https://img.shields.io/badge/license-MIT-blue)
-![version](https://img.shields.io/badge/version-1.29.0-8b7cf8)
+![version](https://img.shields.io/badge/version-1.30.0-8b7cf8)
 ![python](https://img.shields.io/badge/python-3.12-3776ab)
 
 **Local, Migaku-style flashcard miner — learn languages from the videos you love.**
@@ -90,6 +90,18 @@ language, plus where it came from and how common the word is.
 |---|---|
 | ![Library](docs/screenshots/library.png) | ![Words panel](docs/screenshots/words-panel.png) |
 
+### The same thing, on books
+
+![Reading a book, with the same word colours as the subtitles](docs/screenshots/reader.png)
+
+Import a `.txt` or `.epub` and it becomes a reading session: same colours, same
+popup, same cards — with the sentence read aloud by a neural voice instead of
+cut from a soundtrack.
+
+![Sentence mode: one sentence at a time, with its audio](docs/screenshots/reader-sentence.png)
+
+*Sentence mode puts one sentence in front of you, and reads it out loud.*
+
 ## Install
 
 Everyone installs **their own copy** — nothing to host. You don't need Python
@@ -158,9 +170,13 @@ language (English, Spanish or Catalan) — change it under ⚙️ any time.
 3. Click any word in the subtitle (or drag-select an expression).
 4. Review/edit the card in the popup and press **⏎**.
 
+Reading instead of watching? **Open a book** takes a `.txt` or `.epub` and
+steps 3 and 4 are identical — see
+[the reader section of the walkthrough](docs/tutorial.md#5-reading-books-and-articles).
+
 **Shortcuts (Migaku map):** `A`/`←` previous sentence · `D`/`→` next ·
 `S`/`↓` replay · `Q` mine word under cursor · `⇧Q` open card editor ·
-`1-4` word status · `W` hide subs · `E` dual subtitles · `K` condensed
+`1-5` word status · `W` hide subs · `E` dual subtitles · `K` condensed
 playback · `G` subtitle browser · `P` auto-pause · `F` fullscreen ·
 `space` play/pause · `⏎` send card · `Esc` close. All remappable in ⚙️.
 
@@ -199,7 +215,7 @@ language is mostly adding one entry there.
 ```bash
 uv pip install -p .venv/bin/python -e . --group dev
 .venv/bin/ruff check app/ tests/     # lint
-.venv/bin/python -m pytest tests/    # 301 tests
+.venv/bin/python -m pytest tests/    # 306 tests
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). CI runs lint + tests on

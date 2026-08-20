@@ -152,6 +152,7 @@ function sourceBadge(s) {
   if (s.source_type === "stream") return { t: "Streaming", c: "st" };
   if (s.source_type === "youtube") return { t: "▶ YouTube", c: "yt" };
   if (s.source_type === "url") return { t: "Enlace", c: "st" };
+  if (s.source_type === "text") return { t: t("lib.book"), c: "txt" };
   return { t: "Local", c: "loc" };
 }
 
@@ -170,7 +171,9 @@ async function loadSessions() {
         ${s.thumb ? "" : `<svg class="ic thumb-ph"><use href="#i-folder"/></svg>`}
         <span class="src-badge src-${sourceBadge(s).c}">${sourceBadge(s).t}</span>
         <button class="scard-del" title="${esc(t("lib.delete"))}" aria-label="${esc(t("lib.delete"))}"><svg class="ic"><use href="#i-trash"/></svg></button>
-        ${s.duration_secs ? `<span class="dur">${fmtTime(s.duration_secs)}</span>` : ""}
+        ${s.duration_secs ? `<span class="dur">${s.source_type === "text"
+            ? t("lib.sentences", Math.round(s.duration_secs))
+            : fmtTime(s.duration_secs)}</span>` : ""}
         ${s.resume_pos && s.duration_secs ? `<span class="resume-bar" style="width:${Math.min(100, s.resume_pos / s.duration_secs * 100).toFixed(1)}%"></span>` : ""}
       </div>
       <div class="scard-body">

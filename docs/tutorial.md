@@ -13,12 +13,13 @@ Haven't installed it yet? Start with the
 - [2. Getting subtitles](#2-getting-subtitles)
 - [3. Reading the colours](#3-reading-the-colours)
 - [4. Making a card](#4-making-a-card)
-- [5. Jumping around with the transcript](#5-jumping-around-with-the-transcript)
-- [6. The words panel and your level](#6-the-words-panel-and-your-level)
-- [7. Condensed audio](#7-condensed-audio)
-- [8. Bringing in words you already know](#8-bringing-in-words-you-already-know)
-- [9. Settings worth knowing](#9-settings-worth-knowing)
-- [10. Keyboard shortcuts](#10-keyboard-shortcuts)
+- [5. Reading books and articles](#5-reading-books-and-articles)
+- [6. Jumping around with the transcript](#6-jumping-around-with-the-transcript)
+- [7. The words panel and your level](#7-the-words-panel-and-your-level)
+- [8. Condensed audio](#8-condensed-audio)
+- [9. Bringing in words you already know](#9-bringing-in-words-you-already-know)
+- [10. Settings worth knowing](#10-settings-worth-knowing)
+- [11. Keyboard shortcuts](#11-keyboard-shortcuts)
 
 ---
 
@@ -114,7 +115,7 @@ From there:
 
 - **⏎** sends the card straight to Anki.
 - **⇧Q** or the pencil opens the editor first, if you want to fix a field.
-- The **1–4** keys set the word's status without making a card, for when you
+- The **1–5** keys set the word's status without making a card, for when you
   realise you already know it.
 - Drag across several words to mine a whole expression instead of one word.
 
@@ -135,7 +136,68 @@ still) and the audio of that line. The back adds the word and sentence
 in your language, the episode and timestamp it came from, and how
 common the word is.
 
-## 5. Jumping around with the transcript
+## 5. Reading books and articles
+
+![Reading a book, with the same word colours as the subtitles](screenshots/reader.png)
+
+Everything above works on text too. **Open a book** on the front page takes a
+`.txt` or an `.epub` and turns it into a session like any other — the same
+colours from section 3, the same popup from section 4, the same cards into
+Anki.
+
+An EPUB is read in spine order, so chapters come out in the order the book
+intends rather than the order the file happens to store them. Scripts, styles
+and markup are stripped; you get the prose.
+
+Text is split into sentences and laid out in **pages**, with paragraphs kept
+together so it reads like a book and not like a list of subtitles. The page you
+stopped on is remembered, so reopening a novel puts you back where you were.
+
+### Cards from a book
+
+Identical to section 4, with two differences: there is no video frame, and the
+audio of the sentence is spoken by the **Piper** neural voice instead of being
+cut out of a soundtrack. The card footer carries the book title and the
+sentence number instead of a timestamp.
+
+### Sentence mode
+
+![Sentence mode: one sentence, with its audio](screenshots/reader-sentence.png)
+
+The speech-bubble button puts one sentence in front of you at a time, and the
+speaker button next to it reads it aloud. Useful when a paragraph is dense and
+you want to slow down. `S` (or `↓`) replays it.
+
+### Turning the page
+
+The switch under the page — **Turning the page marks the rest as known** — is
+the mechanic LingQ is built on: once you've read a page, whatever you didn't
+click is presumably something you understood, so it goes to *known* and the
+next page shows you only what's genuinely new.
+
+It's **off by default**, and when it's on it behaves differently from LingQ's
+in three ways that matter:
+
+- It tells you how many words it changed, every time.
+- The notice has an **Undo** button.
+- It never touches a status you set yourself. A word you marked *learning*
+  stays *learning*.
+
+LingQ does this silently, which is why its users end up not trusting their own
+known-word count. If you'd rather keep marking by hand, leave the switch off
+and nothing happens.
+
+### Keys
+
+The same map as the player: `A`/`←` and `D`/`→` turn the page, `1`–`5` set the
+word's status, `Q` mines the word under the cursor, `S` reads the sentence.
+
+### What it doesn't take
+
+`.pdf`, `.docx` and `.mobi` aren't supported. For a PDF, export or copy the
+text into a `.txt` first.
+
+## 6. Jumping around with the transcript
 
 ![The subtitle browser](tutorial/04-transcript.gif)
 
@@ -149,7 +211,7 @@ to mine an episode you've already watched.
 Other movement: **A** and **D** step back and forward one sentence, **S**
 replays the current one, **P** auto-pauses at the end of each line.
 
-## 6. The words panel and your level
+## 7. The words panel and your level
 
 ![The words panel](tutorial/05-words.gif)
 
@@ -164,7 +226,7 @@ frequent words of the language as known in one go, so the app stops
 highlighting *the*, *and* and *because* on day one. Pick the band that matches
 roughly where you are and adjust later.
 
-## 7. Condensed audio
+## 8. Condensed audio
 
 **Condensed audio** exports an MP3 containing only the dialogue of an episode,
 with the silence and the music cut out. A 50-minute show usually lands around
@@ -177,7 +239,7 @@ tells the app where the speech is.
 There's also a **K** toggle in the player that does the same thing live: it
 skips the gaps between lines while you watch.
 
-## 8. Bringing in words you already know
+## 9. Bringing in words you already know
 
 If you already study this language in Anki, don't start from zero. Go to ⚙️ →
 *Vocabulary you already know*, pick one of your decks, and the app marks those
@@ -191,7 +253,7 @@ After that, word states also keep syncing from your Anki review intervals, so a
 word you've matured stops being highlighted in the video without you doing
 anything.
 
-## 9. Settings worth knowing
+## 10. Settings worth knowing
 
 ![Settings](tutorial/06-settings.gif)
 
@@ -214,7 +276,7 @@ whoever connects full access, so only turn it on for people you trust.
 
 **Updates** pulls the latest version without touching a terminal.
 
-## 10. Keyboard shortcuts
+## 11. Keyboard shortcuts
 
 Migaku's layout, all remappable in ⚙️.
 
@@ -225,7 +287,7 @@ Migaku's layout, all remappable in ⚙️.
 | `S` / `↓` | replay this sentence |
 | `Q` | mine the word under the cursor |
 | `⇧Q` | open the card editor |
-| `1`–`4` | set word status |
+| `1`–`5` | set word status |
 | `R` | jump to the next recommended sentence |
 | `W` | hide subtitles |
 | `E` | dual subtitles |
@@ -238,6 +300,10 @@ Migaku's layout, all remappable in ⚙️.
 | `⏎` | send the card |
 | `Esc` | close whatever's open |
 | `?` | this list, in the app |
+
+**In the reader** the same keys turn the page, set word states, mine and read
+the sentence aloud. The ones that need a video — pause, subtitles, condensed
+playback, fullscreen — simply do nothing there.
 
 ---
 

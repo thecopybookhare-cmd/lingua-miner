@@ -580,6 +580,7 @@ button.small { font-size: 12px; padding: 6px 10px; }
 .src-badge.src-tv { background: #2a6df0aa; }
 .src-badge.src-st { background: #8b5cf6aa; }
 .src-badge.src-loc { background: #000000a0; color: #c8cbe0; }
+.src-badge.src-txt { background: #8b7cf8aa; }   /* libro: el violeta de la marca */
 /* Botón de borrar: aparece al pasar el ratón por la tarjeta (siempre visible
    en pantallas táctiles, que no tienen hover). */
 .scard-del {
@@ -956,7 +957,9 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 #reader-auto:hover { color: var(--fg); }
 #reader-auto input { accent-color: var(--vio); cursor: pointer; }
 /* modo frase: la frase sola, grande y centrada, sin nada que la rodee */
-#reader-page.one { display: flex; align-items: center; min-height: 52vh; }
+/* la caja se ciñe a la frase: heredar el alto de una página entera dejaba
+   un hueco vacío que se leía como un fallo, no como concentración */
+#reader-page.one { display: flex; align-items: center; min-height: 30vh; }
 .rd-one { font-size: 26px; line-height: 1.7; text-align: center; width: 100%;
   margin: 0; }
 @media (max-width: 640px) { .rd-one { font-size: 21px; } }
