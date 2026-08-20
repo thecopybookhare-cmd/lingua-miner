@@ -215,7 +215,7 @@ language is mostly adding one entry there.
 ```bash
 uv pip install -p .venv/bin/python -e . --group dev
 .venv/bin/ruff check app/ tests/     # lint
-.venv/bin/python -m pytest tests/    # 306 tests
+.venv/bin/python -m pytest tests/    # 307 tests
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). CI runs lint + tests on

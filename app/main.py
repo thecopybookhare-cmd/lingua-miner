@@ -291,7 +291,7 @@ def _settings() -> dict:
     s = {k: (dict(v) if isinstance(v, dict) else v)
          for k, v in DEFAULT_SETTINGS.items()}
     if config.SETTINGS_PATH.exists():
-        saved = json.loads(config.SETTINGS_PATH.read_text())
+        saved = json.loads(config.SETTINGS_PATH.read_text(encoding="utf-8"))
         for k, v in saved.items():
             if k == "keymap" and isinstance(v, dict):
                 s["keymap"].update(v)
@@ -301,7 +301,7 @@ def _settings() -> dict:
 
 
 def _save_settings(s: dict):
-    config.SETTINGS_PATH.write_text(json.dumps(s))
+    config.SETTINGS_PATH.write_text(json.dumps(s), encoding="utf-8")
 
 
 def _lang() -> str:
@@ -804,7 +804,9 @@ def youtube_import(req: YoutubeReq):
             duration_secs=info["duration"], transcript_json="[]")
         if info["subtitles"]:
             from .transcribe import tokens_for_existing
-            segs = subs.parse_subtitles(Path(info["subtitles"]).read_text())
+            segs = subs.parse_subtitles(
+                Path(info["subtitles"]).read_text(encoding="utf-8",
+                                                  errors="replace"))
             kind = info.get("subs_kind", "youtube_subs")
             if kind == "youtube_auto":
                 segs = subs.clean_auto(segs)
@@ -844,7 +846,8 @@ def do_transcribe(sid: str, req: TranscribeReq):
         sidecar = _find_sidecar_subs(Path(s["media_path"]))
         if req.use_sidecar and sidecar:
             segs = T.tokens_for_existing(
-                subs.parse_subtitles(sidecar.read_text(errors="replace")))
+                subs.parse_subtitles(
+                    sidecar.read_text(encoding="utf-8", errors="replace")))
             db.update_transcript(CON, sid, json.dumps(segs), "-", "srt",
                                  nlp.TOK_VERSION)
         else:
@@ -1646,7 +1649,8 @@ def post_settings(body: dict):
             return JSONResponse(
                 {"error": "atajos inválidos (letras a-z, sin repetir)"},
                 status_code=400)
-    saved = json.loads(config.SETTINGS_PATH.read_text()) if config.SETTINGS_PATH.exists() else {}
+    saved = (json.loads(config.SETTINGS_PATH.read_text(encoding="utf-8"))
+             if config.SETTINGS_PATH.exists() else {})
     for k, v in body.items():
         if k == "keymap":
             saved["keymap"] = {**saved.get("keymap", {}), **v}

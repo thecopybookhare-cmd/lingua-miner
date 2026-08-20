@@ -447,7 +447,7 @@ def activable() -> list[str]:
 
 def active_code() -> str:
     try:
-        s = json.loads(config.SETTINGS_PATH.read_text())
+        s = json.loads(config.SETTINGS_PATH.read_text(encoding="utf-8"))
         code = s.get("language", "ca")
     except Exception:
         code = "ca"
@@ -483,7 +483,7 @@ def base_code() -> str:
     primera base que sí exista — que no siempre es el español.
     """
     try:
-        s = json.loads(config.SETTINGS_PATH.read_text())
+        s = json.loads(config.SETTINGS_PATH.read_text(encoding="utf-8"))
         b = s.get("base_language", "auto")
         if b == "auto":
             b = "es" if s.get("ui_lang") == "es" else "en"
