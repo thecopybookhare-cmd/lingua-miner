@@ -24,8 +24,12 @@ def start(target, *args, label="") -> str:
         for k in done[:len(JOBS) - 100]:
             del JOBS[k]
     jid = uuid.uuid4().hex[:8]
+    # `message` es el texto de siempre (castellano) y sigue siendo el
+    # respaldo; `key`+`args` son lo que el navegador traduce al idioma de la
+    # interfaz. Sin la clave, un usuario en inglés miraba una barra en español
+    # durante los tres minutos que tarda una transcripción.
     JOBS[jid] = {"status": "running", "progress": 0.0, "label": label,
-                 "message": "", "result": None}
+                 "message": "", "key": "", "args": [], "result": None}
 
     def _run():
         try:
@@ -36,21 +40,29 @@ def start(target, *args, label="") -> str:
             traceback.print_exc()
             JOBS[jid]["status"] = "error"
             JOBS[jid]["message"] = str(e)
+            JOBS[jid]["key"] = ""      # el texto de la excepción no es clave
+            JOBS[jid]["args"] = []
 
     threading.Thread(target=_run, daemon=True).start()
     return jid
 
 
-def set_progress(jid: str, p: float, message: str = ""):
+def set_progress(jid: str, p: float, message: str = "", key: str = "",
+                 args: tuple | list = ()):
     if jid in JOBS:
         JOBS[jid]["progress"] = round(p, 3)
-        if message:
+        if message or key:
             JOBS[jid]["message"] = message
+            JOBS[jid]["key"] = key
+            JOBS[jid]["args"] = list(args)
 
 
-def set_message(jid: str, message: str):
-    if jid in JOBS and message:
+def set_message(jid: str, message: str, key: str = "",
+                args: tuple | list = ()):
+    if jid in JOBS and (message or key):
         JOBS[jid]["message"] = message
+        JOBS[jid]["key"] = key
+        JOBS[jid]["args"] = list(args)
 
 
 def get(jid: str) -> dict | None:

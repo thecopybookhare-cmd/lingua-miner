@@ -149,11 +149,11 @@ function sourceBadge(s) {
   const p = (s.page_url || "").toLowerCase();
   if (s.source_type === "stream" && p.includes("youtube")) return { t: "▶ YouTube", c: "yt" };
   if (s.source_type === "stream" && (p.includes("3cat") || p.includes("ccma"))) return { t: "3cat", c: "tv" };
-  if (s.source_type === "stream") return { t: "Streaming", c: "st" };
+  if (s.source_type === "stream") return { t: t("lib.stream"), c: "st" };
   if (s.source_type === "youtube") return { t: "▶ YouTube", c: "yt" };
-  if (s.source_type === "url") return { t: "Enlace", c: "st" };
+  if (s.source_type === "url") return { t: t("lib.link"), c: "st" };
   if (s.source_type === "text") return { t: t("lib.book"), c: "txt" };
-  return { t: "Local", c: "loc" };
+  return { t: t("lib.local"), c: "loc" };
 }
 
 function fmtTime(t) {
@@ -296,8 +296,8 @@ $("file-input").onchange = async (e) => {
   fd.append("file", f);
   const r = await uploadWithProgress("/api/sessions/upload", fd).catch(() => null);
   e.target.value = "";
-  if (!r || r.error) { showProgress(1, r?.error || "Error subiendo el archivo", true); return; }
-  const res = await pollJob(r.job_id, "Procesando el video…");
+  if (!r || r.error) { showProgress(1, r?.error || t("job.upload_err"), true); return; }
+  const res = await pollJob(r.job_id, t("job.processing"));
   if (res) openSession(res.session_id);
 };
 
@@ -305,7 +305,7 @@ $("yt-btn").onclick = async () => {
   const url = $("yt-url").value.trim();
   if (!url) return;
   const { job_id } = await api("/api/sessions/youtube", { method: "POST", body: JSON.stringify({ url }) });
-  const res = await pollJob(job_id, "Descargando de YouTube…");
+  const res = await pollJob(job_id, t("job.yt"));
   if (res) openSession(res.session_id);
 };
 
@@ -314,7 +314,7 @@ $("url-btn").onclick = async () => {
   if (!url) return;
   const r = await api("/api/sessions/stream", { method: "POST", body: JSON.stringify({ url }) });
   if (r.error) { showProgress(1, r.error, true); return; }
-  const res = await pollJob(r.job_id, "Resolviendo el enlace…");
+  const res = await pollJob(r.job_id, t("job.resolving"));
   if (res) openSession(res.session_id);
 };
 
@@ -334,19 +334,28 @@ function hideProgress() {
 }
 $("gp-close").onclick = hideProgress;
 
+// El servidor manda clave + argumentos además del texto. Traducir aquí es lo
+// único que hace que la barra hable tu idioma: `j.message` viene siempre en
+// castellano, y es lo que se miraba durante los minutos de una transcripción.
+// Sin clave (un error con el texto de la excepción) se enseña el texto tal cual.
+function jobMsg(j, label) {
+  if (j.key) return t(j.key, ...(j.args || []));
+  return j.message || label;
+}
+
 async function pollJob(jid, label) {
   showProgress(0, label);
   while (true) {
     const j = await api("/api/jobs/" + jid).catch(() => null);
     if (!j || j.error) {                 // server reiniciado: el job ya no existe
-      showProgress(1, "trabajo perdido (¿se reinició la app?)", true);
+      showProgress(1, t("job.lost"), true);
       return null;
     }
-    showProgress(j.progress || 0, j.message || label);
+    showProgress(j.progress || 0, jobMsg(j, label));
     if (j.status === "done") { hideProgress(); return j.result; }
     if (j.status === "error") {
       // error persistente en la píldora (no un toast que se esfuma)
-      showProgress(1, j.message || "algo falló", true);
+      showProgress(1, jobMsg(j, t("job.failed")), true);
       return null;
     }
     await new Promise((r) => setTimeout(r, 800));
@@ -466,7 +475,7 @@ async function setVideoSrc(url, isHls) {
     if (Hls && Hls.isSupported()) {
       HLS = new Hls({ enableWorker: true, backBufferLength: 30 });
       HLS.on(Hls.Events.ERROR, (_e, d) => {
-        if (d.fatal) showProgress(1, "error de reproducción HLS", true);
+        if (d.fatal) showProgress(1, t("job.hls_err"), true);
       });
       HLS.loadSource(url); HLS.attachMedia(V);
       return;
@@ -542,7 +551,7 @@ $("transcribe-btn").onclick = async () => {
       { method: "POST", body: JSON.stringify({ model }) });
     if (r.error) { toast(r.error, "err"); return; }
     if (r.already_running) toast(t("tr.already"));
-    const res = await pollJob(r.job_id, "Transcribiendo… (la primera vez descarga el modelo)");
+    const res = await pollJob(r.job_id, t("job.tr_start"));
     if (res) openSession(SESSION.id);
   } finally { btn.disabled = false; }
 };
@@ -626,7 +635,7 @@ $("condensed-dl").onclick = async () => {
 // ---------- estados de palabra ----------
 function stOf(lemma) { return STATUS[lemma] || "unknown"; }
 
-const ST_LABEL = { unknown: "nueva", learning: "aprendiendo", known: "conocida", ignored: "ignorada", tracking: "seguimiento" };
+const stLabel = (st) => t("stx." + st);
 
 async function setStatus(lemma, status) {
   if (!lemma) return;
@@ -1065,7 +1074,7 @@ function renderPopupLookup(r) {
   $("wp-sentence-es").textContent = r.sentence_es || "";
   // con base ≠ español no hay acepciones (fuentes en español); no es un fallo
   const noSenseMsg = (SETTINGS?.base_language_effective || "es") === "es"
-    ? '<span class="dim" style="font-size:13px">— sin entrada en el diccionario —</span>' : "";
+    ? `<span class="dim" style="font-size:13px">${esc(t("wp.no_senses"))}</span>` : "";
   $("wp-senses").innerHTML = (r.senses.length ? r.senses : [])
     .map((s, i) => `<span class="sense${i === r.active ? " active" : ""}" data-es="${esc(s.es)}">${esc(s.es)} <small>${esc(s.pos)}</small></span>`).join("")
     || noSenseMsg;
@@ -1204,7 +1213,7 @@ $("wp-dict").onclick = async () => {
   if (!POP) return;
   $("wp-def").hidden = false; $("wp-def").textContent = "…";
   const r = await api("/api/define?word=" + encodeURIComponent(POP.lemma || POP.selection));
-  $("wp-def").textContent = r.text || "— sin entrada en el Viccionari —";
+  $("wp-def").textContent = r.text || t("wp.no_dict");
 };
 // traducción editable: lo escrito pasa a ser el paraula_es de la tarjeta
 $("wp-word-es").addEventListener("input", () => {
@@ -1394,11 +1403,11 @@ function svgDonut(counts) {  // {status: n}
     const p = (a) => `${60 + 46 * Math.cos(a)},${60 + 46 * Math.sin(a)}`;
     const pct = Math.round((v / total) * 100);
     paths += `<path d="M ${p(a0 + g)} A 46 46 0 ${large} 1 ${p(a1 - g)}" stroke="${ST_COLORS[st] || "#888"}"
-      stroke-width="16" fill="none" stroke-linecap="round"><title>${ST_LABEL[st] || st}: ${v} (${pct}%)</title></path>`;
+      stroke-width="16" fill="none" stroke-linecap="round"><title>${esc(stLabel(st))}: ${v} (${pct}%)</title></path>`;
     a0 = a1;
   }
   const legend = entries.map(([st, v]) =>
-    `<span class="leg"><i style="background:${ST_COLORS[st] || "#888"}"></i>${ST_LABEL[st] || st}: ${v} · ${Math.round((v / total) * 100)}%</span>`).join("");
+    `<span class="leg"><i style="background:${ST_COLORS[st] || "#888"}"></i>${esc(stLabel(st))}: ${v} · ${Math.round((v / total) * 100)}%</span>`).join("");
   return `<div class="donut-row"><svg viewBox="0 0 120 120" width="120" role="img">${paths}
     <text x="60" y="66" text-anchor="middle" class="sv">${total}</text></svg>
     <div class="legend">${legend}</div></div>`;

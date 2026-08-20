@@ -374,7 +374,8 @@ def setup_download():
         import importlib.util
         prof = languages.profile()
         if importlib.util.find_spec(prof["spacy"]) is None:
-            jobs.set_progress(jid, 0.05, f"Modelo lingüístico {prof['name']}…")
+            jobs.set_progress(jid, 0.05, f"Modelo lingüístico {prof['name']}…",
+                              key="job.spacy", args=(prof["name"],))
             try:
                 import spacy.cli
                 spacy.cli.download(prof["spacy"])
@@ -385,16 +386,21 @@ def setup_download():
                 # setup (traductor y diccionarios incluidos)
                 _log.warning("modelo spaCy %s no disponible: %s — sigo con el "
                              "tokenizador regex", prof["spacy"], e)
-        jobs.set_progress(jid, 0.1, "Descargando el traductor (~1.5 GB)…")
+        jobs.set_progress(jid, 0.1, "Descargando el traductor (~1.5 GB)…",
+                          key="job.translator")
         if not translate.is_downloaded():
             translate.download()
-        jobs.set_progress(jid, 0.6, "Diccionario de acepciones…")
+        jobs.set_progress(jid, 0.6, "Diccionario de acepciones…",
+                          key="job.bidix")
         _dict()
-        jobs.set_progress(jid, 0.75, "Diccionario de formas (~66 MB)…")
+        jobs.set_progress(jid, 0.75, "Diccionario de formas (~66 MB)…",
+                          key="job.forms")
         forms.lookup("hola")          # dispara descarga+build
-        jobs.set_progress(jid, 0.9, "Glosas del Wikcionario (~4 MB)…")
+        jobs.set_progress(jid, 0.9, "Glosas del Wikcionario (~4 MB)…",
+                          key="job.gloss")
         wikdict.lookup("hola")
-        jobs.set_progress(jid, 0.95, "Voz neural (Piper, ~20 MB)…")
+        jobs.set_progress(jid, 0.95, "Voz neural (Piper, ~20 MB)…",
+                          key="job.voice")
         try:
             if not piper_tts.is_downloaded():
                 piper_tts.download()
@@ -616,13 +622,15 @@ async def upload_text(file: UploadFile = File(...)):
 
     def work(jid):
         from .transcribe import tokens_for_existing
-        jobs.set_progress(jid, 0.2, "Leyendo el texto…")
+        jobs.set_progress(jid, 0.2, "Leyendo el texto…", key="job.reading")
         crudo = textimport.read_text(dest)
-        jobs.set_progress(jid, 0.45, "Partiendo en frases…")
+        jobs.set_progress(jid, 0.45, "Partiendo en frases…",
+                          key="job.splitting")
         segs = textimport.to_segments(crudo)
         if not segs:
             raise ValueError("el archivo no tiene texto legible")
-        jobs.set_progress(jid, 0.7, f"Analizando {len(segs)} frases…")
+        jobs.set_progress(jid, 0.7, f"Analizando {len(segs)} frases…",
+                          key="job.sentences", args=(len(segs),))
         sid = db.create_session(
             CON, language=languages.active_code(),
             # el nombre real, no el del temporal: dest lleva un prefijo
@@ -647,9 +655,10 @@ async def upload(file: UploadFile = File(...)):
     fname = safe_name
 
     def work(jid):
-        jobs.set_progress(jid, 0.3, "Convirtiendo el video si hace falta…")
+        jobs.set_progress(jid, 0.3, "Convirtiendo el video si hace falta…",
+                          key="job.converting")
         playable = media.ensure_browser_playable(dest, config.DL_DIR)
-        jobs.set_progress(jid, 0.8, "Analizando el video…")
+        jobs.set_progress(jid, 0.8, "Analizando el video…", key="job.analysing")
         sid = db.create_session(
             CON, language=languages.active_code(), title=fname, source_type="local",
             media_path=str(playable), srt_source="none", model_size="-",
@@ -675,7 +684,8 @@ def url_session(req: UrlReq):
                             status_code=400)
 
     def work(jid):
-        jobs.set_progress(jid, 0.3, "Comprobando el enlace…")
+        jobs.set_progress(jid, 0.3, "Comprobando el enlace…",
+                          key="job.checking")
         dur = media.duration(url)
         if dur <= 0:
             raise ValueError(
@@ -727,7 +737,8 @@ def stream_session(req: UrlReq):
                             status_code=400)
 
     def work(jid):
-        jobs.set_progress(jid, 0.3, "Resolviendo el enlace…")
+        jobs.set_progress(jid, 0.3, "Resolviendo el enlace…",
+                          key="job.resolving")
         # enlace directo a un archivo → sesión url normal (streaming directo)
         if stream.is_direct(url):
             dur = media.duration(url)
@@ -747,7 +758,7 @@ def stream_session(req: UrlReq):
                 "No pude extraer un vídeo de esa página. yt-dlp no soporta ese "
                 "sitio (o el vídeo está protegido). Prueba con YouTube/3cat, o "
                 "pega el enlace directo al archivo (.mp4) o al manifiesto (.m3u8).")
-        jobs.set_progress(jid, 0.7, "Cargando subtítulos…")
+        jobs.set_progress(jid, 0.7, "Cargando subtítulos…", key="job.subs")
         transcript, srt_source = _stream_subs_transcript(r)
         sid = db.create_session(
             CON, language=languages.active_code(), title=r["title"], source_type="stream",
@@ -873,7 +884,8 @@ def do_condensed(sid: str):
                             status_code=400)
 
     def work(jid):
-        jobs.set_progress(jid, 0.05, "Preparando audio condensado…")
+        jobs.set_progress(jid, 0.05, "Preparando audio condensado…",
+                          key="job.condensing")
         src = s["media_path"]
         if s.get("source_type") == "stream" and s.get("page_url"):
             fresh, _, _ = stream.stream_url(s["page_url"],
@@ -883,10 +895,11 @@ def do_condensed(sid: str):
         ranges = [(g["start"], g["end"]) for g in segs
                   if g.get("end", 0) > g.get("start", 0)]
         name = f"condensed-{sid}.mp3"
-        jobs.set_progress(jid, 0.15, "Extrayendo el diálogo (puede tardar)…")
+        jobs.set_progress(jid, 0.15, "Extrayendo el diálogo (puede tardar)…",
+                          key="job.extracting")
         dur = media.condensed_audio(src, ranges,
                                     str(config.MEDIA_DIR / name))
-        jobs.set_progress(jid, 1.0, "Listo")
+        jobs.set_progress(jid, 1.0, "Listo", key="job.done")
         return {"file": f"/media/{name}", "name": name,
                 "seconds": round(dur), "total": round(s["duration_secs"] or 0)}
 
@@ -1411,13 +1424,13 @@ def words_seed_anki(req: SeedReq):
         return JSONResponse({"error": "mazo desconocido"}, status_code=400)
 
     def work(jid):
-        jobs.set_progress(jid, 0.2, "Leyendo el mazo…")
+        jobs.set_progress(jid, 0.2, "Leyendo el mazo…", key="seed.working")
         try:
             r = vocab.seed_from_anki(CON, req.deck, _lang())
         except Exception as e:          # Anki cerrado a mitad, mazo borrado…
             _log.warning("sembrado desde Anki falló: %s", e)
             raise RuntimeError("Anki dejó de responder; ábrelo e inténtalo de nuevo") from e
-        jobs.set_progress(jid, 1.0, "Listo")
+        jobs.set_progress(jid, 1.0, "Listo", key="job.done")
         return r
 
     return {"job_id": jobs.start(work, label="seed-anki")}

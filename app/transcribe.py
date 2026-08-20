@@ -21,12 +21,14 @@ def transcribe(jid: str, media_path: str, model_key: str,
                duration: float) -> list[dict]:
     """Return segments: {start,end,text,logprob,words:[{w,start,end}],tokens:[...]}"""
     from . import languages
-    jobs.set_progress(jid, 0.01, "Cargando modelo… (la primera vez se descarga)")
+    jobs.set_progress(jid, 0.01, "Cargando modelo… (la primera vez se descarga)",
+                      key="job.model")
     model = _model(model_key)
     # el modelo ya está: lo que viene ahora (VAD sobre todo el audio) tarda
     # minutos en un capítulo largo, así que el mensaje debe reflejarlo — antes
     # se quedaba en «Cargando modelo…» y parecía que no avanzaba
-    jobs.set_progress(jid, 0.02, "Analizando el audio… (puede tardar unos minutos)")
+    jobs.set_progress(jid, 0.02, "Analizando el audio… (puede tardar unos minutos)",
+                      key="job.audio")
     segments, _info = model.transcribe(
         media_path, language=languages.active_code(), beam_size=5,
         word_timestamps=True, vad_filter=True)
@@ -41,7 +43,7 @@ def transcribe(jid: str, media_path: str, model_key: str,
                     "tokens": nlp.tokenize(seg.text.strip())})
         if duration:
             jobs.set_progress(jid, min(0.99, seg.end / duration),
-                              "Transcribiendo…")
+                              "Transcribiendo…", key="job.transcribing")
     return out
 
 

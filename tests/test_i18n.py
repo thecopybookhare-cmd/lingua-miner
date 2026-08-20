@@ -189,3 +189,34 @@ def test_no_function_shadows_the_translator():
             bad.append(f"línea {a + 1}: {lines[a].strip()[:60]}")
     assert not bad, ("funciones que declaran `t` local y llaman al traductor:\n  "
                      + "\n  ".join(bad))
+
+
+def test_no_bare_literal_is_passed_to_a_function_that_paints():
+    """El test de arriba solo mira asignaciones y toast(), y además adivina si
+    el texto es español.
+
+    Adivinar no basta: «Descargando de YouTube…» no lleva acentos ni ninguna
+    palabra de la lista, así que pasaba el filtro. La regla buena no mira el
+    idioma — si una función que pinta recibe una frase escrita a mano, es un
+    fallo, venga en el idioma que venga. Se colaban las cadenas pasadas como
+    argumento (`pollJob(id, "Procesando el video…")`), y quien usaba la app en
+    inglés veía la barra en español durante una descarga entera.
+
+    Se ignoran los literales sin espacios: son clases y banderas («ok»,
+    «err»), no texto.
+    """
+    js = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+    pinta = re.compile(r"\b(pollJob|showProgress|toast|setLabel)\s*\(")
+    malas = []
+    for n, linea in enumerate(js.split("\n"), 1):
+        if linea.strip().startswith("//") or not pinta.search(linea):
+            continue
+        for m in re.finditer(r'(["`])((?:[^"`\\\n]|\\.){4,120})\1', linea):
+            texto = m.group(2)
+            if "${" in texto or " " not in texto.strip():
+                continue          # clases y banderas, no texto
+            if texto.strip() in _ALLOWED:
+                continue
+            malas.append(f"línea {n}: {texto[:70]}")
+    assert not malas, ("texto escrito a mano en funciones que pintan "
+                       "(debe pasar por t()):\n  " + "\n  ".join(malas))

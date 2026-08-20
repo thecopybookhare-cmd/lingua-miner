@@ -4,8 +4,8 @@ from pathlib import Path
 from . import config, jobs
 
 
-def progress_of(d: dict) -> tuple[float | None, str]:
-    """(fracción 0-0.9 o None, mensaje) desde un dict de progreso de yt-dlp.
+def progress_of(d: dict) -> tuple[float | None, str, tuple]:
+    """(fracción 0-0.9 o None, clave de traducción, argumentos) desde yt-dlp.
 
     Los descargadores por fragmentos (DASH/HLS de 3cat, y mucho YouTube) no
     dan `total_bytes` — hay que usar fragment_index/count. Si no hay ninguna
@@ -13,32 +13,32 @@ def progress_of(d: dict) -> tuple[float | None, str]:
     ya descargados, para que la barra nunca quede muda."""
     status = d.get("status")
     if status == "finished":
-        return 0.9, "Preparando el video…"
+        return 0.9, "job.preparing", ()
     if status != "downloading":
-        return None, "Descargando…"
+        return None, "job.downloading", ()
     done = d.get("downloaded_bytes") or 0
     fi, fc = d.get("fragment_index"), d.get("fragment_count")
     if fc:
         frac = 0.9 * min(fi or 0, fc) / fc
-        return frac, f"Descargando… {round(frac / 0.9 * 100)}% (fragmento {fi or 0}/{fc})"
+        return frac, "job.dl_frag", (round(frac / 0.9 * 100), fi or 0, fc)
     total = d.get("total_bytes") or d.get("total_bytes_estimate")
     if total:
         frac = 0.9 * min(done, total) / total
-        return frac, f"Descargando… {round(frac / 0.9 * 100)}%"
-    return None, f"Descargando… {done / 1e6:.1f} MB"
+        return frac, "job.dl_pct", (round(frac / 0.9 * 100),)
+    return None, "job.dl_mb", (f"{done / 1e6:.1f}",)
 
 
 def download(jid: str, url: str) -> dict:
     import yt_dlp
 
     def hook(d):
-        frac, msg = progress_of(d)
+        frac, clave, args = progress_of(d)
         if frac is not None:
-            jobs.set_progress(jid, frac, msg)
+            jobs.set_progress(jid, frac, key=clave, args=args)
         else:
             # sin fracción fiable: mantener la barra donde está, pero
             # actualizar el mensaje (MB descargados) para que se vea vida
-            jobs.set_message(jid, msg)
+            jobs.set_message(jid, "", key=clave, args=args)
 
     opts = {
         "format": "bv*[height<=720][ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b",
