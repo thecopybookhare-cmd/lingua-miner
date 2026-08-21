@@ -6,6 +6,17 @@ import uuid
 JOBS: dict[str, dict] = {}
 
 
+class JobError(Exception):
+    """Fallo previsible de un trabajo, con clave para que el navegador lo
+    traduzca. Un `raise ValueError("…")` normal llega al usuario tal cual, en
+    castellano, sea cual sea el idioma de la interfaz."""
+
+    def __init__(self, key: str, msg: str, args: tuple | list = ()):
+        super().__init__(msg)
+        self.key = key
+        self.msg_args = list(args)
+
+
 def running_with_label(label: str) -> str | None:
     """Job en curso con esa etiqueta, si lo hay. Evita lanzar dos trabajos
     pesados sobre lo mismo (p. ej. dos Whisper a la vez sobre un video, que
@@ -40,8 +51,10 @@ def start(target, *args, label="") -> str:
             traceback.print_exc()
             JOBS[jid]["status"] = "error"
             JOBS[jid]["message"] = str(e)
-            JOBS[jid]["key"] = ""      # el texto de la excepción no es clave
-            JOBS[jid]["args"] = []
+            # solo JobError trae clave; el texto de una excepción cualquiera
+            # se enseña tal cual, que es mejor que nada
+            JOBS[jid]["key"] = getattr(e, "key", "")
+            JOBS[jid]["args"] = getattr(e, "msg_args", [])
 
     threading.Thread(target=_run, daemon=True).start()
     return jid

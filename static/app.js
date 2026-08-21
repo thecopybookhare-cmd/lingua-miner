@@ -78,7 +78,7 @@ $("sample-btn").onclick = async () => {
   toast(t("sample.building"), "ok");
   const r = await api("/api/sessions/sample", { method: "POST" }).catch(() => null);
   b.disabled = false;
-  if (!r || r.error) { toast(r?.error || t("sample.err"), "err"); return; }
+  if (!r || r.error) { toast(errMsg(r, t("sample.err")), "err"); return; }
   await loadSessions();
   openSession(r.session_id);
 };
@@ -93,7 +93,7 @@ $("seed-file").onchange = async (e) => {
   fd.append("file", f);
   const r = await fetch("/api/words/import-list", { method: "POST", body: fd })
     .then((x) => x.json()).catch(() => null);
-  if (!r || r.error) { st.textContent = r?.error || t("seedfile.err"); return; }
+  if (!r || r.error) { st.textContent = errMsg(r, t("seedfile.err")); return; }
   st.textContent = t("seedfile.done", r.marked, r.read, r.skipped);
   toast(t("seedfile.done", r.marked, r.read, r.skipped), "ok");
 };
@@ -296,7 +296,7 @@ $("file-input").onchange = async (e) => {
   fd.append("file", f);
   const r = await uploadWithProgress("/api/sessions/upload", fd).catch(() => null);
   e.target.value = "";
-  if (!r || r.error) { showProgress(1, r?.error || t("job.upload_err"), true); return; }
+  if (!r || r.error) { showProgress(1, errMsg(r, t("job.upload_err")), true); return; }
   const res = await pollJob(r.job_id, t("job.processing"));
   if (res) openSession(res.session_id);
 };
@@ -313,7 +313,7 @@ $("url-btn").onclick = async () => {
   const url = $("yt-url").value.trim();
   if (!url) return;
   const r = await api("/api/sessions/stream", { method: "POST", body: JSON.stringify({ url }) });
-  if (r.error) { showProgress(1, r.error, true); return; }
+  if (r.error) { showProgress(1, errMsg(r), true); return; }
   const res = await pollJob(r.job_id, t("job.resolving"));
   if (res) openSession(res.session_id);
 };
@@ -338,6 +338,15 @@ $("gp-close").onclick = hideProgress;
 // único que hace que la barra hable tu idioma: `j.message` viene siempre en
 // castellano, y es lo que se miraba durante los minutos de una transcripción.
 // Sin clave (un error con el texto de la excepción) se enseña el texto tal cual.
+// Igual que jobMsg, para las respuestas de error: el servidor manda
+// error_key + error_args además del texto castellano. Sin clave (un fallo
+// interno) se enseña el texto, que es mejor que nada.
+function errMsg(r, porDefecto = "") {
+  if (!r) return porDefecto;
+  if (r.error_key) return t(r.error_key, ...(r.error_args || []));
+  return r.error || porDefecto;
+}
+
 function jobMsg(j, label) {
   if (j.key) return t(j.key, ...(j.args || []));
   return j.message || label;
@@ -488,7 +497,7 @@ async function loadStreamUrl(sid, height) {
   showProgress(0.5, t("ts.loading_video"));
   const r = await api(`/api/sessions/${sid}/stream-url?height=${height || 0}`);
   hideProgress();
-  if (r.error) { showProgress(1, r.error, true); return; }
+  if (r.error) { showProgress(1, errMsg(r), true); return; }
   const at = V.currentTime || 0, playing = !V.paused;
   STREAM_HEIGHTS = r.is_hls ? [] : (r.heights || []);   // HLS: ABR automático
   STREAM_H = r.height || 0;
@@ -549,7 +558,7 @@ $("transcribe-btn").onclick = async () => {
     const model = $("model-select").value;
     const r = await api(`/api/sessions/${SESSION.id}/transcribe`,
       { method: "POST", body: JSON.stringify({ model }) });
-    if (r.error) { toast(r.error, "err"); return; }
+    if (r.error) { toast(errMsg(r), "err"); return; }
     if (r.already_running) toast(t("tr.already"));
     const res = await pollJob(r.job_id, t("job.tr_start"));
     if (res) openSession(SESSION.id);
@@ -562,7 +571,7 @@ $("subs-input").onchange = async (e) => {
   const fd = new FormData();
   fd.append("file", f);
   const r = await fetch(`/api/sessions/${SESSION.id}/subtitles`, { method: "POST", body: fd }).then((x) => x.json());
-  if (r.error) { toast(r.error, "err"); return; }
+  if (r.error) { toast(errMsg(r), "err"); return; }
   toast(t("ts.subs_loaded", r.segments), "ok");
   openSession(SESSION.id);
 };
@@ -575,7 +584,7 @@ async function loadSeedDecks() {
     const decks = r.decks || [];
     $("seed-section").hidden = !decks.length;
     sel.innerHTML = decks.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join("");
-    if (r.error) $("seed-status").textContent = r.error;
+    if (r.error) $("seed-status").textContent = errMsg(r);
   } catch { $("seed-section").hidden = true; }
 }
 $("seed-btn").onclick = async () => {
@@ -588,7 +597,7 @@ $("seed-btn").onclick = async () => {
     const r = await api("/api/words/seed-anki", {
       method: "POST", body: JSON.stringify({ deck }),
     });
-    if (r.error) { $("seed-status").textContent = r.error; return; }
+    if (r.error) { $("seed-status").textContent = errMsg(r); return; }
     const res = await pollJob(r.job_id, t("seed.working"));
     if (!res) return;
     $("seed-status").textContent = t("seed.done", res.marked, res.skipped);
@@ -620,7 +629,7 @@ $("condensed-dl").onclick = async () => {
   btn.disabled = true;
   try {
     const r = await api(`/api/sessions/${SESSION.id}/condensed`, { method: "POST" });
-    if (r.error) { toast(r.error, "err"); return; }
+    if (r.error) { toast(errMsg(r), "err"); return; }
     const res = await pollJob(r.job_id, t("cond.working"));
     if (!res) return;
     const mins = (s) => Math.round(s / 60);
@@ -642,7 +651,7 @@ async function setStatus(lemma, status) {
   const r = await api("/api/words/status", {
     method: "POST", body: JSON.stringify({ lemma, status }),
   });
-  if (r.error) { toast(r.error, "err"); return; }
+  if (r.error) { toast(errMsg(r), "err"); return; }
   if (status === "unknown") delete STATUS[r.lemma];
   else STATUS[r.lemma] = status;
   renderSegs(); renderOverlay(); updateComp();
@@ -1242,7 +1251,7 @@ async function mineQuick(segIndex, selection, paraula_es = "") {
     body: JSON.stringify({ session_id: SESSION.id, segment_index: segIndex,
       selection, paraula_es, offset: OFFSET }),
   });
-  if (r.error) { toast(r.error, "err"); return; }
+  if (r.error) { toast(errMsg(r), "err"); return; }
   if (r.word_status) STATUS[r.lema] = r.word_status;
   renderSegs(); renderOverlay(); updateComp(); refreshAnki();
   toast(r.sent_now ? t("ts.card_sent", r.paraula) : t("ts.card_queued", r.paraula),
@@ -1591,7 +1600,7 @@ async function loadSettings() {
 
 async function saveSettings(partial) {
   const r = await api("/api/settings", { method: "POST", body: JSON.stringify(partial) });
-  if (r.error) { toast(r.error, "err"); return; }
+  if (r.error) { toast(errMsg(r), "err"); return; }
   SETTINGS = r;
   applySettings();
 }
@@ -1602,7 +1611,7 @@ async function saveSettings(partial) {
 async function buildReport() {
   const what = $("report-what").value.trim();
   const r = await api("/api/diagnostics?extra=" + encodeURIComponent(what));
-  if (r.error) { toast(r.error, "err"); return null; }
+  if (r.error) { toast(errMsg(r), "err"); return null; }
   $("report-text").textContent = r.report;
   $("report-preview").hidden = false;
   return r;
@@ -1702,7 +1711,7 @@ $("set-userdict-import").onclick = async () => {
   toast(t("ts.dict_import"));
   const r = await api("/api/userdict/import", { method: "POST", body: JSON.stringify({ path }) });
   $("set-userdict-import").disabled = false;
-  if (r.error) { toast(r.error, "err"); return; }
+  if (r.error) { toast(errMsg(r), "err"); return; }
   toast(t("ts.dict_done", r.name, r.entries), "ok");
   $("set-userdict-path").value = "";
   renderUserdicts(r.dicts || []);
@@ -1769,7 +1778,7 @@ $("update-check").onclick = async () => {
   $("update-apply").hidden = true;
   try {
     const r = await api("/api/update/check");
-    if (r.error) { $("update-status").textContent = `${t("set.upd_err")}: ${r.error}`; return; }
+    if (r.error) { $("update-status").textContent = `${t("set.upd_err")}: ${errMsg(r)}`; return; }
     if (!r.git) { $("update-status").textContent = t("set.upd_nogit"); return; }
     if (r.behind > 0) {
       $("update-status").textContent = t("set.upd_avail", r.behind, r.latest);
@@ -1784,7 +1793,7 @@ $("update-apply").onclick = async () => {
   $("update-status").textContent = t("set.upd_updating");
   try {
     const r = await api("/api/update/apply", { method: "POST" });
-    if (r.error) { $("update-status").textContent = `${t("set.upd_err")}: ${r.error}`; return; }
+    if (r.error) { $("update-status").textContent = `${t("set.upd_err")}: ${errMsg(r)}`; return; }
     $("update-apply").hidden = true;
     $("update-status").textContent = r.deps_changed
       ? t("set.upd_done_deps", r.installer) : t("set.upd_done");
@@ -1841,7 +1850,7 @@ $("set-import").onchange = async (e) => {
       method: "POST",
       body: JSON.stringify({ statuses: data.statuses || data, overwrite: false }),
     });
-    if (r.error) { toast(r.error, "err"); return; }
+    if (r.error) { toast(errMsg(r), "err"); return; }
     toast(t("ts.imported", r.imported, r.skipped), "ok");
     if (SESSION) openSession(SESSION.id);
   } catch { toast(t("ts.bad_json"), "err"); }

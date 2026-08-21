@@ -6,7 +6,7 @@ import re
 import sqlite3
 from pathlib import Path
 
-from . import config
+from . import config, jobs
 
 _TAG = re.compile(r"<[^>]+>")
 _WS = re.compile(r"\s+")
@@ -47,7 +47,8 @@ def import_file(path: str) -> dict:
     Glossary.init()
     g = Glossary()
     if not g.directRead(path):
-        raise ValueError("no se pudo leer el diccionario")
+        raise jobs.JobError("err.dict_unreadable",
+                            "no se pudo leer el diccionario")
     name = g.getInfo("name") or g.getInfo("title") or Path(path).stem
     slug = _slug(name)
     dbp = _dir() / f"{slug}.sqlite"

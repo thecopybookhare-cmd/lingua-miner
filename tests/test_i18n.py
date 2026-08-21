@@ -220,3 +220,27 @@ def test_no_bare_literal_is_passed_to_a_function_that_paints():
             malas.append(f"línea {n}: {texto[:70]}")
     assert not malas, ("texto escrito a mano en funciones que pintan "
                        "(debe pasar por t()):\n  " + "\n  ".join(malas))
+
+
+def test_every_error_key_the_backend_sends_has_a_translation():
+    """`_err("err.x", …)` y `jobs.JobError("err.x", …)` mandan la clave al
+    navegador. Si no existe en i18n.js, `t()` devuelve la propia clave y el
+    usuario lee literalmente «err.no_words» donde iba el aviso.
+    """
+    import ast
+
+    traducidas = set(re.findall(r'"([\w.]+)":\s*"', I18N_JS))
+    faltan = []
+    for py in sorted((ROOT / "app").rglob("*.py")):
+        arbol = ast.parse(py.read_text(encoding="utf-8"))
+        for n in ast.walk(arbol):
+            if not isinstance(n, ast.Call) or not n.args:
+                continue
+            nombre = (n.func.id if isinstance(n.func, ast.Name)
+                      else getattr(n.func, "attr", ""))
+            if nombre not in ("_err", "JobError"):
+                continue
+            clave = n.args[0]
+            if isinstance(clave, ast.Constant) and clave.value not in traducidas:
+                faltan.append(f"{py.name}:{n.lineno} -> {clave.value}")
+    assert not faltan, "claves de error sin traducir:\n  " + "\n  ".join(faltan)

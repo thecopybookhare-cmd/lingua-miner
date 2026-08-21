@@ -127,6 +127,19 @@ _ADMIN_POSTS = {
 }
 
 
+def _err(key: str, msg: str, code: int = 400, args: tuple | list = ()):
+    """Error con clave de traducción además del texto.
+
+    `error` sigue siendo el castellano de siempre (respaldo y logs);
+    `error_key`+`error_args` es lo que el navegador traduce. Sin esto, quien
+    usa la app en inglés recibía los avisos en español justo cuando algo
+    fallaba, que es cuando más falta hace entenderlos.
+    """
+    return JSONResponse(
+        {"error": msg, "error_key": key, "error_args": list(args)},
+        status_code=code)
+
+
 def _is_local_client(request) -> bool:
     host = request.client.host if request.client else ""
     return host in ("127.0.0.1", "::1", "testclient")
@@ -151,7 +164,7 @@ def _host_allowed(request) -> bool:
 @app.middleware("http")
 async def guest_gate(request, call_next):
     if not _host_allowed(request):
-        return JSONResponse({"error": "host no permitido"}, status_code=421)
+        return _err("err.bad_host", "host no permitido", 421)
     if not _is_local_client(request):
         p = request.url.path
         # borrar sesiones es una acción de administración: el único DELETE de
@@ -160,9 +173,8 @@ async def guest_gate(request, call_next):
                   and (p in _ADMIN_POSTS or p.endswith("/transcribe")))
                  or request.method == "DELETE")
         if gated:
-            return JSONResponse(
-                {"error": "solo disponible desde el equipo anfitrión"},
-                status_code=403)
+            return _err("err.host_only",
+                        "solo disponible desde el equipo anfitrión", 403)
     return await call_next(request)
 
 
@@ -350,8 +362,7 @@ def diagnostics_report(request: Request, extra: str = ""):
     y la URL de GitHub con el issue redactado, para que el usuario lo lea,
     lo edite si quiere y decida él si lo manda."""
     if not _is_local_client(request):
-        return JSONResponse({"error": "solo desde el equipo anfitrión"},
-                            status_code=403)
+        return _err("err.host_only", "solo desde el equipo anfitrión", 403)
     from . import diagnostics
     return {"report": diagnostics.report(extra),
             "issue_url": diagnostics.issue_url(extra)}
@@ -615,7 +626,7 @@ async def upload_text(file: UploadFile = File(...)):
     """
     nombre = Path(file.filename or "texto").name or "texto"
     if not nombre.lower().endswith((".txt", ".epub")):
-        return JSONResponse({"error": "solo .txt o .epub"}, status_code=400)
+        return _err("err.text_only", "solo .txt o .epub")
     dest = config.DL_DIR / (uuid.uuid4().hex[:6] + "-" + nombre)
     with dest.open("wb") as f:
         shutil.copyfileobj(file.file, f)
@@ -628,7 +639,8 @@ async def upload_text(file: UploadFile = File(...)):
                           key="job.splitting")
         segs = textimport.to_segments(crudo)
         if not segs:
-            raise ValueError("el archivo no tiene texto legible")
+            raise jobs.JobError("err.no_readable_text",
+                                "el archivo no tiene texto legible")
         jobs.set_progress(jid, 0.7, f"Analizando {len(segs)} frases…",
                           key="job.sentences", args=(len(segs),))
         sid = db.create_session(
@@ -680,8 +692,7 @@ def url_session(req: UrlReq):
     ffmpeg corta audio/fotograma de las tarjetas leyendo la misma URL."""
     url = req.url.strip()
     if not url.startswith(("http://", "https://")):
-        return JSONResponse({"error": "la URL debe empezar por http(s)://"},
-                            status_code=400)
+        return _err("err.bad_url", "la URL debe empezar por http(s)://")
 
     def work(jid):
         jobs.set_progress(jid, 0.3, "Comprobando el enlace…",
@@ -733,8 +744,7 @@ def stream_session(req: UrlReq):
     Resuelve la URL reproducible con yt-dlp y crea la sesión."""
     url = req.url.strip()
     if not url.startswith(("http://", "https://")):
-        return JSONResponse({"error": "la URL debe empezar por http(s)://"},
-                            status_code=400)
+        return _err("err.bad_url", "la URL debe empezar por http(s)://")
 
     def work(jid):
         jobs.set_progress(jid, 0.3, "Resolviendo el enlace…",
@@ -743,7 +753,9 @@ def stream_session(req: UrlReq):
         if stream.is_direct(url):
             dur = media.duration(url)
             if dur <= 0:
-                raise ValueError("no se pudo leer ese enlace directo de video")
+                raise jobs.JobError(
+                    "err.bad_direct_link",
+                    "no se pudo leer ese enlace directo de video")
             title = url.split("?")[0].rstrip("/").rsplit("/", 1)[-1] or url
             sid = db.create_session(
                 CON, language=languages.active_code(),
@@ -775,14 +787,12 @@ def session_stream_url(sid: str, height: int = 0):
     """URL fresca de stream (las de yt-dlp caducan) + alturas disponibles."""
     s = db.get_session(CON, sid)
     if not s or s["source_type"] != "stream":
-        return JSONResponse({"error": "no es una sesión de streaming"},
-                            status_code=400)
+        return _err("err.not_stream", "no es una sesión de streaming")
     url, heights, is_hls = stream.stream_url(s["page_url"],
                                              height or s["stream_height"])
     if not url:
-        return JSONResponse(
-            {"error": "el enlace ya no está disponible o cambió"},
-            status_code=502)
+        return _err("err.link_gone",
+                    "el enlace ya no está disponible o cambió", 502)
     if height and height != s["stream_height"]:
         db.set_stream_height(CON, sid, height)
     return {"url": url, "height": height or s["stream_height"],
@@ -840,9 +850,9 @@ def do_transcribe(sid: str, req: TranscribeReq):
     if not s:
         return JSONResponse({"error": "not found"}, status_code=404)
     if not req.use_sidecar and req.model not in languages.profile()["whisper_models"]:
-        return JSONResponse(
-            {"error": f"modelo «{req.model}» no disponible para este idioma"},
-            status_code=400)
+        return _err("err.model_lang",
+                    f"modelo «{req.model}» no disponible para este idioma",
+                    args=(req.model,))
 
     # ya hay una transcripción en curso para esta sesión: devolver esa misma en
     # vez de lanzar otro Whisper (dos modelos a la vez se pelean por la CPU y
@@ -880,8 +890,7 @@ def do_condensed(sid: str):
         return JSONResponse({"error": "not found"}, status_code=404)
     segs = json.loads(s["transcript_json"] or "[]")
     if not segs:
-        return JSONResponse({"error": "transcribe primero esta sesión"},
-                            status_code=400)
+        return _err("err.transcribe_first", "transcribe primero esta sesión")
 
     def work(jid):
         jobs.set_progress(jid, 0.05, "Preparando audio condensado…",
@@ -924,8 +933,7 @@ async def attach_subtitles(sid: str, file: UploadFile = File(...)):
     text = (await file.read()).decode("utf-8", errors="replace")
     segs = tokens_for_existing(subs.parse_subtitles(text))
     if not segs:
-        return JSONResponse({"error": "no s'han trobat subtítols al fitxer"},
-                            status_code=400)
+        return _err("err.no_subs", "no se han encontrado subtítulos en el archivo")
     db.update_transcript(CON, sid, json.dumps(segs), "-", "srt",
                          nlp.TOK_VERSION)
     return {"segments": len(segs)}
@@ -1029,11 +1037,12 @@ def userdict_list():
 def userdict_import(req: UserDictReq):
     p = Path(req.path.strip()).expanduser()
     if not p.exists():
-        return JSONResponse({"error": "no encuentro ese archivo"}, status_code=400)
+        return _err("err.no_file", "no encuentro ese archivo")
     try:
         info = userdict.import_file(str(p))
     except Exception as e:
-        return JSONResponse({"error": f"no se pudo importar: {e}"}, status_code=400)
+        return _err("err.import_failed", f"no se pudo importar: {e}",
+                    args=(str(e),))
     return {"ok": True, **info, "dicts": userdict.list_dicts()}
 
 
@@ -1215,8 +1224,9 @@ def _text_preview(s: dict, segs: list, idx: int, selection: str,
 def _bad_index(s: dict, idx: int):
     n = len(json.loads(s["transcript_json"]))
     if not 0 <= idx < n:
-        return JSONResponse({"error": f"segment_index fuera de rango (0-{n-1})"},
-                            status_code=400)
+        return _err("err.bad_segment",
+                    f"segment_index fuera de rango (0-{n - 1})",
+                    args=(n - 1,))
     return None
 
 
@@ -1411,7 +1421,8 @@ def anki_decks():
     try:
         return {"decks": anki.deck_names()}
     except Exception:
-        return {"decks": [], "error": "Anki no está abierto"}
+        return {"decks": [], "error": "Anki no está abierto",
+                "error_key": "err.anki_closed", "error_args": []}
 
 
 class SeedReq(BaseModel):
@@ -1421,7 +1432,7 @@ class SeedReq(BaseModel):
 @app.post("/api/words/seed-anki")
 def words_seed_anki(req: SeedReq):
     if not req.deck or req.deck not in (anki.deck_names() or []):
-        return JSONResponse({"error": "mazo desconocido"}, status_code=400)
+        return _err("err.unknown_deck", "mazo desconocido")
 
     def work(jid):
         jobs.set_progress(jid, 0.2, "Leyendo el mazo…", key="seed.working")
@@ -1458,13 +1469,12 @@ def create_sample():
     """
     code = _lang()
     if not sample.available(code):
-        return JSONResponse(
-            {"error": f"todavía no hay ejemplo para «{code}»"}, status_code=400)
+        return _err("err.no_sample", f"todavía no hay ejemplo para «{code}»",
+                    args=(code,))
     r = sample.build_safe(code)
     if not r:
-        return JSONResponse(
-            {"error": "no pude generar el ejemplo (¿falta la voz neural?)"},
-            status_code=500)
+        return _err("err.sample_failed",
+                    "no pude generar el ejemplo (¿falta la voz neural?)", 500)
     from .transcribe import tokens_for_existing
     sid = db.create_session(
         # sin language la sesión nace etiquetada "ca" por defecto y la
@@ -1488,17 +1498,14 @@ async def words_import_list(file: UploadFile = File(...)):
     """
     raw = await file.read()
     if len(raw) > 20 * 1024 * 1024:
-        return JSONResponse({"error": "archivo demasiado grande (máx. 20 MB)"},
-                            status_code=400)
+        return _err("err.file_too_big", "archivo demasiado grande (máx. 20 MB)")
     try:
         words = wordlist.parse(raw)
     except Exception as e:                            # noqa: BLE001
-        return JSONResponse({"error": f"no pude leer el archivo: {e}"},
-                            status_code=400)
+        return _err("err.read_failed", f"no pude leer el archivo: {e}",
+                    args=(str(e),))
     if not words:
-        return JSONResponse(
-            {"error": "no encontré ninguna palabra en el archivo"},
-            status_code=400)
+        return _err("err.no_words", "no encontré ninguna palabra en el archivo")
     return vocab.seed_words(CON, words, _lang())
 
 
@@ -1648,10 +1655,9 @@ def post_settings(body: dict):
         return JSONResponse({"error": "ui_lang no soportado"}, status_code=400)
     if ("base_language" in body and body["base_language"] != "auto"
             and body["base_language"] not in languages.BASE_NAMES):
-        return JSONResponse({"error": "idioma base no soportado"}, status_code=400)
+        return _err("err.base_lang", "idioma base no soportado")
     if "language" in body and body["language"] not in languages.activable():
-        return JSONResponse({"error": "idioma no disponible todavía"},
-                            status_code=400)
+        return _err("err.lang_unavailable", "idioma no disponible todavía")
     if "keymap" in body:
         km = {**_settings()["keymap"], **body["keymap"]}
         keys = list(km.values())
@@ -1659,9 +1665,8 @@ def post_settings(body: dict):
                 or any(not (isinstance(k, str) and len(k) == 1
                             and k.isalpha()) for k in keys)
                 or len(keys) != len(set(keys))):
-            return JSONResponse(
-                {"error": "atajos inválidos (letras a-z, sin repetir)"},
-                status_code=400)
+            return _err("err.bad_keys",
+                        "atajos inválidos (letras a-z, sin repetir)")
     saved = (json.loads(config.SETTINGS_PATH.read_text(encoding="utf-8"))
              if config.SETTINGS_PATH.exists() else {})
     for k, v in body.items():

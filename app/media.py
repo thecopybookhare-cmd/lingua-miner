@@ -3,6 +3,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from . import jobs
+
 FFMPEG = "ffmpeg"
 BROWSER_OK = {".mp4", ".m4v", ".mov", ".webm", ".mp3", ".m4a", ".wav", ".aac", ".ogg"}
 
@@ -108,7 +110,7 @@ def condensed_audio(src: str, ranges, out: str, timeout: float = 1800) -> float:
     """
     rs = merge_ranges(ranges)
     if not rs:
-        raise ValueError("sin tramos de diálogo")
+        raise jobs.JobError("err.no_dialogue", "sin tramos de diálogo")
     sel = "+".join(f"between(t,{a:.2f},{b:.2f})" for a, b in rs)
     _run([_exe("ffmpeg"), "-y", "-i", src,
           "-af", f"aselect='{sel}',asetpts=N/SR/TB",
