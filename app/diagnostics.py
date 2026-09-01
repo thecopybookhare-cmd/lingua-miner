@@ -7,6 +7,8 @@ anuncia sin telemetría y eso incluye no mandar errores a escondidas.
 Se redacta el directorio home: las rutas llevan el nombre de usuario y no hace
 falta que acabe en un issue público.
 """
+import collections
+import logging
 import platform
 import sys
 from pathlib import Path
@@ -18,6 +20,46 @@ REPO = "https://github.com/thecopybookhare-cmd/lingua-miner"
 # lo que de verdad ayuda a diagnosticar; el resto es ruido
 _PKGS = ("pywebview", "fastapi", "uvicorn", "faster-whisper", "ctranslate2",
          "spacy", "wordfreq", "yt-dlp", "pyobjc-core")
+
+
+
+# El informe se escribía solo desde el desktop.log, que únicamente existe si
+# arrancaste por el lanzador. Quien usa ./run.sh o uvicorn mandaba issues con
+# «(sin desktop.log)» y sin una sola pista. Esto captura el log pase lo que
+# pase, y guarda los errores en su propia cola para que el ruido de arranque
+# —los avisos de pyglossary, por ejemplo— nunca los desplace.
+_FMT = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+_RING: collections.deque = collections.deque(maxlen=400)
+_ERRS: collections.deque = collections.deque(maxlen=15)
+
+
+class _Capture(logging.Handler):
+    def emit(self, record):
+        try:
+            line = self.format(record)
+        except Exception:                             # noqa: BLE001
+            return
+        if record.levelno >= logging.ERROR:
+            _ERRS.append(line)
+        if _interesting(line):
+            _RING.append(line)
+
+
+_INSTALLED = False
+
+
+def install():
+    """Engancharse al log raíz. Idempotente: se puede llamar de más."""
+    global _INSTALLED
+    if _INSTALLED:
+        return
+    h = _Capture()
+    h.setFormatter(_FMT)
+    root = logging.getLogger()
+    root.addHandler(h)
+    if root.level == logging.NOTSET or root.level > logging.INFO:
+        root.setLevel(logging.INFO)
+    _INSTALLED = True
 
 
 def _redact(text: str) -> str:
@@ -42,7 +84,7 @@ def _packages() -> list[str]:
         try:
             out.append(f"{p} {md.version(p)}")
         except Exception:
-            out.append(f"{p} (no instalado)")
+            out.append(f"{p} (not installed)")
     return out
 
 
@@ -54,25 +96,40 @@ def _interesting(line: str) -> bool:
     """
     if "uvicorn.access" in line and (" 200" in line or " 304" in line):
         return False
+    # pyglossary avisa de un plugin saltado por cada formato que necesita lxml:
+    # siete líneas idénticas en cada arranque que llenaban el informe entero.
+    if "skipping plugin" in line or "not found in" in line:
+        return False
     return True
 
 
 def _log_tail(n: int = 40) -> str:
     log = config.APP_DIR / "desktop.log"
+    raw: list[str] = []
     try:
         raw = log.read_text(encoding="utf-8", errors="replace").splitlines()
     except FileNotFoundError:
-        return "(sin desktop.log — arrancado desde la terminal)"
+        pass
     except Exception as e:                            # noqa: BLE001
-        return f"(no se pudo leer el log: {e})"
-    lines = [ln for ln in raw if _interesting(ln)]
+        return f"(could not read the log: {e})"
+    if raw:
+        lines = [ln for ln in raw if _interesting(ln)]
+        skipped = len(raw) - len(lines)
+        note = f"({skipped} routine lines omitted)\n" if skipped else ""
+    else:
+        lines, note = list(_RING), "(captured in memory — no desktop.log)\n"
     if not lines:
-        return "(log sin errores ni avisos)"
-    out = "\n".join(lines[-n:])
-    quitadas = len(raw) - len(lines)
-    if quitadas:
-        out = f"({quitadas} líneas de acceso correctas omitidas)\n" + out
-    return out
+        return "(no warnings or errors logged)"
+    return note + "\n".join(lines[-n:])
+
+
+def _last_errors() -> str:
+    """Los últimos errores con su traza, aparte del tail.
+
+    Es lo único que de verdad se necesita para arreglar un fallo, y era justo
+    lo que no llegaba: el tail se lo comían los avisos de arranque.
+    """
+    return "\n".join(_ERRS) if _ERRS else ""
 
 
 def _degraded() -> list[str]:
@@ -89,7 +146,10 @@ def report(extra: str = "") -> str:
         lang = base = "?"
     bloques = [
         "### What happened\n\n"
-        f"{extra.strip() or '<!-- describe what you did and what you expected -->'}\n",
+        # Un comentario HTML aquí se ve vacío en GitHub, así que la gente
+        # escribía DENTRO de él y su descripción quedaba invisible en el issue
+        # (le pasó a Rene-V en el #4). Un texto normal no tiene ese problema.
+        f"{extra.strip() or '_Describe what you did and what you expected._'}\n",
         "### Environment\n",
         "```",
         f"LinguaMiner {_version()}",
@@ -101,6 +161,8 @@ def report(extra: str = "") -> str:
         "```\n",
         *(["### Degraded right now\n", "```",
            *_degraded(), "```\n"] if _degraded() else []),
+        *(["### Last errors (with traceback)\n", "```",
+           _last_errors(), "```\n"] if _last_errors() else []),
         "### Log (last 40 lines)\n",
         "```",
         _log_tail(),

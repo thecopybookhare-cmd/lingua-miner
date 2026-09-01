@@ -46,7 +46,12 @@ def import_file(path: str) -> dict:
     from pyglossary.glossary_v2 import Glossary
     Glossary.init()
     g = Glossary()
-    if not g.directRead(path):
+    # pyglossary trata .zip como COMPRESIÓN, no como formato: le quita la
+    # extensión y después no sabe qué hay dentro, así que detectInputFormat
+    # falla con «unable to detect input format» en cualquier Yomitan — que es
+    # justo lo que la app dice aceptar. Para .zip hay que nombrar el formato.
+    kw = {"formatName": "Yomichan"} if Path(path).suffix.lower() == ".zip" else {}
+    if not g.directRead(path, **kw):
         raise jobs.JobError("err.dict_unreadable",
                             "no se pudo leer el diccionario")
     name = g.getInfo("name") or g.getInfo("title") or Path(path).stem

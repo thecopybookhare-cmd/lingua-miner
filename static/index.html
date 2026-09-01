@@ -409,6 +409,12 @@
         <input id="set-userdict-path" type="text" placeholder="Ruta del archivo (.ifo / .zip)…" data-i18n-ph="set.userdict_ph">
         <button id="set-userdict-import" class="small" data-i18n="set.userdict_import">Importar</button>
       </div>
+      <div class="set-row">
+        <input id="set-userdict-file" type="file" multiple hidden
+               accept=".ifo,.dict,.idx,.syn,.dz,.zip">
+        <button id="set-userdict-pick" class="small" data-i18n="set.userdict_pick">Elegir archivo…</button>
+        <span class="dim" data-i18n="set.userdict_pick_hint">StarDict: selecciona el .ifo y sus archivos hermanos a la vez.</span>
+      </div>
       <div id="set-userdict-list"></div>
     </section>
     <section>

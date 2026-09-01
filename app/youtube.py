@@ -1,4 +1,5 @@
-"""yt-dlp download: video (<=720p mp4) + Catalan subtitles if available."""
+"""yt-dlp download: video (<=720p mp4) + subtitles in the language being studied."""
+import glob
 from pathlib import Path
 
 from . import config, jobs
@@ -40,12 +41,22 @@ def download(jid: str, url: str) -> dict:
             # actualizar el mensaje (MB descargados) para que se vea vida
             jobs.set_message(jid, "", key=clave, args=args)
 
+    # El idioma de los subtítulos venía fijado a "ca" desde que la app se
+    # llamaba CatalàMiner: quien estudiaba otra cosa se descargaba el vídeo sin
+    # subtítulos y acababa transcribiendo con Whisper sin necesidad. Se pide el
+    # idioma activo, y también sus variantes regionales (pt-BR, zh-Hans…), que
+    # es como YouTube etiqueta buena parte de su catálogo.
+    from . import languages
+    try:
+        lang = languages.active_code() or "en"
+    except Exception:                                  # noqa: BLE001
+        lang = "en"
     opts = {
         "format": "bv*[height<=720][ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b",
         "outtmpl": str(config.DL_DIR / "%(title).80s-%(id)s.%(ext)s"),
         "writesubtitles": True,
         "writeautomaticsub": True,   # fallback: subs autogenerados de YouTube
-        "subtitleslangs": ["ca"],
+        "subtitleslangs": [lang, f"{lang}-.*"],
         "subtitlesformat": "vtt",
         "noplaylist": True,
         "progress_hooks": [hook],
@@ -54,10 +65,14 @@ def download(jid: str, url: str) -> dict:
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=True)
         media = Path(ydl.prepare_filename(info))
-    vtt = Path(str(media.with_suffix("")) + ".ca.vtt")
-    manual = "ca" in (info.get("subtitles") or {})
+    # yt-dlp nombra el archivo con la etiqueta exacta que sirvió YouTube
+    # ("ja", "pt-BR"…), así que se busca cualquiera que empiece por el idioma.
+    stem = media.with_suffix("")
+    vtt = next((q for q in stem.parent.glob(f"{glob.escape(stem.name)}.{lang}*.vtt")), None)
+    manual = any(k == lang or k.startswith(lang + "-")
+                 for k in (info.get("subtitles") or {}))
     return {"media_path": str(media),
             "title": info.get("title") or media.stem,
-            "subtitles": str(vtt) if vtt.exists() else None,
+            "subtitles": str(vtt) if vtt else None,
             "subs_kind": "youtube_subs" if manual else "youtube_auto",
             "duration": float(info.get("duration") or 0)}

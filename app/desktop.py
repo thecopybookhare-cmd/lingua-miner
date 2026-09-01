@@ -61,7 +61,7 @@ def _serve():
     except BaseException as e:                       # noqa: BLE001
         # SystemExit incluido: uvicorn sale así cuando no puede enlazar el puerto
         SERVER_ERROR.append(e)
-        logging.getLogger("desktop").exception("el servidor no pudo arrancar")
+        logging.getLogger("desktop").exception("server failed to start")
         raise
 
 
@@ -158,17 +158,17 @@ def _reload_when_ready(window, url: str):
         try:
             window.load_url(url)
         except Exception:
-            logging.getLogger("desktop").exception("no pude recargar la ventana")
+            logging.getLogger("desktop").exception("could not reload the window")
 
 
 def main():
     _setup_logging()
     log = logging.getLogger("desktop")
-    log.info("arrancando LinguaMiner desktop, log en %s", LOG_PATH)
+    log.info("starting LinguaMiner desktop, log at %s", LOG_PATH)
     url = f"http://127.0.0.1:{config.PORT}"
     busy = _port_taken(config.PORT)
     if busy:
-        log.warning("el puerto %s ya estaba ocupado antes de arrancar",
+        log.warning("port %s was already in use before starting",
                     config.PORT)
     try:
         import webview
@@ -185,20 +185,20 @@ def main():
                                       width=1280, height=860, min_size=(980, 640))
             else:
                 # NO abrir una ventana en blanco: decir qué pasó y dónde mirar
-                log.error("la app no respondió en %s; abro la pantalla de error", url)
+                log.error("app did not respond at %s; showing the error screen", url)
                 w = webview.create_window("LinguaMiner", html=_error_html(busy),
                                           width=1080, height=760, min_size=(720, 520))
                 threading.Thread(target=_reload_when_ready, args=(w, url),
                                  daemon=True).start()
             webview.start()
-            log.info("cerrado normalmente")
+            log.info("clean shutdown")
             return
         except Exception:
             # sin motor webview utilizable (Linux sin GTK/QT, Windows sin
             # WebView2…): seguimos sirviendo y abrimos el navegador
-            log.exception("webview no disponible; caigo al navegador")
+            log.exception("webview unavailable; falling back to the browser")
     import webbrowser
-    log.info("modo navegador: %s", url)
+    log.info("browser mode: %s", url)
     threading.Timer(1.5, lambda: webbrowser.open(url)).start()
     try:
         if serving:
@@ -207,7 +207,7 @@ def main():
             _serve()                      # bloquea (Ctrl+C para salir)
     except KeyboardInterrupt:
         pass
-    log.info("cerrado normalmente")
+    log.info("clean shutdown")
 
 
 if __name__ == "__main__":

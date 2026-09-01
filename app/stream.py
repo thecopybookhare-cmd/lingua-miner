@@ -128,6 +128,20 @@ def _audio_only(info: dict) -> list[dict]:
     return [{k: v for k, v in f.items() if k != "abr"} for f in out[-1:]]
 
 
+def _has_video(info: dict) -> bool:
+    """¿La página trae vídeo, aunque no en un formato reproducible directo?
+
+    YouTube sirve casi todo en DASH y deja un solo progresivo (el 18, 360p);
+    cuando falta, _progressive() y _hls_stream() vuelven vacíos y la cadena
+    caía en _audio_only(), que sí acepta la pista m4a. La sesión se abría
+    entonces como podcast: sin imagen, ventana encogida y 0:00 (issue #4).
+    Con esto, la rama de audio queda para lo que de verdad es sólo audio."""
+    for f in info.get("formats", []):
+        if f.get("vcodec") not in (None, "none") or f.get("height"):
+            return True
+    return False
+
+
 def resolve(url: str) -> dict:
     """{title, duration, formats:[{height,label,url}], best_url, subs_url,
     subs_auto} — o {} si no se pudo resolver. Cacheado con TTL."""
@@ -148,10 +162,15 @@ def resolve(url: str) -> dict:
         if hls_url:
             formats = [{"height": hls_h, "label": "HLS", "url": hls_url}]
             is_hls = True
-    if not formats:                         # ni vídeo ni HLS: ¿podcast/radio?
+    if not formats and not _has_video(info):   # ni vídeo ni HLS: ¿podcast/radio?
         formats = _audio_only(info)
         is_audio = bool(formats)
     if not formats:
+        # Hay vídeo, pero ninguno que un <video> pueda reproducir. Mejor
+        # decirlo y mandar a la descarga —que además ya trae los subtítulos—
+        # que abrir una sesión muda.
+        if _has_video(info):
+            return {"needs_download": True, "title": info.get("title") or url}
         return {}
     subs_url, subs_auto = _subs_url(info)
     r = {"title": info.get("title") or url,
@@ -168,7 +187,7 @@ def resolve(url: str) -> dict:
 def stream_url(url: str, height: int = 0) -> tuple[str, list[dict], bool]:
     """URL fresca para la altura pedida (o la mejor) + alturas + si es HLS."""
     r = resolve(url)
-    if not r:
+    if not r or r.get("needs_download"):
         return "", [], False
     fmts = r["formats"]
     chosen = r["best_url"]

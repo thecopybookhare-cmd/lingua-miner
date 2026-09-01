@@ -2,8 +2,12 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g,
   (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const api = async (path, opts = {}) => {
+  // Con FormData el Content-Type lo pone el navegador, porque lleva el
+  // boundary del multipart. Fijarlo a json rompía la subida en silencio.
+  const json = !(opts.body instanceof FormData);
   const r = await fetch(path, {
-    headers: { "Content-Type": "application/json" }, ...opts,
+    ...(json ? { headers: { "Content-Type": "application/json" } } : {}),
+    ...opts,
   });
   return r.json();
 };
@@ -411,6 +415,7 @@ async function openSession(sid, opts = {}) {
   });
   // las sesiones de texto no tienen vídeo: van al lector, no al reproductor
   if (s.source_type === "text") {
+    stopPlayback();                     // veníamos de un vídeo: apagarlo
     $("home").hidden = true; $("player").hidden = true; $("reader").hidden = false;
     $("reader-title").textContent = s.title || "";
     READ_ONE = -1;                      // cada libro empieza en modo página
@@ -493,6 +498,16 @@ async function setVideoSrc(url, isHls) {
   V.src = url;                            // nativo (Safari/WKWebView) o fallback
 }
 
+// Salir del reproductor sin esto dejaba el vídeo sonando de fondo y, en HLS,
+// a hls.js descargando segmentos indefinidamente. Hay dos salidas (volver a la
+// biblioteca y abrir un libro), así que el apagado va en un solo sitio.
+function stopPlayback() {
+  try { V.pause(); } catch (e) {}
+  if (HLS) { HLS.destroy(); HLS = null; }
+  V.removeAttribute("src");
+  try { V.load(); } catch (e) {}        // suelta el búfer y corta la descarga
+}
+
 async function loadStreamUrl(sid, height) {
   showProgress(0.5, t("ts.loading_video"));
   const r = await api(`/api/sessions/${sid}/stream-url?height=${height || 0}`);
@@ -538,7 +553,8 @@ $("video").addEventListener("waiting", () => {
 });
 
 $("back").onclick = () => {
-  saveResume(true);                     // recordar dónde lo dejamos
+  saveResume(true);                     // recordar dónde lo dejamos (antes de soltar el src)
+  stopPlayback();
   if (document.fullscreenElement) document.exitFullscreen();
   $("quality-menu").hidden = true;
   $("video-col").classList.remove("fake-fs");
@@ -1714,6 +1730,25 @@ $("set-userdict-import").onclick = async () => {
   if (r.error) { toast(errMsg(r), "err"); return; }
   toast(t("ts.dict_done", r.name, r.entries), "ok");
   $("set-userdict-path").value = "";
+  renderUserdicts(r.dicts || []);
+};
+
+// Pegar rutas a mano fallaba para media humanidad (los gestores de Linux
+// copian file:///…). El selector evita el problema de raíz.
+$("set-userdict-pick").onclick = () => $("set-userdict-file").click();
+$("set-userdict-file").onchange = async () => {
+  const inp = $("set-userdict-file");
+  const files = [...(inp.files || [])];
+  if (!files.length) return;
+  const fd = new FormData();
+  files.forEach((f) => fd.append("files", f));
+  $("set-userdict-pick").disabled = true;
+  toast(t("ts.dict_import"));
+  const r = await api("/api/userdict/upload", { method: "POST", body: fd });
+  $("set-userdict-pick").disabled = false;
+  inp.value = "";                       // volver a elegir el mismo archivo
+  if (r.error) { toast(errMsg(r), "err"); return; }
+  toast(t("ts.dict_done", r.name, r.entries), "ok");
   renderUserdicts(r.dicts || []);
 };
 

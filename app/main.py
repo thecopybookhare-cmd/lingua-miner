@@ -2,10 +2,12 @@
 import json
 import logging
 import shutil
+import tempfile
 import threading
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlparse, unquote as url_unquote
 
 from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -96,6 +98,9 @@ async def lifespan(_app):
 
 _log = logging.getLogger("cards")
 
+from . import diagnostics      # noqa: E402
+diagnostics.install()          # capturar el log aunque no se arranque por el lanzador
+
 app = FastAPI(title="LinguaMiner", lifespan=lifespan)
 
 
@@ -116,7 +121,7 @@ async def no_stale_ui(request, call_next):
 # tocar settings, disparar descargas o parar el compartir queda reservado al
 # equipo anfitrión.
 _ADMIN_POSTS = {
-    "/api/userdict/import", "/api/userdict/remove",
+    "/api/userdict/import", "/api/userdict/upload", "/api/userdict/remove",
     "/api/share/start", "/api/share/stop",
     "/api/settings", "/api/anki/deck", "/api/anki/port",
     "/api/setup/download", "/api/words/import", "/api/words/import-list",
@@ -765,6 +770,11 @@ def stream_session(req: UrlReq):
             return {"session_id": sid}
         # sitio soportado (YouTube, 3cat…) → resolver stream progresivo
         r = stream.resolve(url)
+        if r.get("needs_download"):
+            raise jobs.JobError(
+                "err.no_direct_format",
+                "Ese vídeo no tiene un formato reproducible directo. "
+                "Descárgalo con «⬇️ Importar»: además te traerá sus subtítulos.")
         if not r:
             raise ValueError(
                 "No pude extraer un vídeo de esa página. yt-dlp no soporta ese "
@@ -1033,17 +1043,66 @@ def userdict_list():
     return {"dicts": userdict.list_dicts()}
 
 
+def _as_path(raw: str) -> Path:
+    """Ruta escrita a mano, y por tanto pegada de donde sea.
+
+    Los gestores de archivos de Linux (Nautilus, Files de Zorin) copian
+    `file:///home/…` en vez de la ruta; macOS y algunos terminales copian la
+    ruta entre comillas. Las dos cosas llegaban tal cual a Path() y fallaban
+    con «no encuentro ese archivo» teniendo el archivo delante."""
+    t = (raw or "").strip()
+    if len(t) >= 2 and t[0] == t[-1] and t[0] in "\"'":
+        t = t[1:-1].strip()                       # comillas de copiar-pegar
+    if t.startswith("file://"):
+        t = url_unquote(urlparse(t).path)         # URI → ruta, y %20 → espacio
+    return Path(t).expanduser()
+
+
 @app.post("/api/userdict/import")
 def userdict_import(req: UserDictReq):
-    p = Path(req.path.strip()).expanduser()
+    p = _as_path(req.path)
     if not p.exists():
         return _err("err.no_file", "no encuentro ese archivo")
     try:
         info = userdict.import_file(str(p))
     except Exception as e:
+        _log.exception("userdict import failed")
         return _err("err.import_failed", f"no se pudo importar: {e}",
                     args=(str(e),))
     return {"ok": True, **info, "dicts": userdict.list_dicts()}
+
+
+@app.post("/api/userdict/upload")
+async def userdict_upload(files: list[UploadFile] = File(...)):
+    """Importar sin escribir rutas: el navegador manda el archivo.
+
+    StarDict no es un archivo sino un conjunto (.ifo + .dict + .idx), así que
+    se aceptan varios y se guardan juntos en un temporal — pyglossary lee el
+    .ifo y encuentra sus hermanos al lado. Yomitan viene en un .zip y basta
+    con uno. El temporal se borra siempre: lo que queda es el sqlite ya
+    indexado."""
+    tmp = Path(tempfile.mkdtemp(prefix="userdict-"))
+    try:
+        saved = []
+        for f in files:
+            dest = tmp / (Path(f.filename or "dic").name or "dic")
+            with dest.open("wb") as out:
+                shutil.copyfileobj(f.file, out)
+            saved.append(dest)
+        if not saved:
+            return _err("err.no_file", "no llegó ningún archivo")
+        main = (next((q for q in saved if q.suffix.lower() == ".ifo"), None)
+                or next((q for q in saved if q.suffix.lower() == ".zip"), None)
+                or max(saved, key=lambda q: q.stat().st_size))
+        try:
+            info = userdict.import_file(str(main))
+        except Exception as e:
+            _log.exception("userdict upload failed")
+            return _err("err.import_failed", f"no se pudo importar: {e}",
+                        args=(str(e),))
+        return {"ok": True, **info, "dicts": userdict.list_dicts()}
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 @app.post("/api/userdict/remove")
