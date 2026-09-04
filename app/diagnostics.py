@@ -132,6 +132,44 @@ def _last_errors() -> str:
     return "\n".join(_ERRS) if _ERRS else ""
 
 
+def _commit() -> str:
+    """El hash corto, para saber de un vistazo si el informe viene de una
+    versión ya arreglada. Dos de los cinco primeros reportes llegaron de
+    gente que no había actualizado, y no había forma de notarlo."""
+    try:
+        from . import update
+        if update.is_git_checkout():
+            return update._git("rev-parse", "--short", "HEAD").stdout.strip()
+    except Exception:                                 # noqa: BLE001
+        pass
+    return ""
+
+
+def _right_now() -> list[str]:
+    """Qué estaba haciendo la app cuando se pidió el informe.
+
+    «El vídeo se traba» es indiagnosticable sin esto: el sospechoso habitual
+    es una transcripción de Whisper comiéndose la CPU de fondo, y eso no
+    salía en ninguna parte del informe."""
+    out = []
+    try:
+        from . import jobs
+        run = [f"{j.get('label') or '?'} at {round((j.get('progress') or 0) * 100)}%"
+               for j in jobs.JOBS.values() if j.get("status") == "running"]
+        out.append(f"background jobs: {', '.join(run) if run else 'none'}")
+    except Exception:                                 # noqa: BLE001
+        pass
+    try:
+        from . import transcribe
+        loaded = list(getattr(transcribe, "_MODELS", {}))
+        out.append(f"whisper loaded in memory: {', '.join(loaded) if loaded else 'none'}")
+    except Exception:                                 # noqa: BLE001
+        pass
+    import os
+    out.append(f"cpu cores: {os.cpu_count()}")
+    return out
+
+
 def _degraded() -> list[str]:
     from . import failures
     return failures.details()
@@ -152,12 +190,16 @@ def report(extra: str = "") -> str:
         f"{extra.strip() or '_Describe what you did and what you expected._'}\n",
         "### Environment\n",
         "```",
-        f"LinguaMiner {_version()}",
+        f"LinguaMiner {_version()}" + (f"  ·  commit {_commit()}" if _commit() else ""),
         f"{platform.platform()}",
         f"{platform.machine()}  ·  Python {sys.version.split()[0]}",
         f"studying {lang} → {base}",
         "",
         *_packages(),
+        "```\n",
+        "### Right now\n",
+        "```",
+        *_right_now(),
         "```\n",
         *(["### Degraded right now\n", "```",
            *_degraded(), "```\n"] if _degraded() else []),
@@ -185,7 +227,9 @@ def issue_url(extra: str = "", title: str = "") -> str:
                 + "\n```\n\n_(log truncated — the full one is in the path shown"
                   " in the app)_")
     q = urllib.parse.urlencode({
-        "title": title or "Bug: ",
+        # "Bug: " se enviaba tal cual y llegaba un issue sin título (#5).
+        # Vacío obliga a GitHub a pedirlo antes de dejar publicar.
+        "title": title or "",
         "body": body,
         "labels": "bug",
     })
