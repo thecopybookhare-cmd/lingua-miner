@@ -627,6 +627,10 @@ button.small { font-size: 12px; padding: 6px 10px; }
 #onb-steps small { color: var(--dim); font-size: 12.5px; line-height: 1.45; }
 .onb-sub { margin: 16px 0 0; font-size: 12px; text-transform: uppercase;
   letter-spacing: .06em; color: var(--dim); font-weight: 600; }
+.onb-lang { margin: 16px 0 0; display: grid; gap: 6px; }
+.onb-lang label { font-weight: 600; font-size: 14px; }
+.onb-lang select { max-width: 320px; }
+.onb-lang small { color: var(--dim); font-size: 12.5px; line-height: 1.45; }
 #onb-checks { list-style: none; padding: 0; margin: 10px 0 12px; display: grid; gap: 6px; }
 #onb-checks li { display: flex; flex-direction: column; gap: 1px; font-size: 14px; }
 #onb-checks li.ok { color: var(--dim); }
@@ -812,14 +816,14 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .wp-conj-btn { display: flex; align-items: center; justify-content: center; gap: 8px; }
 
 /* controles de formulario del tema (los nativos blancos rompían el modo oscuro) */
-.modal-box select, .modal-box input[type="number"], .modal-box input[type="text"],
+.modal-box select, .onb-lang select, .modal-box input[type="number"], .modal-box input[type="text"],
 .modal-box input[type="url"] {
   background: var(--panel2); color: var(--fg); border: 1px solid var(--line);
   border-radius: 10px; padding: 7px 11px; font: inherit; font-size: 13.5px;
   transition: border-color .15s ease;
 }
-.modal-box select:hover, .modal-box input:hover { border-color: #3a4059; }
-.modal-box select:focus, .modal-box input:focus { border-color: var(--vio); }
+.modal-box select:hover, .onb-lang select:hover, .modal-box input:hover { border-color: #3a4059; }
+.modal-box select:focus, .onb-lang select:focus, .modal-box input:focus { border-color: var(--vio); }
 .modal-box input[type="checkbox"] {
   accent-color: var(--vio); width: 17px; height: 17px; cursor: pointer;
 }

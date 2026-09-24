@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>LinguaMiner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="icon" href="/favicon.png?v=1.33.2">
+<link rel="icon" href="/favicon.png?v=1.34.0">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#0c0d13">
@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="LinguaMiner">
-<link rel="stylesheet" href="/style.css?v=1.33.2">
+<link rel="stylesheet" href="/style.css?v=1.34.0">
 </head>
 <body>
 <!-- sprite de iconos (estilo Lucide: 24×24, trazo 2, sin relleno) -->
@@ -93,6 +93,11 @@
         <li><b data-i18n="onb.s3t">Haz clic en una palabra</b>
           <small data-i18n="onb.s3">Sale el diccionario; pulsa ⏎ y la tarjeta va a Anki con el audio de la frase, la imagen y la traducción.</small></li>
       </ol>
+      <div id="onb-lang" class="onb-lang" hidden>
+        <label for="onb-language" data-i18n="onb.lang">¿Qué idioma estudias?</label>
+        <select id="onb-language"></select>
+        <small data-i18n="onb.lang_hint">Elígelo antes de descargar: cada idioma trae su propio traductor y diccionarios.</small>
+      </div>
       <h4 id="onb-need" class="onb-sub" hidden data-i18n="onb.need">Lo que necesitas</h4>
       <ul id="onb-checks"></ul>
       <div class="onb-actions">
@@ -512,7 +517,7 @@
     });
   }
 </script>
-<script src="/i18n.js?v=1.33.2"></script>
-<script src="/app.js?v=1.33.2"></script>
+<script src="/i18n.js?v=1.34.0"></script>
+<script src="/app.js?v=1.34.0"></script>
 </body>
 </html>

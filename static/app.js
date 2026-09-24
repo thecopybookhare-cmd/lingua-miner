@@ -262,6 +262,17 @@ const onbLabel = (k) => [t("onb." + k), t("onb." + k + "_hint")];
 const ONB_ORDER = ["ffmpeg", "translator", "dictionary", "forms", "spacy", "anki", "tts", "espeak"];
 const ONB_OPTIONAL = new Set(["espeak", "tts"]);
 let ONB_DISMISSED = false;
+let ONB_HAS_SESSIONS = true;   // hasta saber lo contrario, no se enseña el selector
+
+// El idioma de estudio vivía solo en Ajustes, en una sección oculta. Quien
+// llegaba nuevo no lo encontraba, pulsaba «Descargar» y se bajaba el
+// traductor del idioma por defecto (catalán, 1,5 GB) aunque estudiara otro.
+// Mismo selector aquí, antes de la lista de lo que falta.
+function syncOnbLang() {
+  const langs = (SETTINGS?.languages || []).filter((l) => l.available);
+  $("onb-lang").hidden = ONB_HAS_SESSIONS || langs.length <= 1;
+  $("onb-language").innerHTML = $("set-language").innerHTML;
+}
 
 async function refreshOnboarding() {
   const s = await api("/api/setup-status").catch(() => null);
@@ -274,6 +285,8 @@ async function refreshOnboarding() {
   // los 3 pasos solo mientras no haya minado nada; luego sobran
   $("onb-steps").hidden = !!s.has_sessions;
   $("onb-need").hidden = !!s.has_sessions;
+  ONB_HAS_SESSIONS = !!s.has_sessions;
+  syncOnbLang();
   $("onb-checks").innerHTML = ONB_ORDER.map((k) => {
     const ok = s.checks[k];
     const [label, hint] = onbLabel(k);
@@ -291,6 +304,12 @@ $("onb-download").onclick = async () => {
   if (res) { toast(t("ts.dl_done"), "ok"); refreshOnboarding(); }
 };
 $("onb-recheck").onclick = () => { refreshAnki(); refreshOnboarding(); };
+$("onb-language").onchange = async () => {
+  await saveSettings({ language: $("onb-language").value });
+  toast(t("set.lang_changed"));
+  loadSessions();
+  refreshOnboarding();   // traductor y diccionarios son por idioma
+};
 $("onb-dismiss").onclick = () => { ONB_DISMISSED = true; $("onboarding").hidden = true; };
 
 $("file-input").onchange = async (e) => {
@@ -1573,6 +1592,7 @@ function applySettings() {
   $("set-lang-section").hidden = langs.length <= 1;
   $("set-language").innerHTML = langs.map((l) =>
     `<option value="${l.code}"${l.code === SETTINGS.language ? " selected" : ""}>${l.name}</option>`).join("");
+  syncOnbLang();
   // idioma base (traducir a): solo si el idioma de estudio ofrece alternativas
   const bases = SETTINGS.bases || [{ code: "es", name: "Español" }];
   const activeBase = SETTINGS.base_language_effective || "es";
@@ -1864,6 +1884,7 @@ $("set-language").onchange = async () => {
   await saveSettings({ language: $("set-language").value });
   toast(t("set.lang_changed"));
   loadSessions();
+  refreshOnboarding();
 };
 $("set-base").onchange = async () => {
   await saveSettings({ base_language: $("set-base").value });
