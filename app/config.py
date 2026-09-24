@@ -6,6 +6,15 @@ PORT = 8977
 # AnkiConnect default port is 8765, but on this machine another local
 # service can squat it — we probe candidates and remember the winner.
 ANKI_PORTS = (8765, 8766, 8767)
+# En Docker, Anki corre en el anfitrión y 127.0.0.1 es el propio contenedor:
+# la imagen pone host.docker.internal.
+ANKI_HOST = os.environ.get("LINGUAMINER_ANKI_HOST", "127.0.0.1")
+# En Docker las peticiones del navegador llegan desde la puerta de enlace de
+# la red del contenedor, nunca desde 127.0.0.1, así que la puerta de
+# invitados trataba a todo el mundo como invitado y nadie podía administrar.
+# Con esto el control de acceso pasa a ser el puerto publicado
+# (-p 127.0.0.1:8977:8977). Solo lo activa la imagen de Docker.
+TRUST_ALL_CLIENTS = os.environ.get("LINGUAMINER_TRUST_ALL_CLIENTS", "") == "1"
 
 
 def default_app_dir(platform: str | None = None) -> Path:

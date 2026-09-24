@@ -1,0 +1,130 @@
+name: Docker
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths:
+      - "app/**"
+      - "static/**"
+      - "pyproject.toml"
+      - "Dockerfile"
+      - ".dockerignore"
+      - ".github/workflows/docker.yml"
+  pull_request:
+    paths:
+      - "app/**"
+      - "static/**"
+      - "pyproject.toml"
+      - "Dockerfile"
+      - ".dockerignore"
+      - ".github/workflows/docker.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build (amd64) to test
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: linguaminer:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Un health check en verde no basta: la primera versión de esto
+      # arrancaba, respondía a /api/health y devolvía 403 a cualquier acción
+      # de administración, porque el navegador llega desde la puerta de enlace
+      # de Docker y no desde 127.0.0.1.
+      - name: Smoke test
+        run: |
+          set -eu
+          wait_up() {
+            for i in $(seq 1 60); do
+              curl -fsS "http://127.0.0.1:$1/api/health" >/dev/null 2>&1 && return 0
+              sleep 2
+            done
+            docker logs "$2"; return 1
+          }
+          post_settings() {
+            curl -s -o /dev/null -w '%{http_code}' -X POST \
+              -H 'Content-Type: application/json' -d '{}' \
+              "http://127.0.0.1:$1/api/settings"
+          }
+
+          docker run -d --name lm -p 127.0.0.1:8977:8977 linguaminer:test
+          wait_up 8977 lm
+          echo "health: ok"
+
+          curl -fsS -o /dev/null http://127.0.0.1:8977/
+          echo "interfaz: ok"
+
+          code=$(post_settings 8977)
+          [ "$code" = 200 ] || { echo "acción de admin desde fuera: $code"; docker logs lm; exit 1; }
+          echo "acción de administración desde fuera del contenedor: $code"
+
+          curl -fsS -o /dev/null http://127.0.0.1:8977/api/diagnostics
+          echo "informe de fallos sin .git: ok"
+
+          docker exec lm python -c "
+          import importlib.util as u, sys
+          ms = ['ca_core_news_sm','fr_core_news_sm','en_core_web_sm','de_core_news_sm',
+                'pt_core_news_sm','it_core_news_sm','ru_core_news_sm','nl_core_news_sm',
+                'zh_core_web_sm','ja_core_news_sm','ko_core_news_sm']
+          miss = [m for m in ms if u.find_spec(m) is None]
+          print('spaCy: faltan', miss) if miss else print('spaCy: los 11 modelos dentro')
+          sys.exit(1 if miss else 0)"
+
+          docker exec lm sh -c 'test "$(id -u)" != 0 && touch /data/.w && rm /data/.w'
+          echo "usuario sin privilegios, /data escribible: ok"
+
+          # control: sin la variable, la puerta de invitados sigue cerrando
+          docker run -d --name lm-guest -e LINGUAMINER_TRUST_ALL_CLIENTS=0 \
+            -p 127.0.0.1:8978:8977 linguaminer:test
+          wait_up 8978 lm-guest
+          code=$(post_settings 8978)
+          [ "$code" = 403 ] || { echo "sin la variable esperaba 403, llegó $code"; exit 1; }
+          echo "sin la variable la puerta sigue cerrada: $code"
+
+      - name: Tags
+        id: meta
+        if: github.event_name != 'pull_request'
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=short
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push (amd64 + arm64)
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

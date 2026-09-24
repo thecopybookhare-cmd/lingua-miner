@@ -1,0 +1,6 @@
+# Lista blanca: solo lo que la imagen necesita.
+*
+!pyproject.toml
+!app/
+!static/
+**/__pycache__

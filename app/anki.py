@@ -20,7 +20,7 @@ _PORT: int | None = None  # discovered AnkiConnect port
 
 
 def _url(port: int) -> str:
-    return f"http://127.0.0.1:{port}"
+    return f"http://{config.ANKI_HOST}:{port}"
 
 
 def probe(port: int) -> str:

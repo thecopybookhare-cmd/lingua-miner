@@ -1,0 +1,19 @@
+# docker compose up -d   →   http://localhost:8977
+services:
+  linguaminer:
+    image: ghcr.io/thecopybookhare-cmd/lingua-miner:latest
+    ports:
+      # Solo este ordenador. Dentro de Docker, cualquiera que llegue a este
+      # puerto tiene control total de la app: no lo abras a la red sin pensarlo.
+      - "127.0.0.1:8977:8977"
+    volumes:
+      - linguaminer-data:/data
+      # Para abrir vídeos que ya tienes (quita el # y ajusta la ruta):
+      # - ~/Videos:/videos:ro
+    extra_hosts:
+      # Anki corre en tu ordenador; en Linux esto hace que el contenedor lo vea
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  linguaminer-data:

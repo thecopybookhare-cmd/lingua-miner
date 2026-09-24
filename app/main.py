@@ -148,6 +148,8 @@ def _err(key: str, msg: str, code: int = 400, args: tuple | list = ()):
 
 
 def _is_local_client(request) -> bool:
+    if config.TRUST_ALL_CLIENTS:      # Docker: ver config.TRUST_ALL_CLIENTS
+        return True
     host = request.client.host if request.client else ""
     return host in ("127.0.0.1", "::1", "testclient")
 
