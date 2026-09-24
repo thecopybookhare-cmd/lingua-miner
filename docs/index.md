@@ -26,6 +26,19 @@ animated clip of that exact moment, and the sentence with a translation.
 - **[Adding a language](adding-a-language.html)** — what has to exist for a
   language to work, and where each candidate currently stands.
 
+## Or run it with Docker
+
+No installer, no Python — one command, then open <http://localhost:8977>:
+
+```bash
+docker run -d --name linguaminer -p 127.0.0.1:8977:8977 \
+  -v linguaminer-data:/data --add-host=host.docker.internal:host-gateway \
+  ghcr.io/thecopybookhare-cmd/lingua-miner:latest
+```
+
+Details — Anki from inside the container, your own videos, updating — are in
+[the README](https://github.com/thecopybookhare-cmd/lingua-miner#docker).
+
 ## What else it does
 
 - **Word states synced from Anki.** Red is new, orange is learning, unmarked is

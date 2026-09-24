@@ -146,6 +146,39 @@ first time you transcribe. App data lives in your OS's standard folder
 (`Application Support` on Mac, `AppData\Roaming` on Windows,
 `~/.local/share` on Linux).
 
+### Docker
+
+No installer and no Python on your machine — one command, then open
+<http://localhost:8977>:
+
+```bash
+docker run -d --name linguaminer --restart unless-stopped \
+  -p 127.0.0.1:8977:8977 \
+  -v linguaminer-data:/data \
+  --add-host=host.docker.internal:host-gateway \
+  ghcr.io/thecopybookhare-cmd/lingua-miner:latest
+```
+
+Or `docker compose up -d` with the [`compose.yaml`](compose.yaml) in this repo.
+Built for both Intel/AMD and ARM (Apple Silicon, Raspberry Pi).
+
+- **Your data** — library, queued cards, downloaded models — lives in the
+  `linguaminer-data` volume, so updating the image never touches it. The
+  Whisper model (≈3 GB) downloads into it the first time you transcribe.
+- **Keep the `127.0.0.1:`** in the port. Inside Docker, anyone who can reach
+  that port has full control of the app.
+- **Anki** keeps running on your computer as usual; cards reach it through
+  `host.docker.internal`. With Docker Desktop (Mac, Windows) that should be all.
+  On Linux, AnkiConnect only listens on localhost, which the container can't
+  reach: in Anki → Tools → Add-ons → AnkiConnect → Config, set
+  `"webBindAddress": "172.17.0.1"` (Docker's bridge). Don't use `0.0.0.0` —
+  that opens your collection to your whole network. If Anki can't be reached,
+  cards queue up and send themselves once it can.
+- **Videos you already have:** add `-v ~/Videos:/videos:ro`, or open them
+  from the browser.
+- **Updating:** `docker pull ghcr.io/thecopybookhare-cmd/lingua-miner:latest`,
+  then remove and recreate the container. The in-app updater doesn't apply here.
+
 ### Anki (for the cards)
 
 1. Install [Anki](https://apps.ankiweb.net)
