@@ -1850,7 +1850,8 @@ $("update-apply").onclick = async () => {
     const r = await api("/api/update/apply", { method: "POST" });
     if (r.error) { $("update-status").textContent = `${t("set.upd_err")}: ${errMsg(r)}`; return; }
     $("update-apply").hidden = true;
-    $("update-status").textContent = r.deps_changed
+    // dependencias instaladas por la propia app (Mac/Linux): basta reiniciar
+    $("update-status").textContent = r.deps_changed && !r.deps_installed
       ? t("set.upd_done_deps", r.installer) : t("set.upd_done");
   } catch { $("update-status").textContent = t("set.upd_err"); }
   finally { $("update-apply").disabled = false; }

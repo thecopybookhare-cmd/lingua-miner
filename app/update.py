@@ -3,6 +3,7 @@
 El bootstrap instala clonando el repo, así que actualizar = git pull. Si la
 instalación no es un checkout (zip suelto), se informa y no se toca nada.
 """
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -79,8 +80,48 @@ def apply() -> dict:
         return {"error": (p.stderr or p.stdout).strip()[:300]}
     diff = _git("diff", "--name-only", "HEAD@{1}..HEAD").stdout
     deps_changed = "pyproject.toml" in diff or "uv.lock" in diff
+    deps_error = None
+    if deps_changed:
+        deps_error = ("en Windows hace falta el instalador, con la app cerrada"
+                      if sys.platform.startswith("win") else install_deps())
     return {"ok": True, "deps_changed": deps_changed,
+            "deps_installed": deps_changed and deps_error is None,
+            "deps_error": deps_error,
             "current": _git("rev-parse", "--short", "HEAD").stdout.strip()}
+
+
+def _uv() -> str | None:
+    """uv, aunque no esté en el PATH: abierta con doble clic, la app no hereda
+    el de la terminal, y los instaladores lo dejan en ~/.local/bin."""
+    found = shutil.which("uv")
+    if found:
+        return found
+    home = Path.home()
+    for c in (home / ".local" / "bin" / "uv", home / ".cargo" / "bin" / "uv",
+              Path("/opt/homebrew/bin/uv"), Path("/usr/local/bin/uv")):
+        if c.exists():
+            return str(c)
+    return None
+
+
+def install_deps() -> str | None:
+    """Instala lo que pide el pyproject nuevo en el venv de la app.
+
+    Antes, cualquier cambio de dependencias obligaba a cada usuario a volver a
+    ejecutar el instalador a mano, que es justo donde se pierde quien no es
+    técnico, y el arreglo habitual cuando YouTube rompe yt-dlp es subirle la
+    versión. None si fue bien; si no, el error, y la app pide el instalador
+    como antes. No se usa en Windows: bloquea los paquetes compilados que la
+    app tiene cargados y la instalación podría quedar a medias."""
+    uv = _uv()
+    if not uv:
+        return "no encontré uv"
+    try:
+        r = subprocess.run([uv, "pip", "install", "-p", sys.executable, "-e", str(REPO_DIR)],
+                           cwd=REPO_DIR, capture_output=True, text=True, timeout=900)
+    except (subprocess.TimeoutExpired, OSError) as e:
+        return str(e)[:300]
+    return None if r.returncode == 0 else (r.stderr or r.stdout).strip()[-300:]
 
 
 def installer_hint() -> str:
