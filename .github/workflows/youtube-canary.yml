@@ -1,0 +1,42 @@
+name: YouTube canary
+
+# Cada lunes: «Ver online» con YouTube desde una instalación limpia. Ver
+# scripts/youtube_canary.py para el porqué.
+on:
+  schedule:
+    - cron: "17 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+      - name: Clean install, like a new user
+        run: uv python install 3.12 && uv venv --python 3.12 && uv pip install -e .
+      - name: Watch online with YouTube
+        id: canary
+        run: |
+          set +e
+          .venv/bin/python scripts/youtube_canary.py > canary.md
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+          cat canary.md | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Open an issue if it's broken
+        if: steps.canary.outputs.code == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          title="YouTube canary: Watch online is broken"
+          n=$(gh issue list --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$n" ]; then gh issue comment "$n" --body-file canary.md
+          else gh issue create --title "$title" --body-file canary.md; fi
+          exit 1
+      - name: Inconclusive
+        if: steps.canary.outputs.code == '2'
+        run: echo "::warning::YouTube asked GitHub's runner to prove it isn't a bot on every video. Says nothing about the app."
