@@ -59,6 +59,7 @@ def test_resolve_uses_hls_when_no_progressive(monkeypatch):
         {"protocol": "m3u8_native", "height": 1080, "url": "https://c/v.m3u8",
          "manifest_url": "https://c/master.m3u8"}]}
     monkeypatch.setattr(stream, "_extract", lambda u: info)
+    monkeypatch.setattr(stream, "_browser_can_load", lambda u: True)   # 3cat sí manda CORS
     r = stream.resolve("https://site/peli")
     assert r["is_hls"] is True
     assert r["best_url"] == "https://c/master.m3u8"

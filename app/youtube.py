@@ -51,7 +51,9 @@ def download(jid: str, url: str) -> dict:
         lang = languages.active_code() or "en"
     except Exception:                                  # noqa: BLE001
         lang = "en"
+    from . import ytdlp
     opts = {
+        **ytdlp.base_opts(),
         "format": "bv*[height<=720][ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b",
         "outtmpl": str(config.DL_DIR / "%(title).80s-%(id)s.%(ext)s"),
         "writesubtitles": True,

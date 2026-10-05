@@ -1,6 +1,6 @@
 [project]
 name = "lingua-miner"
-version = "1.34.0"
+version = "1.34.1"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "fastapi>=0.115",
@@ -11,7 +11,11 @@ dependencies = [
   "ctranslate2>=4.0",
   "sentencepiece>=0.2",
   "huggingface_hub>=0.23",
-  "yt-dlp>=2025.1.1",
+  # [default] trae yt-dlp-ejs y deno el binario oficial de Deno: sin un motor
+  # de JavaScript, yt-dlp pierde el formato de YouTube que el navegador puede
+  # reproducir y «Ver online» se queda en 0:00 (ver app/ytdlp.py)
+  "yt-dlp[default]>=2026.8.19",
+  "deno>=2.0",
   "spacy>=3.7",
   # [cjk]: sin estos extras wordfreq no tokeniza chino (jieba), japonés ni
   # coreano (MeCab), y devuelve frecuencia 0 para TODAS sus palabras, lo que

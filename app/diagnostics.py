@@ -19,7 +19,7 @@ REPO = "https://github.com/thecopybookhare-cmd/lingua-miner"
 
 # lo que de verdad ayuda a diagnosticar; el resto es ruido
 _PKGS = ("pywebview", "fastapi", "uvicorn", "faster-whisper", "ctranslate2",
-         "spacy", "wordfreq", "yt-dlp", "pyobjc-core")
+         "spacy", "wordfreq", "yt-dlp", "yt-dlp-ejs", "deno", "pyobjc-core")
 
 
 

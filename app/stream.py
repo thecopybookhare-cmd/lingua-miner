@@ -7,7 +7,7 @@ re-resuelven al abrir la sesión y al minar."""
 import re
 import time
 
-from . import failures
+from . import failures, ytdlp
 
 _DIRECT = re.compile(r"\.(mp4|m3u8|webm|mov|m4v)(\?|$)", re.I)
 
@@ -102,10 +102,29 @@ def _subs_url(info: dict) -> tuple[str, bool]:
 
 def _extract(url: str) -> dict:
     import yt_dlp
-    opts = {"quiet": True, "no_warnings": True, "noplaylist": True,
-            "skip_download": True}
+    opts = {**ytdlp.base_opts(), "quiet": True, "no_warnings": True,
+            "noplaylist": True, "skip_download": True}
     with yt_dlp.YoutubeDL(opts) as y:
         return y.extract_info(url, download=False)
+
+
+def _browser_can_load(url: str) -> bool:
+    """¿Dejará el navegador que hls.js cargue este manifiesto?
+
+    hls.js baja el .m3u8 y los segmentos con XHR, así que el servidor tiene que
+    mandar Access-Control-Allow-Origin. YouTube no la manda: su HLS responde
+    200 y el navegador lo bloquea igual. Abrir esa sesión era dejar a alguien
+    delante de un vídeo en 0:00 sin ningún error."""
+    import requests
+
+    from . import config
+    origin = f"http://localhost:{config.PORT}"
+    try:
+        r = requests.get(url, headers={"Origin": origin}, timeout=8, stream=True)
+        r.close()
+    except Exception:  # noqa: BLE001
+        return False
+    return r.ok and r.headers.get("Access-Control-Allow-Origin", "") in ("*", origin)
 
 
 def _audio_only(info: dict) -> list[dict]:
@@ -159,7 +178,7 @@ def resolve(url: str) -> dict:
     is_hls = is_audio = False
     if not formats:                         # si no hay, caer a HLS (m3u8)
         hls_url, hls_h = _hls_stream(info)
-        if hls_url:
+        if hls_url and _browser_can_load(hls_url):
             formats = [{"height": hls_h, "label": "HLS", "url": hls_url}]
             is_hls = True
     if not formats and not _has_video(info):   # ni vídeo ni HLS: ¿podcast/radio?

@@ -86,6 +86,13 @@ jobs:
           print('spaCy: faltan', miss) if miss else print('spaCy: los 11 modelos dentro')
           sys.exit(1 if miss else 0)"
 
+          docker exec lm python -c "
+          import sys
+          from app import ytdlp
+          p = ytdlp.deno_path()
+          print('Deno para yt-dlp:', p)
+          sys.exit(0 if p else 1)"
+
           docker exec lm sh -c 'test "$(id -u)" != 0 && touch /data/.w && rm /data/.w'
           echo "usuario sin privilegios, /data escribible: ok"
 
