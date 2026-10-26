@@ -8,6 +8,11 @@ dependencies = [
   "python-multipart>=0.0.9",
   "requests>=2.32",
   "faster-whisper>=1.0",
+  # PyAV 19 quitó el parámetro metadata_errors que faster-whisper 1.2.1 (la
+  # última) le pasa a av.open() para leer el audio: «Transcribir» fallaba con
+  # TypeError en toda instalación nueva desde el 29-sep-2026 (issue #8).
+  # Quitar el tope solo cuando faster-whisper publique el arreglo.
+  "av>=11,<19",
   "ctranslate2>=4.0",
   "sentencepiece>=0.2",
   "huggingface_hub>=0.23",
