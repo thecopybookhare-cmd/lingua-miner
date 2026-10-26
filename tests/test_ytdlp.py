@@ -18,15 +18,21 @@ def _fake_deno(monkeypatch, path):
 def test_deno_from_the_pypi_package(monkeypatch):
     _fake_deno(monkeypatch, "/venv/bin/deno")
     assert ytdlp.deno_path() == "/venv/bin/deno"
-    assert ytdlp.base_opts() == {"js_runtimes": {"deno": {"path": "/venv/bin/deno"}}}
+    assert ytdlp.base_opts()["js_runtimes"] == {"deno": {"path": "/venv/bin/deno"}}
 
 
 def test_without_deno_it_says_so(monkeypatch):
     monkeypatch.setitem(sys.modules, "deno", None)        # import deno -> ImportError
     monkeypatch.setattr(ytdlp.shutil, "which", lambda _: None)
     monkeypatch.setattr(ytdlp.failures, "_SEEN", {})
-    assert ytdlp.base_opts() == {}
+    assert "js_runtimes" not in ytdlp.base_opts()
     assert "ytdlp-no-js" in ytdlp.failures._SEEN          # visible en la app, no solo en el log
+
+
+def test_youtube_uses_only_the_web_client():
+    # Con los clientes por defecto de yt-dlp 2026.10.21 el formato sale de
+    # TVHTML5 y su URL da 403; añadir «web» junto a ellos no basta (issue #9)
+    assert ytdlp.base_opts()["extractor_args"] == {"youtube": {"player_client": ["web"]}}
 
 
 class _Captured(Exception):
@@ -59,6 +65,7 @@ def test_watch_online_gives_ytdlp_deno(monkeypatch):
     with pytest.raises(_Captured):
         stream._extract("https://www.youtube.com/watch?v=x")
     assert seen["js_runtimes"] == {"deno": {"path": "/venv/bin/deno"}}
+    assert seen["extractor_args"]["youtube"]["player_client"] == ["web"]
 
 
 def test_download_gives_ytdlp_deno(monkeypatch):
@@ -67,6 +74,7 @@ def test_download_gives_ytdlp_deno(monkeypatch):
     with pytest.raises(_Captured):
         youtube.download("job", "https://www.youtube.com/watch?v=x")
     assert seen["js_runtimes"] == {"deno": {"path": "/venv/bin/deno"}}
+    assert seen["extractor_args"]["youtube"]["player_client"] == ["web"]
 
 
 class _Resp:

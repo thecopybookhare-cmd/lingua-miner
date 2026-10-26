@@ -26,12 +26,23 @@ def deno_path() -> str | None:
     return shutil.which("deno")
 
 
+# yt-dlp 2026.10.21 empezó a sacar los formatos de YouTube del cliente
+# TVHTML5, cuyas URLs responden 403 tanto al navegador como al propio yt-dlp:
+# «Ver online» dejó de reproducir y la descarga del formato 18 también (lo
+# detectó el canario, issue #9). Con el cliente WEB el mismo vídeo responde
+# 206. Tiene que ir solo: junto a los clientes por defecto, yt-dlp se queda
+# con el formato de TVHTML5 igualmente.
+YOUTUBE_ARGS = {"youtube": {"player_client": ["web"]}}
+
+
 def base_opts() -> dict:
+    opts = {"extractor_args": YOUTUBE_ARGS}
     path = deno_path()
     if path:
-        return {"js_runtimes": {"deno": {"path": path}}}
+        opts["js_runtimes"] = {"deno": {"path": path}}
+        return opts
     failures.warn_once(
         "ytdlp-no-js",
         "no hay Deno: YouTube pierde formatos y «Ver online» puede quedarse "
         "en 0:00. Vuelve a ejecutar el instalador para traerlo.")
-    return {}
+    return opts
