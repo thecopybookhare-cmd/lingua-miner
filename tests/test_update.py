@@ -76,7 +76,7 @@ def test_apply_pull_and_deps_hint(tmp_path):
          patch.object(update, "install_deps", return_value="sin uv"):
         r = c.post("/api/update/apply").json()
     assert r["ok"] and r["deps_changed"] and r["current"] == "def5678"
-    assert r["installer"] in ("./install.sh", "install.ps1")
+    assert r["installer"] == "./install.sh" or r["installer"].endswith("LinguaMiner-Setup.cmd")
     assert r["deps_installed"] is False
 
 
@@ -176,3 +176,10 @@ def test_uv_found_outside_path(tmp_path, monkeypatch):
     monkeypatch.setattr(update.shutil, "which", lambda _: None)
     monkeypatch.setattr(update.Path, "home", lambda: tmp_path)
     assert update._uv() == str(tmp_path / ".local" / "bin" / "uv")
+
+
+def test_windows_hint_is_the_double_click_installer(monkeypatch):
+    monkeypatch.setattr(update.sys, "platform", "win32")
+    hint = update.installer_hint()
+    assert hint.endswith("LinguaMiner-Setup.cmd")
+    assert (update.REPO_DIR / "LinguaMiner-Setup.cmd").is_file()   # el que se clona con la app

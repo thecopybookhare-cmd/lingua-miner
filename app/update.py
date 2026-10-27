@@ -131,4 +131,10 @@ def install_deps() -> str | None:
 
 
 def installer_hint() -> str:
-    return "install.ps1" if sys.platform.startswith("win") else "./install.sh"
+    """Qué ejecutar cuando hay dependencias nuevas y la app no puede
+    instalarlas sola. En Windows, el instalador de doble clic con su ruta
+    completa: «ejecuta install.ps1» no le dice nada a quien no usa la
+    terminal, y el .cmd está en la carpeta de la app."""
+    if sys.platform.startswith("win"):
+        return str(REPO_DIR / "LinguaMiner-Setup.cmd")
+    return "./install.sh"
