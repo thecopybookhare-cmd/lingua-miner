@@ -375,15 +375,29 @@ function jobMsg(j, label) {
   return j.message || label;
 }
 
-async function pollJob(jid, label) {
+// Tiempo restante a partir del ritmo real de esta máquina, no de una cifra
+// fija: un portátil viejo y un Mac nuevo difieren varias veces. Solo para
+// tareas de avance regular (transcribir); las descargas por fases saltan.
+function etaText(start, p) {
+  if (!start || p - start.p < 0.01) return "";
+  const rate = (p - start.p) / (Date.now() - start.t);      // fracción por ms
+  const min = Math.round((1 - p) / rate / 60000);
+  return " · " + (min < 1 ? t("job.eta_short") : t("job.eta", min));
+}
+
+async function pollJob(jid, label, { eta = false } = {}) {
   showProgress(0, label);
+  let start = null;
   while (true) {
     const j = await api("/api/jobs/" + jid).catch(() => null);
     if (!j || j.error) {                 // server reiniciado: el job ya no existe
       showProgress(1, t("job.lost"), true);
       return null;
     }
-    showProgress(j.progress || 0, jobMsg(j, label));
+    const p = j.progress || 0;
+    // el ritmo se mide desde que hay avance real (tras cargar el modelo)
+    if (eta && !start && p >= 0.03) start = { p, t: Date.now() };
+    showProgress(p, jobMsg(j, label) + (eta ? etaText(start, p) : ""));
     if (j.status === "done") { hideProgress(); return j.result; }
     if (j.status === "error") {
       // error persistente en la píldora (no un toast que se esfuma)
@@ -591,11 +605,13 @@ $("transcribe-btn").onclick = async () => {
   btn.disabled = true;
   try {
     const model = $("model-select").value;
+    // los modelos grandes tardan horas en CPU: que nadie lo descubra a mitad
+    if (!model.includes("small") && !confirm(t("tr.slow_confirm"))) return;
     const r = await api(`/api/sessions/${SESSION.id}/transcribe`,
       { method: "POST", body: JSON.stringify({ model }) });
     if (r.error) { toast(errMsg(r), "err"); return; }
     if (r.already_running) toast(t("tr.already"));
-    const res = await pollJob(r.job_id, t("job.tr_start"));
+    const res = await pollJob(r.job_id, t("job.tr_start"), { eta: true });
     if (res) openSession(SESSION.id);
   } finally { btn.disabled = false; }
 };
@@ -1616,6 +1632,8 @@ function applySettings() {
       "catala-large": t("wh.catala"),
       "large-v3": t("wh.large"),
       "small": t("wh.small"),
+      "yue-small": t("wh.yue_small"),
+      "yue-large": t("wh.yue_large"),
     };
     $("model-select").innerHTML = wm.map((k) =>
       `<option value="${esc(k)}"${k === SETTINGS.default_whisper ? " selected" : ""}>${esc(WLBL[k] || k)}</option>`).join("");

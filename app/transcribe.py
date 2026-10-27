@@ -17,6 +17,14 @@ def _model(key: str):
     return _MODELS[cache_key]
 
 
+def beam_size(model_key: str) -> int:
+    """En CPU, el haz ancho no compensa en los modelos pequeños: small con haz 1
+    transcribió lo mismo que con haz 5 en un 37 % del tiempo (5,3× frente a 2×
+    tiempo real). Los grandes, que alguien elige a propósito por la calidad,
+    mantienen el haz 5."""
+    return 1 if "small" in model_key else 5
+
+
 def transcribe(jid: str, media_path: str, model_key: str,
                duration: float) -> list[dict]:
     """Return segments: {start,end,text,logprob,words:[{w,start,end}],tokens:[...]}"""
@@ -30,7 +38,7 @@ def transcribe(jid: str, media_path: str, model_key: str,
     jobs.set_progress(jid, 0.02, "Analizando el audio… (puede tardar unos minutos)",
                       key="job.audio")
     segments, _info = model.transcribe(
-        media_path, language=languages.active_code(), beam_size=5,
+        media_path, language=languages.active_code(), beam_size=beam_size(model_key),
         word_timestamps=True, vad_filter=True)
     out = []
     for seg in segments:

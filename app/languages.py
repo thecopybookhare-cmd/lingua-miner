@@ -44,8 +44,8 @@ PROFILES = {
         "wordfreq": "fr",
         "espeak": "fr",
         "spacy": "fr_core_news_sm",
-        "whisper_models": {"large-v3": "large-v3", "small": "small"},
-        "default_whisper": "large-v3",
+        "whisper_models": {"small": "small", "large-v3": "large-v3"},
+        "default_whisper": "small",
         # OPUS-MT fr→es convertido a CTranslate2 (Marian → necesita </s>).
         "translate_repo": "gaudi/opus-mt-fr-es-ctranslate2",
         "translate_eos": True,
@@ -77,8 +77,8 @@ PROFILES = {
         "wordfreq": "en",
         "espeak": "en",
         "spacy": "en_core_web_sm",
-        "whisper_models": {"large-v3": "large-v3", "small": "small"},
-        "default_whisper": "large-v3",
+        "whisper_models": {"small": "small", "large-v3": "large-v3"},
+        "default_whisper": "small",
         "translate_repo": "michaelfeil/ct2fast-opus-mt-en-es",   # OPUS-MT en→es CT2
         "translate_eos": True,
         "translate_dir": "translate-eng-spa",
@@ -101,8 +101,8 @@ PROFILES = {
         "wordfreq": "de",
         "espeak": "de",
         "spacy": "de_core_news_sm",
-        "whisper_models": {"large-v3": "large-v3", "small": "small"},
-        "default_whisper": "large-v3",
+        "whisper_models": {"small": "small", "large-v3": "large-v3"},
+        "default_whisper": "small",
         "translate_repo": "gaudi/opus-mt-de-es-ctranslate2",     # OPUS-MT de→es CT2
         "translate_eos": True,
         "translate_dir": "translate-deu-spa",
@@ -134,8 +134,8 @@ PROFILES = {
         "wordfreq": "pt",
         "espeak": "pt",                       # espeak-ng: pt = europeo (pt-br = BR)
         "spacy": "pt_core_news_sm",
-        "whisper_models": {"large-v3": "large-v3", "small": "small"},
-        "default_whisper": "large-v3",
+        "whisper_models": {"small": "small", "large-v3": "large-v3"},
+        "default_whisper": "small",
         # No existe un OPUS-MT pt→es bilingüe ni un CT2 pre-hecho; se usa el
         # modelo multilingüe romance (itc-itc): se baja el zip Marian y se
         # convierte a CT2 (torch-free) con el token de destino >>spa<<.
@@ -170,8 +170,8 @@ PROFILES = {
         "wordfreq": "it",
         "espeak": "it",
         "spacy": "it_core_news_sm",
-        "whisper_models": {"large-v3": "large-v3", "small": "small"},
-        "default_whisper": "large-v3",
+        "whisper_models": {"small": "small", "large-v3": "large-v3"},
+        "default_whisper": "small",
         # mismo modelo romance multilingüe que el portugués (itc-itc), solo
         # cambia el token de destino; si ya lo bajaste para pt, se reaprovecha
         "translate_repo": None,
@@ -205,8 +205,8 @@ PROFILES = {
         "wordfreq": "ru",
         "espeak": "ru",
         "spacy": "ru_core_news_sm",
-        "whisper_models": {"large-v3": "large-v3", "small": "small"},
-        "default_whisper": "large-v3",
+        "whisper_models": {"small": "small", "large-v3": "large-v3"},
+        "default_whisper": "small",
         # No hay OPUS-MT ru→es en CT2 ni zip Marian en Tatoeba (comprobado:
         # rus-spa/ da 404). Este idioma solo ofrece base inglesa; en cuanto
         # exista un ru→es se añade aquí y bases() lo recoge solo.
@@ -232,8 +232,8 @@ PROFILES = {
         "wordfreq": "nl",
         "espeak": "nl",
         "spacy": "nl_core_news_sm",
-        "whisper_models": {"large-v3": "large-v3", "small": "small"},
-        "default_whisper": "large-v3",
+        "whisper_models": {"small": "small", "large-v3": "large-v3"},
+        "default_whisper": "small",
         # Solo base inglesa: no hay CT2 nl→es pre-hecho ni zip Marian en
         # Tatoeba (nld-spa/ da 404). El nl→en sí existe convertido.
         "translate_repo": None,
@@ -274,8 +274,8 @@ PROFILES = {
         # que minar. Ver docs/adding-a-language.md.
         "spacy": "zh_core_web_sm",
         "spacy_required": True,
-        "whisper_models": {"large-v3": "large-v3", "small": "small"},
-        "default_whisper": "large-v3",
+        "whisper_models": {"small": "small", "large-v3": "large-v3"},
+        "default_whisper": "small",
         # sin zh→es: Tatoeba no tiene zho-spa (404) ni hay CT2 pre-hecho
         "translate_repo": None,
         "translate_zip": None,
@@ -308,8 +308,8 @@ PROFILES = {
         # obligatorio: el japonés tampoco separa palabras con espacios
         "spacy": "ja_core_news_sm",
         "spacy_required": True,
-        "whisper_models": {"large-v3": "large-v3", "small": "small"},
-        "default_whisper": "large-v3",
+        "whisper_models": {"small": "small", "large-v3": "large-v3"},
+        "default_whisper": "small",
         "translate_repo": None,           # no hay ja→es en CT2
         "translate_zip": None,
         "translate_dir": "translate-jpn-spa",
@@ -348,8 +348,8 @@ PROFILES = {
         "lemma_split": "+",
         "espeak": "ko",
         "spacy": "ko_core_news_sm",
-        "whisper_models": {"large-v3": "large-v3", "small": "small"},
-        "default_whisper": "large-v3",
+        "whisper_models": {"small": "small", "large-v3": "large-v3"},
+        "default_whisper": "small",
         "translate_repo": None,           # no hay ko→es en CT2
         "translate_zip": None,
         "translate_dir": "translate-kor-spa",
@@ -390,11 +390,11 @@ PROFILES = {
         # Whisper genérico transcribe cantonés como si fuera mandarín; estos
         # están afinados para cantonés y ya vienen en CTranslate2.
         "whisper_models": {
-            "yue-large": "JackyHoCL/whisper-large-v3-turbo-cantonese-yue-english-ct2",
             "yue-small": "JackyHoCL/whisper-small-cantonese-yue-english-ct2",
+            "yue-large": "JackyHoCL/whisper-large-v3-turbo-cantonese-yue-english-ct2",
             "large-v3": "large-v3",
         },
-        "default_whisper": "yue-large",
+        "default_whisper": "yue-small",
         # Ni OPUS-MT ni Tatoeba tienen cantonés (yue-eng/ da 404). NLLB-200 sí
         # lo cubre como yue_Hant, y hay conversión CTranslate2 hecha.
         "translate_repo": None,
