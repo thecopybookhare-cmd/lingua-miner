@@ -6,7 +6,7 @@ import hashlib
 import wave
 from pathlib import Path
 
-from . import config
+from . import config, failures
 
 # voces de rhasspy/piper-voices (cada voz = un .onnx + su .onnx.json)
 _BASE = "https://huggingface.co/rhasspy/piper-voices/resolve/main/"
@@ -68,7 +68,14 @@ def _voice(code: str):
                 if not path.exists():
                     download(code)
                 _VOICES[code] = PiperVoice.load(str(path))
-        except Exception:
+        except Exception as e:  # noqa: BLE001
+            # El idioma TIENE voz pero no se pudo bajar o cargar. speak()
+            # devolvía «» sin más y main.py esperaba una excepción que nunca
+            # llegaba: las tarjetas de texto salían sin audio y nadie lo sabía.
+            failures.warn_once(
+                f"piper-voice-{code}",
+                "no se pudo cargar la voz de Piper: las tarjetas de libros "
+                "saldrán sin audio", e)
             _VOICES[code] = None
     return _VOICES[code]
 
@@ -93,5 +100,8 @@ def speak(text: str) -> str:
         with wave.open(str(out), "wb") as wf:
             v.synthesize_wav(text, wf)
         return name if out.exists() else ""
-    except Exception:
+    except Exception as e:  # noqa: BLE001
+        failures.warn_once(f"piper-synth-{code}",
+                           "Piper no pudo sintetizar una frase: la tarjeta va sin audio", e)
+        out.unlink(missing_ok=True)          # un wav a medias no es un audio
         return ""
