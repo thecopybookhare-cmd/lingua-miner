@@ -52,6 +52,7 @@ jobs:
         shell: bash
         env:
           LINGUAMINER_DIR: ${{ runner.temp }}/lm-data
+          PYTHONUTF8: "1"
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then PY=.venv/Scripts/python.exe; else PY=.venv/bin/python; fi
           "$PY" scripts/smoke_install.py

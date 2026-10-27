@@ -1,6 +1,7 @@
 # Lista blanca: solo lo que la imagen necesita.
 *
 !pyproject.toml
+!uv.lock
 !app/
 !static/
 **/__pycache__
