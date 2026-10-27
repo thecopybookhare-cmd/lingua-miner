@@ -102,6 +102,20 @@ $("seed-file").onchange = async (e) => {
   toast(t("seedfile.done", r.marked, r.read, r.skipped), "ok");
 };
 
+// .apkg: tarjetas sin AnkiConnect (también para AnkiDroid y AnkiMobile).
+// Se pregunta antes cuántas hay: una descarga vacía o un 404 no se ven.
+$("set-apkg").onclick = async () => {
+  const pending = $("set-apkg-pending").checked;
+  const c = await api("/api/cards/counts").catch(() => null);
+  const n = c ? (pending ? c.pending : c.all) : 0;
+  if (!n) { toast(t(pending ? "apkg.none_pending" : "apkg.none"), "err"); return; }
+  const a = document.createElement("a");
+  a.href = "/api/cards/export.apkg" + (pending ? "" : "?all=1");
+  a.download = `linguaminer-${new Date().toISOString().slice(0, 10)}.apkg`;
+  document.body.appendChild(a); a.click(); a.remove();
+  toast(t("apkg.done", n), "ok");
+};
+
 $("degraded-hide").onclick = () => { DEG_HIDDEN = true; $("degraded").hidden = true; };
 $("degraded-report").onclick = async () => {
   const h = await api("/api/health").catch(() => null);

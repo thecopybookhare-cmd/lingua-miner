@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>LinguaMiner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="icon" href="/favicon.png?v=1.35.0">
+<link rel="icon" href="/favicon.png?v=1.36.0">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#0c0d13">
@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="LinguaMiner">
-<link rel="stylesheet" href="/style.css?v=1.35.0">
+<link rel="stylesheet" href="/style.css?v=1.36.0">
 </head>
 <body>
 <!-- sprite de iconos (estilo Lucide: 24×24, trazo 2, sin relleno) -->
@@ -377,6 +377,11 @@
       <div class="set-row"><label data-i18n="set.deck">Mazo de minado</label><select id="set-deck"></select></div>
       <div class="set-row"><label data-i18n="set.port">Puerto AnkiConnect</label>
         <input id="set-port" type="number" min="1" max="65535" placeholder="automático" data-i18n-ph="set.port_ph"></div>
+      <div class="set-row"><label data-i18n="set.apkg_pending">Exportar solo las que aún no están en Anki</label>
+        <input id="set-apkg-pending" type="checkbox" checked></div>
+      <div class="set-row"><label data-i18n="set.apkg">Tarjetas a .apkg</label>
+        <button id="set-apkg" class="small" data-i18n="set.apkg_btn">Exportar</button></div>
+      <p class="dim" data-i18n="set.apkg_hint">Sin AnkiConnect, o para AnkiDroid y el iPhone: abre el archivo y Anki lo importa.</p>
     </section>
     <section>
       <h3 data-i18n="set.sec_subs">Subtítulos</h3>
@@ -517,7 +522,7 @@
     });
   }
 </script>
-<script src="/i18n.js?v=1.35.0"></script>
-<script src="/app.js?v=1.35.0"></script>
+<script src="/i18n.js?v=1.36.0"></script>
+<script src="/app.js?v=1.36.0"></script>
 </body>
 </html>

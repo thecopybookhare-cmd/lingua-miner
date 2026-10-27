@@ -72,6 +72,15 @@ def _port_taken(port: int) -> bool:
         return s.connect_ex(("127.0.0.1", port)) == 0
 
 
+def _configure_webview(webview) -> None:
+    """pywebview trae ALLOW_DOWNLOADS en False: en la ventana de escritorio
+    los enlaces de descarga no descargaban nada. El audio condensado decía
+    «listo» y el archivo nunca aparecía, en Mac, que es donde el icono abre
+    esta ventana (en Windows run.bat abre el navegador y ahí sí funcionaba).
+    Con esto pywebview muestra el diálogo de guardar."""
+    webview.settings["ALLOW_DOWNLOADS"] = True
+
+
 def _wait_ready(port: int, secs: float = 90.0) -> bool:
     """Espera a que la app RESPONDA, no solo a que el puerto acepte.
 
@@ -177,6 +186,7 @@ def main():
 
     serving = False
     if webview is not None:
+        _configure_webview(webview)
         try:
             threading.Thread(target=_serve, name="uvicorn", daemon=True).start()
             serving = _wait_ready(config.PORT)

@@ -1512,6 +1512,32 @@ def words_seed_anki(req: SeedReq):
 
 # ---------- export / import de progreso ----------
 
+@app.get("/api/cards/counts")
+def cards_counts():
+    """Cuántas tarjetas exportaría cada opción, antes de bajar nada."""
+    return {"pending": len(db.cards_for_export(CON, only_pending=True)),
+            "all": len(db.cards_for_export(CON, only_pending=False))}
+
+
+@app.get("/api/cards/export.apkg")
+def cards_export_apkg(all: int = 0):
+    """Las tarjetas en un .apkg: se importan sin AnkiConnect, también en
+    AnkiDroid y AnkiMobile. Por defecto, solo las que aún no están en Anki."""
+    import time
+
+    from starlette.background import BackgroundTask
+
+    from . import apkg
+    cards = db.cards_for_export(CON, only_pending=not all)
+    if not cards:
+        return _err("err.no_cards", "no hay tarjetas para exportar", 404)
+    tmp = Path(tempfile.mkdtemp())
+    dest = tmp / f"linguaminer-{time.strftime('%Y-%m-%d')}.apkg"
+    apkg.build(cards, _settings()["deck"], dest)
+    return FileResponse(dest, media_type="application/octet-stream", filename=dest.name,
+                        background=BackgroundTask(shutil.rmtree, tmp, True))
+
+
 @app.get("/api/words/export")
 def words_export():
     import time
