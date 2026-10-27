@@ -267,13 +267,20 @@ language is mostly adding one entry there.
 ## Development
 
 ```bash
-uv pip install -p .venv/bin/python -e . --group dev
-.venv/bin/ruff check app/ tests/     # lint
-.venv/bin/python -m pytest tests/    # 310 tests
+uv sync                              # exact versions from uv.lock, dev tools included
+uv run ruff check app/ tests/        # lint
+uv run pytest tests/                 # tests
 ```
 
+Dependencies are pinned in `uv.lock`, and the installers, the updater, Docker
+and CI all install exactly those versions. To move them forward, run
+`uv lock --upgrade` (or `uv lock --upgrade-package yt-dlp`) and let CI and the
+install test run. The weekly YouTube check also tries the newest yt-dlp, so
+you hear about a breaking release before it reaches the lock.
+
 See [CONTRIBUTING.md](CONTRIBUTING.md). CI runs lint + tests on
-Linux/macOS/Windows on every push.
+Linux/macOS/Windows on every push, and a separate workflow runs the real
+installers on all three every week.
 
 ## License & fair use
 

@@ -3,6 +3,7 @@
 El bootstrap instala clonando el repo, así que actualizar = git pull. Si la
 instalación no es un checkout (zip suelto), se informa y no se toca nada.
 """
+import os
 import shutil
 import subprocess
 import sys
@@ -116,9 +117,14 @@ def install_deps() -> str | None:
     uv = _uv()
     if not uv:
         return "no encontré uv"
+    # Las versiones exactas de uv.lock, como los instaladores: la combinación
+    # probada, no lo último de hoy. --inexact conserva los modelos de spaCy que
+    # la app instala en el venv; UV_PROJECT_ENVIRONMENT apunta al venv que
+    # está corriendo, sea cual sea.
     try:
-        r = subprocess.run([uv, "pip", "install", "-p", sys.executable, "-e", str(REPO_DIR)],
-                           cwd=REPO_DIR, capture_output=True, text=True, timeout=900)
+        r = subprocess.run([uv, "sync", "--frozen", "--inexact", "--no-dev"],
+                           cwd=REPO_DIR, capture_output=True, text=True, timeout=900,
+                           env={**os.environ, "UV_PROJECT_ENVIRONMENT": sys.prefix})
     except (subprocess.TimeoutExpired, OSError) as e:
         return str(e)[:300]
     return None if r.returncode == 0 else (r.stderr or r.stdout).strip()[-300:]

@@ -73,8 +73,9 @@ def main() -> int:
     if deno and "ok" in results:
         return 0
     if not deno or "broken" in results:
-        print("\n**Watch online with YouTube is broken for new installs.** "
-              "Likely fix: bump `yt-dlp` / `yt-dlp-ejs` / `deno` in `pyproject.toml`.")
+        print("\n**Watch online with YouTube is broken.** If this is the locked run, "
+              "users have it now: check the early-warning run and try "
+              "`uv lock --upgrade-package yt-dlp`.")
         return 1
     return 2
 
