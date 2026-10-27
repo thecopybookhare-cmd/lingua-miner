@@ -6,6 +6,7 @@ candidate ports, remember the first real AnkiConnect, and expose a
 diagnosis so the UI can tell the user exactly what is wrong.
 """
 import base64
+import socket
 
 import requests
 
@@ -23,8 +24,25 @@ def _url(port: int) -> str:
     return f"http://{config.ANKI_HOST}:{port}"
 
 
+def _port_open(port: int) -> bool:
+    """¿Escucha algo en ese puerto? Comprobación TCP con límite corto.
+
+    En Windows, conectar a un puerto local cerrado no falla al instante: el
+    sistema reintenta y tarda segundos. Con tres puertos candidatos y requests
+    esperando hasta 3 s cada uno, /api/health tardaba varios segundos en un
+    Windows sin Anki abierto (lo destapó install-test), y el HEALTHCHECK de
+    Docker solo le da 5. Un AnkiConnect que escucha acepta en milisegundos."""
+    try:
+        with socket.create_connection((config.ANKI_HOST, port), timeout=0.3):
+            return True
+    except OSError:
+        return False
+
+
 def probe(port: int) -> str:
     """Return 'ok' (real AnkiConnect), 'squatted' (other service), 'down'."""
+    if not _port_open(port):
+        return "down"
     try:
         r = requests.post(_url(port),
                           json={"action": "version", "version": 6},

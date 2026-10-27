@@ -106,6 +106,28 @@ def youtube():
     return detail if status == "ok" else f"no concluyente: {detail}"
 
 
+def closed_port():
+    # Cuánto tarda el sistema en dar por cerrado un puerto local, sin límite
+    # nuestro: en Windows no es inmediato, y por eso anki.probe() lo comprueba
+    # primero con 0,3 s.
+    from app import anki
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]            # libre, o sea: nadie escucha
+    t = time.time()
+    try:
+        socket.create_connection(("127.0.0.1", port), timeout=10).close()
+    except OSError:
+        pass
+    raw = time.time() - t
+    t = time.time()
+    assert anki.probe(port) == "down"
+    ours = time.time() - t
+    assert ours < 1, f"probe() tardó {ours:.1f}s en un puerto cerrado"
+    return f"el sistema tarda {raw:.2f}s en rechazar; probe() {ours:.2f}s"
+
+
+step("puerto de Anki cerrado", closed_port)
 step("servidor", server)
 step("voz (Piper)", voice)
 if "path" in SPEECH:
