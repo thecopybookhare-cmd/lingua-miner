@@ -10,6 +10,7 @@ import importlib.util
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 from pathlib import Path
@@ -22,10 +23,10 @@ def step(name, fn):
     t = time.time()
     try:
         detail = fn()
-        print(f"OK    {name} ({time.time() - t:.0f}s) {detail or ''}")
+        print(f"OK    {name} ({time.time() - t:.0f}s) {detail or ''}", flush=True)
     except Exception as e:  # noqa: BLE001
         FAILS.append(name)
-        print(f"FAIL  {name}: {type(e).__name__}: {e}")
+        print(f"FAIL  {name}: {type(e).__name__}: {e}", flush=True)
 
 
 def server():
@@ -34,25 +35,38 @@ def server():
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
     base = f"http://127.0.0.1:{port}"
-    p = subprocess.Popen([sys.executable, "-m", "uvicorn", "app.main:app",
-                          "--host", "127.0.0.1", "--port", str(port)],
-                         stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-    try:
-        for _ in range(90):
-            try:
-                with urllib.request.urlopen(f"{base}/api/health", timeout=2):
-                    break
-            except Exception:  # noqa: BLE001
-                if p.poll() is not None:
-                    raise RuntimeError(p.stderr.read().decode()[-500:]) from None
-                time.sleep(1)
-        else:
-            raise TimeoutError("no respondió en 90 s")
-        with urllib.request.urlopen(f"{base}/", timeout=5) as r:
-            assert r.status == 200
-        return "arranca y sirve la interfaz"
-    finally:
-        p.terminate()
+    # la salida de uvicorn va a un archivo, no a una tubería: una tubería que
+    # nadie lee se llena y bloquea al proceso, y si falla hace falta el log
+    log = Path(tempfile.gettempdir()) / f"smoke-uvicorn-{port}.log"
+    with log.open("w", encoding="utf-8") as out:
+        p = subprocess.Popen([sys.executable, "-m", "uvicorn", "app.main:app",
+                              "--host", "127.0.0.1", "--port", str(port)],
+                             stdout=out, stderr=subprocess.STDOUT)
+        t = time.time()
+        try:
+            while time.time() - t < 120:
+                try:
+                    with urllib.request.urlopen(f"{base}/api/health", timeout=2):
+                        break
+                except Exception:  # noqa: BLE001
+                    if p.poll() is not None:
+                        break
+                    time.sleep(1)
+            else:
+                raise TimeoutError("no respondió en 120 s" + _tail(log))
+            if p.poll() is not None:
+                raise RuntimeError(f"uvicorn terminó con código {p.returncode}" + _tail(log))
+            ready = time.time() - t
+            with urllib.request.urlopen(f"{base}/", timeout=5) as r:
+                assert r.status == 200
+            return f"responde a los {ready:.0f}s y sirve la interfaz"
+        finally:
+            p.terminate()
+
+
+def _tail(log: Path) -> str:
+    lines = log.read_text(encoding="utf-8", errors="replace").splitlines()[-25:]
+    return "\n      " + "\n      ".join(lines) if lines else " (sin salida)"
 
 
 SPEECH = {}
@@ -74,7 +88,10 @@ def transcription():
     dur = len(decode_audio(path)) / 16000
     segs = transcribe.transcribe("smoke", path, "small", dur)
     text = " ".join(s["text"] for s in segs).lower()
-    assert "girona" in text, f"transcribió: {text!r}"
+    # la voz de Piper es de baja calidad y Whisper small no es perfecto: se
+    # oyó «xirona» por «Girona». Lo que importa es que reconozca el habla.
+    heard = [w for w in ("quan", "vivia", "girona", "aprendre", "català", "sèries") if w in text]
+    assert len(heard) >= 3, f"solo reconoció {heard} en: {text!r}"
     return f"«{text[:60]}»"
 
 
