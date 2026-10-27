@@ -1,0 +1,26 @@
+name: Release assets
+
+# El instalador de doble clic para Windows va adjunto a cada release, así
+# «releases/latest/download/LinguaMiner-Setup.cmd» apunta siempre a él.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to attach the assets to"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  attach:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Attach LinguaMiner-Setup.cmd
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: gh release upload "$TAG" LinguaMiner-Setup.cmd --clobber --repo "${{ github.repository }}"

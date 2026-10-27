@@ -119,7 +119,10 @@ or ffmpeg beforehand: the installer brings `uv` (which provides Python) and
 ```bash
 curl -LsSf https://raw.githubusercontent.com/thecopybookhare-cmd/lingua-miner/main/bootstrap.sh | bash
 ```
-**Windows** (PowerShell):
+**Windows** — no terminal: download
+[**LinguaMiner-Setup.cmd**](https://github.com/thecopybookhare-cmd/lingua-miner/releases/latest/download/LinguaMiner-Setup.cmd)
+and double-click it. Windows will ask once whether to run it (*More info → Run
+anyway*). Prefer PowerShell? This does the same:
 ```powershell
 irm https://raw.githubusercontent.com/thecopybookhare-cmd/lingua-miner/main/bootstrap.ps1 | iex
 ```

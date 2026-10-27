@@ -51,17 +51,28 @@ open it — you never need the Terminal again.
 
 ## Windows
 
-### 1. Open PowerShell
+No terminal needed.
 
-Press the `Windows` key, type `powershell`, press `Enter`.
+### 1. Download the installer
 
-### 2. Paste this line and press Enter
+[**LinguaMiner-Setup.cmd**](https://github.com/thecopybookhare-cmd/lingua-miner/releases/latest/download/LinguaMiner-Setup.cmd)
+
+Your browser may say the file "isn't commonly downloaded". Choose *Keep*.
+
+### 2. Double-click it
+
+Windows asks once whether to run something from the internet. Click
+*More info*, then *Run anyway*. That's the only question it asks.
+
+<details><summary>Prefer PowerShell?</summary>
+
+Press the `Windows` key, type `powershell`, press `Enter`, paste this line
+(right-click pastes) and press `Enter`:
 
 ```powershell
 irm https://raw.githubusercontent.com/thecopybookhare-cmd/lingua-miner/main/bootstrap.ps1 | iex
 ```
-
-Right-click pastes in PowerShell. Then press `Enter`.
+</details>
 
 ### 3. Wait, then open it
 
@@ -78,13 +89,25 @@ knowing:
 
 - **The interface picks your system language** (English, Spanish or Catalan).
   You can change it any time under ⚙️ → *Interface language*.
-- **The first transcription is slow.** The speech-to-text model is ~3 GB and
-  downloads the first time you press *Transcribe*. After that it is local and
-  much faster. Pick the `small` model for a quick first test.
+- **Pick the language you're learning first**, in the *Getting started* card.
+  The app downloads what that language needs, and nothing else.
+- **The first transcription downloads its model** (about 0.5 GB) the first time
+  you press *Transcribe*. The default is the fast one: a 45-minute episode takes
+  roughly ten minutes on a recent laptop, and the bar tells you how long is
+  left. The *best quality* models are much slower — hours per episode.
 
 ---
 
-## Anki (needed for the flashcards)
+## Anki (where the flashcards go)
+
+**The easy way:** install [Anki](https://apps.ankiweb.net), and when you've
+mined some cards, open ⚙️ → *Anki* → *Cards to .apkg* → *Export*. Open the file
+and Anki imports it — on your computer, in AnkiDroid, or in AnkiMobile on the
+iPhone. Importing the same file again updates the cards, it doesn't duplicate
+them.
+
+**The automatic way**, so cards go straight into Anki as you mine and the words
+you know stop being highlighted:
 
 1. Install [Anki](https://apps.ankiweb.net) — normal installer, click through it.
 2. Open Anki → *Tools* → *Add-ons* → *Get Add-ons…*
@@ -105,7 +128,7 @@ is lost.
 | `command not found: git` (macOS) | Run `xcode-select --install`, wait for it to finish, then paste the install line again |
 | The Anki badge is red or says "Anki…" | Open Anki, check AnkiConnect is installed, then click the badge to re-check |
 | Translations are empty | Open ⚙️ and use *Download translator and dictionaries*, or run `./install.sh` again |
-| Transcription seems stuck | It isn't — analysing a 50-minute episode takes a few minutes before the percentage moves. Press *Transcribe* **once** and let it work |
+| Transcription seems stuck | It isn't — analysing a 50-minute episode takes a minute or two before the bar moves; then it shows how long is left. Press *Transcribe* **once** and let it work |
 | A video won't play | `.mkv` files get converted automatically when you import them; give it a moment |
 
 Still stuck? [Open an issue](https://github.com/thecopybookhare-cmd/lingua-miner/issues)
@@ -116,4 +139,6 @@ and paste what the terminal printed.
 ## Updating later
 
 Open ⚙️ → *Updates* → *Check for updates*. It updates itself; no terminal
-needed.
+needed. Once in a while an update needs new pieces: on Mac and Linux the app
+installs them itself, and on Windows it asks you to close it and double-click
+**LinguaMiner-Setup.cmd** again.
