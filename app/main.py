@@ -406,7 +406,7 @@ def setup_download():
                 # setup (traductor y diccionarios incluidos)
                 _log.warning("modelo spaCy %s no disponible: %s — sigo con el "
                              "tokenizador regex", prof["spacy"], e)
-        jobs.set_progress(jid, 0.1, "Descargando el traductor (~1.5 GB)…",
+        jobs.set_progress(jid, 0.1, "Descargando el traductor…",
                           key="job.translator")
         if not translate.is_downloaded():
             translate.download()

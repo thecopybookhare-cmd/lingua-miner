@@ -166,7 +166,8 @@ def test_cantonese_translates_through_nllb_not_opus():
 def test_cantonese_uses_a_cantonese_whisper_model():
     """Whisper genérico transcribe cantonés como si fuera mandarín."""
     wm = L.PROFILES["yue"]["whisper_models"]
-    assert L.PROFILES["yue"]["default_whisper"] == "yue-large"
+    assert L.PROFILES["yue"]["default_whisper"] == "yue-small"
+    assert "cantonese" in wm["yue-small"].lower()
     assert "cantonese" in wm["yue-large"].lower()
 
 

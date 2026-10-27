@@ -76,12 +76,12 @@ def test_settings_expose_whisper_models_of_active_language(tmp_path):
     s = c.get("/api/settings").json()
     # catalán activo por defecto: su perfil incluye el modelo AINA
     assert "catala-large" in s["whisper_models"]
-    assert s["default_whisper"] == "catala-large"
+    assert s["default_whisper"] == "small"        # el rápido; AINA queda a elegir
     # con alemán activo el modelo catalán ya no se ofrece
     c.post("/api/settings", json={"language": "de"})
     s = c.get("/api/settings").json()
     assert "catala-large" not in s["whisper_models"]
-    assert s["default_whisper"] == "large-v3"
+    assert s["default_whisper"] == "small"
     c.post("/api/settings", json={"language": "ca"})
 
 

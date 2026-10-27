@@ -55,12 +55,17 @@ for d in (APP_DIR, MEDIA_DIR, DL_DIR, MODELS_DIR):
 # HF models cached inside our app dir, not ~/.cache
 os.environ.setdefault("HF_HOME", str(MODELS_DIR / "hf"))
 
+# El rápido va primero y por defecto. Medido en un Mac de 10 núcleos con 77 s
+# de catalán y los ajustes de transcribe.py: large-v3 va a 0,17× tiempo real
+# (un episodio de 45 min, ~4 h 30), small a 5,3× (~9 min), con las mismas
+# palabras. Con large-v3 por defecto, quien pulsaba Transcribir esperaba horas
+# con la CPU al máximo y creía que la app se había colgado (issue #3).
 WHISPER_MODELS = {
+    "small": "small",
     "catala-large": "projecte-aina/faster-whisper-large-v3-ca-3catparla",
     "large-v3": "large-v3",
-    "small": "small",
 }
-DEFAULT_WHISPER = "catala-large"
+DEFAULT_WHISPER = "small"
 
 TRANSLATE_REPO = "softcatala/translate-cat-spa"
 # Bilingual dictionary: the repo ships it as .metadix (same XML structure
