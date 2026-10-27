@@ -23,6 +23,13 @@ on:
       - ".github/workflows/docker.yml"
   workflow_dispatch:
 
+# Dos compilaciones de main a la vez se pisaban la etiqueta «latest»: ganaba
+# la que terminaba última, aunque fuera la de un commit anterior. En cola y en
+# orden: como mucho una en marcha y una esperando, siempre la más reciente.
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
   packages: write
