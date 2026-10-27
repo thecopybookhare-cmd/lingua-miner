@@ -6,8 +6,10 @@ from app import anki
 
 
 @pytest.fixture(autouse=True)
-def _reset_port():
+def _reset_port(monkeypatch):
     anki._PORT = None
+    # estos tests simulan AnkiConnect a nivel HTTP: el puerto «escucha»
+    monkeypatch.setattr(anki, "_port_open", lambda port: True)
     yield
     anki._PORT = None
 
