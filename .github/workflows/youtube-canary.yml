@@ -17,8 +17,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v6
-      - name: Clean install, like a new user
-        run: uv python install 3.12 && uv venv --python 3.12 && uv pip install -e .
+      - name: Install exactly what users get (uv.lock)
+        run: uv sync --frozen --no-dev --python 3.12
       - name: Watch online with YouTube
         id: canary
         run: |
@@ -26,6 +26,19 @@ jobs:
           .venv/bin/python scripts/youtube_canary.py > canary.md
           echo "code=$?" >> "$GITHUB_OUTPUT"
           cat canary.md | tee -a "$GITHUB_STEP_SUMMARY"
+      # Aviso anticipado: si la yt-dlp más nueva rompe algo, mejor saberlo
+      # antes de subirla al lock. Solo avisa; el issue es para lo que ya tienen.
+      - name: Early warning with the newest yt-dlp
+        if: ${{ !cancelled() }}
+        run: |
+          set +e
+          uv pip install -q --upgrade "yt-dlp[default]" deno
+          .venv/bin/python scripts/youtube_canary.py > latest.md
+          code=$?
+          { echo; echo "## Newest yt-dlp (not in the lock yet)"; cat latest.md; } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$code" = 1 ]; then
+            echo "::warning::The newest yt-dlp breaks Watch online. Don't move it into uv.lock until this passes."
+          fi
       - name: Open an issue if it's broken
         if: steps.canary.outputs.code == '1'
         env:

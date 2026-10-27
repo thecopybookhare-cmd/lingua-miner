@@ -2,19 +2,20 @@
 # No requiere instalar Python ni ffmpeg a mano: uv aporta Python y
 # static-ffmpeg descarga ffmpeg solo. Ejecuta con:
 #   powershell -ExecutionPolicy Bypass -File install.ps1
+# Los textos que ve el usuario van en ASCII: PowerShell 5.1 lee los .ps1 sin
+# BOM como ANSI y convertía los acentos en basura.
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 Write-Host "== LinguaMiner install (Windows) =="
 
 # $ErrorActionPreference NO aborta cuando falla un programa externo: solo
-# afecta a los cmdlets. Sin mirar $LASTEXITCODE, un `uv pip install` que
-# fallara pasaba desapercibido y la instalación terminaba diciendo "¡Listo!"
-# con la app rota.
+# afecta a los cmdlets. Sin mirar $LASTEXITCODE, un `uv` que fallara pasaba
+# desapercibido y la instalación terminaba diciendo "listo" con la app rota.
 function Assert-Ok([string]$What) {
   if ($LASTEXITCODE -ne 0) {
     Write-Host ""
-    Write-Host "ERROR: $What falló (código $LASTEXITCODE)." -ForegroundColor Red
-    Write-Host "La instalación se detiene aquí. Copia las líneas de arriba en"
+    Write-Host "ERROR: $What failed (code $LASTEXITCODE)." -ForegroundColor Red
+    Write-Host "The install stops here. Please paste the lines above in"
     Write-Host "https://github.com/thecopybookhare-cmd/lingua-miner/issues"
     exit 1
   }
@@ -22,51 +23,42 @@ function Assert-Ok([string]$What) {
 
 # 1) uv (gestor de Python; se instala solo si falta)
 if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
-  Write-Host "-- Instalando uv --"
+  Write-Host "-- Installing uv --"
   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
   $env:Path = "$env:USERPROFILE\.local\bin;$env:Path"
   if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
     Write-Host ""
-    Write-Host "ERROR: uv se instaló pero no aparece en el PATH." -ForegroundColor Red
-    Write-Host "Cierra esta ventana, abre otra de PowerShell y vuelve a ejecutar."
+    Write-Host "ERROR: uv was installed but isn't on the PATH." -ForegroundColor Red
+    Write-Host "Close this window, open a new PowerShell and run the installer again."
     exit 1
   }
 }
 
-# 2) entorno + dependencias (uv instala Python 3.12 si hace falta)
-if (-not (Test-Path .venv)) {
-  uv venv --python 3.12 .venv
-  Assert-Ok "crear el entorno virtual"
-}
-uv pip install -p .venv\Scripts\python.exe -e .
-Assert-Ok "instalar las dependencias"
+# 2) entorno + dependencias con las versiones exactas de uv.lock: la misma
+# combinación que pasó los tests, no lo último que haya salido hoy. Así se
+# colaron PyAV 19 (#8) y la yt-dlp del 403 (#9). uv instala Python 3.12 si
+# hace falta. --inexact: no borrar los modelos de spaCy que instala la app.
+# Aquí ya no se bajan modelos: el asistente de primer arranque pregunta antes
+# qué idioma estudias. Antes todo el mundo se bajaba los de catalán.
+Write-Host "-- Installing dependencies --"
+uv sync --frozen --inexact --no-dev --python 3.12
+Assert-Ok "installing the dependencies"
 
-# 3) modelos ligeros de primer uso
-Write-Host "-- Modelo spaCy (catalan) --"
-.\.venv\Scripts\python.exe -m spacy download ca_core_news_sm
-if ($LASTEXITCODE -ne 0) {
-  # opcional: sin el modelo se cae al tokenizador regex, la app funciona
-  Write-Host "AVISO: spaCy ca no instalado (se usara el tokenizador regex)."
-}
-Write-Host "-- Traductor + diccionarios (descarga unica) --"
-.\.venv\Scripts\python.exe -c "from app import translate, dictionary, forms; translate.is_downloaded() or translate.download(); print('traductor:', 'ok' if translate.is_downloaded() else 'ERROR'); print('diccionario:', 'ok' if dictionary.load().lookup('gos') else 'ERROR')"
-Assert-Ok "descargar el traductor y los diccionarios"
-
-# 4) comprobacion de arranque
-# Si la app no puede ni importarse, la ventana salia en blanco y el usuario no
-# tenia forma de saber por que. Mejor fallar aqui, con el error delante.
-Write-Host "-- Comprobando que la app arranca --"
+# 3) comprobación de arranque
+# Si la app no puede ni importarse, la ventana salía en blanco y el usuario no
+# tenía forma de saber por qué. Mejor fallar aquí, con el error delante.
+Write-Host "-- Checking that the app starts --"
 .\.venv\Scripts\python.exe -c "from app.main import app"
 if ($LASTEXITCODE -ne 0) {
   Write-Host ""
-  Write-Host "ERROR: la instalacion termino pero la app no arranca." -ForegroundColor Red
-  Write-Host "El error esta justo arriba. Copialo en"
+  Write-Host "ERROR: the install finished but the app doesn't start." -ForegroundColor Red
+  Write-Host "The error is right above. Please paste it in"
   Write-Host "https://github.com/thecopybookhare-cmd/lingua-miner/issues"
   exit 1
 }
 Write-Host "   ok"
 
-# 5) acceso directo en el menú Inicio (con icono propio)
+# 4) acceso directo en el menú Inicio (con icono propio)
 try {
   $StartDir = [Environment]::GetFolderPath('StartMenu')
   $Lnk = Join-Path $StartDir "Programs\LinguaMiner.lnk"
@@ -77,10 +69,10 @@ try {
   $Sc.IconLocation = (Join-Path (Get-Location) "assets\AppIcon.ico")
   $Sc.Description = "LinguaMiner - mine languages from video"
   $Sc.Save()
-  Write-Host "Acceso directo creado: menú Inicio > LinguaMiner"
-} catch { Write-Host "AVISO: no se pudo crear el acceso directo ($_)" }
+  Write-Host "Shortcut created: Start menu > LinguaMiner"
+} catch { Write-Host "WARNING: could not create the shortcut ($_)" }
 
 Write-Host ""
-Write-Host "¡Listo! Arranca con:  .\run.bat   (o desde el menú Inicio > LinguaMiner)"
-Write-Host "Opcional: instala Anki (https://apps.ankiweb.net) + add-on AnkiConnect (2055492159)."
-Write-Host "El modelo Whisper catalán (~3 GB) se descarga solo al transcribir por primera vez."
+Write-Host "Done! Start it with:  .\run.bat   (or from the Start menu > LinguaMiner)"
+Write-Host "Optional: install Anki (https://apps.ankiweb.net) + the AnkiConnect add-on (2055492159)."
+Write-Host "When the app opens, pick the language you're learning: it downloads what that language needs."

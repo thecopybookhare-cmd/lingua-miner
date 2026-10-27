@@ -3,12 +3,13 @@
 # Se abre en el navegador del anfitrión (http://localhost:8977). La biblioteca,
 # las tarjetas en cola y los modelos descargados viven en /data.
 
-# Solo la lista de dependencias. Copiar pyproject.toml entero invalidaría la
-# caché en cada cambio de versión y reinstalaría 2 GB y once modelos.
+# Solo la lista de dependencias, con las versiones exactas de uv.lock: la
+# misma combinación que pasó los tests. Copiar pyproject.toml al final, no
+# aquí, evita que cambiar el número de versión reinstale 2 GB y once modelos.
 FROM python:3.12-slim AS deps
-COPY pyproject.toml /
-RUN python -c "import tomllib; d = tomllib.load(open('/pyproject.toml', 'rb')); \
-open('/requirements.txt', 'w').write('\\n'.join(d['project']['dependencies']) + '\\n')"
+COPY --from=ghcr.io/astral-sh/uv:0.13.6 /uv /usr/local/bin/uv
+COPY pyproject.toml uv.lock /src/
+RUN cd /src && uv export --frozen --no-dev --no-emit-project --no-hashes -o /requirements.txt
 
 FROM python:3.12-slim
 
@@ -22,7 +23,7 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends ffmpeg espeak-ng \
  && rm -rf /var/lib/apt/lists/*
 
-COPY --from=ghcr.io/astral-sh/uv:0.11 /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.13.6 /uv /usr/local/bin/uv
 
 WORKDIR /app
 

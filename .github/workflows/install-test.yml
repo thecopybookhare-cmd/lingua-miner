@@ -1,0 +1,57 @@
+name: Install test
+
+# Lo primero que hace alguien nuevo es instalar, y ningún workflow lo probaba:
+# el CI corría los tests, no los instaladores. Por ahí se colaron el
+# instalador de Windows que cerraba la ventana (#2) y Transcribir roto (#8).
+# Esto ejecuta los instaladores de verdad y después el primer minuto de uso.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "install.sh"
+      - "install.ps1"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "app/**"
+      - "scripts/smoke_install.py"
+      - ".github/workflows/install-test.yml"
+  pull_request:
+    paths:
+      - "install.sh"
+      - "install.ps1"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "app/**"
+      - "scripts/smoke_install.py"
+      - ".github/workflows/install-test.yml"
+  schedule:
+    - cron: "37 8 * * 1"
+  workflow_dispatch:
+
+jobs:
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install, as a user would (macOS / Linux)
+        if: runner.os != 'Windows'
+        run: ./install.sh
+
+      - name: Install, as a user would (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File install.ps1
+
+      - name: First minute — server, voice, transcription, YouTube
+        shell: bash
+        env:
+          LINGUAMINER_DIR: ${{ runner.temp }}/lm-data
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then PY=.venv/Scripts/python.exe; else PY=.venv/bin/python; fi
+          "$PY" scripts/smoke_install.py

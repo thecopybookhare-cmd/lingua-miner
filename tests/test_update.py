@@ -148,12 +148,13 @@ def test_install_deps_runs_uv_on_this_venv(monkeypatch):
     seen = {}
 
     def fake_run(cmd, **k):
-        seen["cmd"] = cmd
+        seen["cmd"], seen["env"] = cmd, k.get("env") or {}
         return _cp("", 0)
     monkeypatch.setattr(update.subprocess, "run", fake_run)
     assert update.install_deps() is None
-    assert seen["cmd"] == ["/home/u/.local/bin/uv", "pip", "install", "-p",
-                           update.sys.executable, "-e", str(update.REPO_DIR)]
+    # las versiones del lock, sin borrar los modelos de spaCy, en este venv
+    assert seen["cmd"] == ["/home/u/.local/bin/uv", "sync", "--frozen", "--inexact", "--no-dev"]
+    assert seen["env"]["UV_PROJECT_ENVIRONMENT"] == update.sys.prefix
 
 
 def test_install_deps_reports_uv_failure(monkeypatch):
