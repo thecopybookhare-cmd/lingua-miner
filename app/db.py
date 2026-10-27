@@ -204,6 +204,14 @@ def pending_cards(con):
     return [dict(r) for r in rs]
 
 
+def cards_for_export(con, only_pending: bool = True) -> list[dict]:
+    """Para el .apkg: las que aún no están en Anki, o todas menos las que
+    Anki rechazó por duplicadas."""
+    where = "status='pending'" if only_pending else "status!='duplicate'"
+    rs = con.execute(f"SELECT * FROM cards WHERE {where} ORDER BY created_at").fetchall()
+    return [dict(r) for r in rs]
+
+
 def known_lemmas(con) -> set[str]:
     rs = con.execute("SELECT DISTINCT lema FROM cards").fetchall()
     return {r["lema"] for r in rs}

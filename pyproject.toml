@@ -1,6 +1,6 @@
 [project]
 name = "lingua-miner"
-version = "1.35.0"
+version = "1.36.0"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "fastapi>=0.115",
@@ -32,6 +32,8 @@ dependencies = [
   "pyglossary>=5.0",
   "static-ffmpeg>=2.5",
   "platformdirs>=4.0",
+  # exportar tarjetas a .apkg sin AnkiConnect (app/apkg.py)
+  "genanki>=0.13",
 ]
 
 [dependency-groups]
