@@ -17,7 +17,7 @@ import urllib.request
 sys.path.insert(0, ".")
 import yt_dlp  # noqa: E402
 
-from app import stream  # noqa: E402
+from app import stream, ytdlp  # noqa: E402
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0"
 
@@ -36,11 +36,13 @@ def check(url: str) -> tuple[str, str]:
         info = stream._extract(url)          # resolve() se traga el error; aquí se ve
     except Exception as e:  # noqa: BLE001
         msg = str(e)
-        if isinstance(e, yt_dlp.utils.GeoRestrictedError) or "location" in msg.lower():
+        if ytdlp.is_blocked(e):
             return "blocked", f"geo-restricted from this runner: `{msg[:200]}`"
         return "broken", f"yt-dlp could not extract it: `{msg[:300]}`"
     subs, _ = stream._subs_url(info, "es")
     r = stream.resolve(url)
+    if r.get("blocked"):
+        return "blocked", "geo-restricted from this runner (the app now says so instead of opening it)"
     if not r or r.get("needs_download"):
         return "broken", "no format the player can load"
     req = urllib.request.Request(r["best_url"], headers={"Range": "bytes=0-1023",
@@ -55,8 +57,11 @@ def check(url: str) -> tuple[str, str]:
     if code not in (200, 206):
         return "broken", f"the URL the player would get answered `{code}`"
     kind = "audio" if r.get("is_audio") else ("HLS" if r.get("is_hls") else "MP4")
+    # Las líneas que la app consigue leer, no solo si hay pista: la radio
+    # trae los subtítulos troceados en HLS y durante un tiempo salían 0.
+    lines = len(stream.subtitle_segments(subs)) if subs else 0
     return "ok", (f"{kind}, {int(r.get('duration') or 0)} s, URL answers {code}, "
-                  f"Spanish subtitles: {'yes' if subs else 'no'}")
+                  f"Spanish subtitle lines: {lines}")
 
 
 def main() -> int:

@@ -104,7 +104,7 @@ class _Resp:
     def iter_content(self, chunk_size=1):
         yield self.body
 
-    def iter_lines(self):
+    def iter_lines(self, chunk_size=512, decode_unicode=False, delimiter=None):
         yield from self.body.splitlines()
 
 
@@ -249,3 +249,50 @@ def test_streamed_subtitles_keep_their_accents(monkeypatch):
     import json
     texto = json.loads(tj)[0]["text"]
     assert texto == "Sí, la canción del año.", texto
+
+
+# ---------- subtítulos troceados en HLS (radio de RTVE) ----------
+
+_PLAYLIST = """#EXTM3U
+#EXT-X-TARGETDURATION:6
+#EXTINF:5.184,
+https://rne/0/sub.vtt
+#EXTINF:5.184,
+1/sub.vtt
+#EXT-X-ENDLIST
+"""
+_SEG0 = """WEBVTT
+X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:0
+
+00:00:00.949 --> 00:00:01.930
+Hola, buenas tardes,
+
+00:00:03.000 --> 00:00:05.184
+¿España se juega algo?
+"""
+_SEG1 = """WEBVTT
+X-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:0
+
+00:00:05.184 --> 00:00:06.500
+¿España se juega algo?
+
+00:00:07.000 --> 00:00:09.000
+Nos jugamos todos.
+"""
+
+
+def test_hls_subtitle_playlist_is_read_fragment_by_fragment(monkeypatch):
+    """Antes se parseaba la lista .m3u8 como si fuera el subtítulo: 0 líneas."""
+    pages = {"https://rne/vtt/x.m3u8": _PLAYLIST, "https://rne/0/sub.vtt": _SEG0,
+             "https://rne/vtt/1/sub.vtt": _SEG1}
+    monkeypatch.setattr(stream, "_get_text", lambda u: pages[u])
+    segs = stream.subtitle_segments("https://rne/vtt/x.m3u8")
+    assert [s["text"] for s in segs] == [
+        "Hola, buenas tardes,", "¿España se juega algo?", "Nos jugamos todos."]
+    assert segs[1]["start"] == 3.0 and segs[1]["end"] == 6.5, "frase partida entre dos trozos"
+    assert not any("WEBVTT" in s["text"] or "X-TIMESTAMP" in s["text"] for s in segs)
+
+
+def test_plain_vtt_still_parses_directly(monkeypatch):
+    monkeypatch.setattr(stream, "_get_text", lambda u: _SEG0)
+    assert len(stream.subtitle_segments("https://rtve/sub.vtt")) == 2

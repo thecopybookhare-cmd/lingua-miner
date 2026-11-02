@@ -1,6 +1,6 @@
 [project]
 name = "lingua-miner"
-version = "1.37.0"
+version = "1.37.1"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "fastapi>=0.115",
@@ -59,3 +59,4 @@ ignore = ["E501", "B008"]
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]
+markers = ["real_probe: no parchear stream._forbidden (prueba la comprobación del 403 de verdad)"]

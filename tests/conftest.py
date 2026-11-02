@@ -31,3 +31,15 @@ def no_wikdict_download(monkeypatch):
     from app import languages, wikdict
     seeded = {(c, b): None for c in languages.PROFILES for b in ("es", "en")}
     monkeypatch.setattr(wikdict, "_CONS", seeded)
+
+
+@pytest.fixture(autouse=True)
+def no_media_probe(request, monkeypatch):
+    """resolve() pide un byte del archivo elegido para detectar un 403 (vídeo
+    bloqueado por país). Los tests usan URLs inventadas: sin esto, cada uno
+    haría una petición de verdad. Los que prueban la comprobación en sí
+    llevan @pytest.mark.real_probe."""
+    if request.node.get_closest_marker("real_probe"):
+        return
+    from app import stream
+    monkeypatch.setattr(stream, "_forbidden", lambda url: False)

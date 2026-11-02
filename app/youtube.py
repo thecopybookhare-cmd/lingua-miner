@@ -63,9 +63,17 @@ def download(jid: str, url: str) -> dict:
         "noplaylist": True,
         "progress_hooks": [hook],
         "quiet": True,
+        "noprogress": True,          # la barra ya va por el hook; en consola era ruido
     }
     with yt_dlp.YoutubeDL(opts) as ydl:
-        info = ydl.extract_info(url, download=True)
+        try:
+            info = ydl.extract_info(url, download=True)
+        except yt_dlp.utils.DownloadError as e:
+            # Sin esto llegaba «ERROR: unable to download video data: HTTP
+            # Error 403: Forbidden», que no dice qué hacer.
+            if ytdlp.is_blocked(e):
+                raise jobs.JobError("err.geo_blocked", ytdlp.BLOCKED_MSG) from e
+            raise
         media = Path(ydl.prepare_filename(info))
     # yt-dlp nombra el archivo con la etiqueta exacta que sirvió YouTube
     # ("ja", "pt-BR"…), así que se busca cualquiera que empiece por el idioma.

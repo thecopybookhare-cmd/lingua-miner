@@ -71,7 +71,10 @@ def import_file(path: str) -> dict:
             defi = _clean(e.defi)
             if not defi:
                 continue
-            for w in e.l_word:
+            # pyglossary 5.4 renombró l_word a l_term y avisa de que l_word
+            # desaparecerá. pyproject admite >=5.0, que aún no tiene l_term.
+            terms = e.l_term if hasattr(e, "l_term") else e.l_word
+            for w in terms:
                 w = (w or "").strip().lower()
                 if w:
                     count += 1

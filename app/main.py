@@ -40,6 +40,7 @@ from . import (
     vocab,
     wikdict,
     wordlist,
+    ytdlp,
 )
 
 
@@ -427,7 +428,7 @@ def setup_download():
         jobs.set_progress(jid, 0.9, "Glosas del Wikcionario…",
                           key="job.gloss")
         wikdict.lookup("hola")
-        jobs.set_progress(jid, 0.95, "Voz neural (Piper, ~20 MB)…",
+        jobs.set_progress(jid, 0.95, "Voz neural (Piper)…",
                           key="job.voice")
         try:
             if not piper_tts.is_downloaded():
@@ -737,15 +738,8 @@ def _stream_subs_transcript(r: dict) -> tuple[str, str]:
     if not r.get("subs_url"):
         return "[]", "none"
     try:
-        import requests
-
         from .transcribe import tokens_for_existing
-        # WebVTT siempre es UTF-8, pero RTVE lo sirve como "text/vtt" sin
-        # charset y requests cae entonces a Latin-1: los acentos llegaban
-        # rotos («SÃ» en vez de «Sí»).
-        vtt = requests.get(r["subs_url"], timeout=20).content.decode(
-            "utf-8", errors="replace")
-        segs = subs.parse_subtitles(vtt)
+        segs = stream.subtitle_segments(r["subs_url"])
         if r.get("subs_auto"):
             segs = subs.clean_auto(segs)
         if not segs:
@@ -786,6 +780,8 @@ def stream_session(req: UrlReq):
             return {"session_id": sid}
         # sitio soportado (YouTube, 3cat…) → resolver stream progresivo
         r = stream.resolve(url)
+        if r.get("blocked"):
+            raise jobs.JobError("err.geo_blocked", ytdlp.BLOCKED_MSG)
         if r.get("needs_download"):
             raise jobs.JobError(
                 "err.no_direct_format",
@@ -1017,6 +1013,43 @@ class LookupReq(BaseModel):
     segment_index: int = -1
 
 
+# Categoría de spaCy (UD) → las de las glosas (kaikki y WikDict usan las mismas)
+_GLOSS_POS = {
+    "NOUN": {"noun"}, "PROPN": {"name", "noun"}, "VERB": {"verb"},
+    "AUX": {"verb"}, "ADJ": {"adj", "participle"}, "ADV": {"adv"},
+    "ADP": {"prep", "postp", "contraction"}, "CCONJ": {"conj"},
+    "SCONJ": {"conj"}, "PRON": {"pron"}, "DET": {"det", "article"},
+    "NUM": {"num"}, "INTJ": {"intj"}, "PART": {"particle"},
+}
+# Palabras gramaticales: una glosa de otra categoría es de un homógrafo
+# («pero» conjunción frente a «pero», un tipo de manzana).
+_CLOSED_POS = {"ADP", "CCONJ", "SCONJ", "PRON", "DET", "AUX", "PART"}
+
+
+def _rank_glosses(glosses: list[tuple[str, str]], pos: str,
+                  words: tuple[str, ...] = ()) -> list[tuple[str, str]]:
+    """Ordena las glosas por la categoría que spaCy le da a la palabra.
+
+    El Wikcionario mezcla homógrafos y el orden no los distingue: «pero» salía
+    como «apple» antes que nada, y «como» como «Como» (la ciudad). Las de la
+    misma categoría van primero; en palabras gramaticales se quitan las de
+    otra categoría conocida (la traducción de la palabra ya va arriba), y una
+    glosa en mayúscula igual a la palabra en minúscula es un nombre propio."""
+    low = {w.strip().lower() for w in words
+           if w and w.strip() and w.strip() == w.strip().lower()}
+    glosses = [(g, p) for g, p in glosses
+               if not (g[:1].isupper() and g.strip().lower() in low)]
+    want = _GLOSS_POS.get(pos or "")
+    if not want:
+        return glosses
+    match = [x for x in glosses if x[1] in want]
+    if pos in _CLOSED_POS:
+        rest = [x for x in glosses if not x[1]]          # sin categoría: puede valer
+    else:
+        rest = [x for x in glosses if x[1] not in want]
+    return match + rest
+
+
 @app.post("/api/lookup")
 def lookup(req: LookupReq):
     """Instant word info for the Migaku-style popup (no media generated)."""
@@ -1032,7 +1065,9 @@ def lookup(req: LookupReq):
         sentence_es = translate.sentence(req.sentence)
     # las glosas ya no dependen del español: wikdict elige el extracto del
     # Wikcionario que toque según la base activa (es o en)
-    glosses = wikdict.lookup(lemma) or wikdict.lookup(req.selection)
+    glosses = (wikdict.lookup(lemma, limit=12)
+               or wikdict.lookup(req.selection, limit=12))
+    glosses = _rank_glosses(glosses, pos, (lemma, req.selection))
     userdefs = userdict.lookup(lemma) or userdict.lookup(req.selection)
     return {
         "selection": req.selection,
