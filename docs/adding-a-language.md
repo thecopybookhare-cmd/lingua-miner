@@ -61,6 +61,7 @@ Measured August 2026 with the script above.
 | Language | Whisper | →es | →en | wordfreq | spaCy | Verdict |
 |---|---|---|---|---|---|---|
 | Italian | yes | yes | yes | yes | yes | **shipped** |
+| Spanish | yes | — | yes | yes | yes | **shipped**, English base (glosses from WikDict, 11 MB) |
 | Japanese | yes | no | yes | needs MeCab | yes | **shipped**, English base only |
 | Korean | yes | no | yes | needs MeCab | yes | **shipped**, English base only |
 | Dutch | yes | no | yes | yes | yes | **shipped**, English base only |

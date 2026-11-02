@@ -54,11 +54,12 @@ Details — Anki from inside the container, your own videos, updating — are in
   50-minute show becomes about 20 — for passive listening.
 - **Your own dictionaries**, including Yomitan format.
 
-## Twelve languages
+## Thirteen languages
 
-Catalan, French, English, German, European Portuguese, Italian, Dutch, Russian,
-Mandarin Chinese, Cantonese, Japanese and Korean — translating into Spanish or
-English.
+Catalan, Spanish, French, English, German, European Portuguese, Italian, Dutch,
+Russian, Mandarin Chinese, Cantonese, Japanese and Korean — translating into
+Spanish or English. Learning Spanish? RTVE Play, Spain's free public
+streaming service, works straight from **Watch online**, subtitles included.
 
 Transcription is Whisper, translation is CTranslate2 (OPUS-MT, or NLLB-200 for
 pairs OPUS doesn't cover), speech is Piper. Each language downloads its own

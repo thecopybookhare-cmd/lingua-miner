@@ -35,14 +35,15 @@ language, plus where it came from and how common the word is.
 - 🖱️ **One-click mining**: click any subtitle word (or drag to select an
   expression) → editable Anki card with segment audio (ffmpeg-trimmed), video
   frame, sentence + translation.
-- 🌍 **Twelve languages**: Catalan, French, English, German, European
-  Portuguese, Italian, Dutch, Russian, Mandarin Chinese, Cantonese,
+- 🌍 **Thirteen languages**: Catalan, **Spanish**, French, English, German,
+  European Portuguese, Italian, Dutch, Russian, Mandarin Chinese, Cantonese,
   **Japanese** and **Korean**. Neural
   translation runs offline via CTranslate2 (OPUS-MT, or NLLB-200 for pairs
   OPUS doesn't cover) into **Spanish or English** — pick the base under ⚙️
   *Settings → Translate to*. Catalan, French, German, Portuguese, Italian and
   English translate into either; the rest are English-base only, since no →es
-  model exists for them. Each language downloads its own translator, spaCy model, Wiktionary
+  model exists for them (or, for Spanish, because it would be translating
+  Spanish into itself). Each language downloads its own translator, spaCy model, Wiktionary
   glosses and Piper voice on first use.
   [Requesting a language?](docs/adding-a-language.md) — that page lists what
   has to exist and where each candidate currently stands.
@@ -60,7 +61,11 @@ language, plus where it came from and how common the word is.
   *learning* or *new* stay that way.
 - 📺 **Watch online**: paste a YouTube / direct / HLS link and it streams
   instantly (yt-dlp resolves the best format); cards cut audio + image
-  straight from the stream. Quality selector included.
+  straight from the stream. Quality selector included. Public broadcasters
+  work too: [3Cat](https://www.3cat.cat/3cat/) for Catalan,
+  [RTVE Play](https://www.rtve.es/play/) for Spanish (series, documentaries
+  and radio, free, no account needed, with the show's own Spanish subtitles
+  when it has them).
 - 📖 **Read books and articles too**: import a `.txt` or `.epub` and it
   becomes a reading session with the same clickable words, the same popup and
   the same i+1 highlighting — a LingQ-style reader that sends cards to Anki

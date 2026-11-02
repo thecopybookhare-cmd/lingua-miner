@@ -26,6 +26,18 @@ jobs:
           .venv/bin/python scripts/youtube_canary.py > canary.md
           echo "code=$?" >> "$GITHUB_OUTPUT"
           cat canary.md | tee -a "$GITHUB_STEP_SUMMARY"
+      # RTVE Play es la fuente principal para estudiar español. Solo informa:
+      # el runner está en EE. UU. y un bloqueo por país no dice nada de quien
+      # lo usa desde España o Latinoamérica.
+      - name: RTVE Play (Spanish)
+        if: ${{ !cancelled() }}
+        run: |
+          set +e
+          .venv/bin/python scripts/rtve_canary.py > rtve.md
+          code=$?
+          { echo; cat rtve.md; } | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$code" = 1 ]; then echo "::warning::RTVE Play: Watch online looks broken (see summary)."; fi
+          if [ "$code" = 2 ]; then echo "::warning::RTVE Play is geo-restricted from GitHub's US runner."; fi
       # Aviso anticipado: si la yt-dlp más nueva rompe algo, mejor saberlo
       # antes de subirla al lock. Solo avisa; el issue es para lo que ya tienen.
       - name: Early warning with the newest yt-dlp

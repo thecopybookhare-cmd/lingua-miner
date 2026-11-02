@@ -96,6 +96,40 @@ PROFILES = {
              "note": "Películas de dominio público", "note_en": "Public-domain films"},
         ],
     },
+    "es": {
+        "name": "Español",
+        "wordfreq": "es",
+        "espeak": "es",
+        "spacy": "es_core_news_sm",
+        "whisper_models": {"small": "small", "large-v3": "large-v3"},
+        "default_whisper": "small",
+        # Estudiar español solo tiene sentido con base inglesa: la base
+        # española sería traducir el idioma a sí mismo.
+        "translate_repo": None,
+        "translate_zip": None,
+        "translate_dir": "translate-spa-eng",
+        "bidix_url": None,
+        "bidix_file": "apertium-spa-eng.dix",
+        "forms_url": None,                    # spaCy es_core_news_sm lematiza
+        "wikdict_url": None,
+        # El extracto inglés de kaikki para el español pesa ~1 GB (el idioma
+        # con más entradas del Wikcionario); WikDict empaqueta las mismas
+        # traducciones es→en en un sqlite de 11 MB.
+        "wikdict_url_en": "https://download.wikdict.com/dictionaries/sqlite/2/es-en.sqlite3",
+        "piper_voice": "es/es_ES/davefx/medium/es_ES-davefx-medium.onnx",
+        "sources": [
+            {"name": "RTVE Play", "kind": "tv", "url": "https://www.rtve.es/play/",
+             "note": "Televisión pública española: series, documentales y cine, gratis y casi todo con subtítulos",
+             "note_en": "Spanish public TV: series, documentaries and films, free and mostly subtitled"},
+            {"name": "RTVE Play Radio", "kind": "pod", "url": "https://www.rtve.es/play/radio/",
+             "note": "Programas y podcasts de Radio Nacional",
+             "note_en": "Shows and podcasts from Spanish national radio"},
+        ],
+        "translate_bases": {
+            "en": {"repo": "gaudi/opus-mt-es-en-ctranslate2",
+                   "dir": "translate-spa-eng", "eos": True},
+        },
+    },
     "de": {
         "name": "Deutsch",
         "wordfreq": "de",

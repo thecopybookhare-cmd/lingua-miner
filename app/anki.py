@@ -58,7 +58,12 @@ def probe(port: int) -> str:
 def find_port(preferred: int | None = None) -> tuple[int | None, dict]:
     """Locate AnkiConnect. Returns (port or None, {port: probe_result})."""
     global _PORT
-    if _PORT is not None and probe(_PORT) == "ok":
+    # La caché solo vale si coincide con el puerto pedido. Antes se devolvía
+    # siempre: /api/health sondeaba sin puerto, se quedaba con el primer
+    # AnkiConnect que contestara, y a partir de ahí un anki_port puesto a mano
+    # se ignoraba y las tarjetas acababan en otro Anki.
+    if (_PORT is not None and (preferred is None or _PORT == preferred)
+            and probe(_PORT) == "ok"):
         return _PORT, {str(_PORT): "ok"}
     ports = [preferred] if preferred else list(config.ANKI_PORTS)
     diag = {}
