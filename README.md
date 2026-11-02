@@ -65,7 +65,8 @@ language, plus where it came from and how common the word is.
   work too: [3Cat](https://www.3cat.cat/3cat/) for Catalan,
   [RTVE Play](https://www.rtve.es/play/) for Spanish (series, documentaries
   and radio, free, no account needed, with the show's own Spanish subtitles
-  when it has them).
+  when it has them). Some programmes can only be watched from some
+  countries; the app tells you so instead of opening a silent player.
 - 📖 **Read books and articles too**: import a `.txt` or `.epub` and it
   becomes a reading session with the same clickable words, the same popup and
   the same i+1 highlighting — a LingQ-style reader that sends cards to Anki

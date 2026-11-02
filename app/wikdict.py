@@ -180,7 +180,9 @@ def _con():
                 # por bueno en el siguiente arranque.
                 with requests.get(url, stream=True, timeout=600) as r:
                     r.raise_for_status()
-                    build_from_lines(r.iter_lines(), dbp)
+                    # iter_lines lee de 512 en 512 bytes por defecto: con
+                    # cientos de MB son millones de lecturas.
+                    build_from_lines(r.iter_lines(chunk_size=1 << 16), dbp)
         _CONS[key] = sqlite3.connect(str(dbp), check_same_thread=False)
     except Exception as e:
         failures.warn_once(
@@ -191,12 +193,12 @@ def _con():
     return _CONS[key]
 
 
-def lookup(term: str) -> list[tuple[str, str]]:
+def lookup(term: str, limit: int = 6) -> list[tuple[str, str]]:
     """[(glosa, pos)] para el término, en el idioma base activo."""
     con = _con()
     if con is None or not term:
         return []
     rs = con.execute(
-        "SELECT gloss, pos FROM glosses WHERE word=? LIMIT 6",
-        (term.strip().lower(),)).fetchall()
+        "SELECT gloss, pos FROM glosses WHERE word=? LIMIT ?",
+        (term.strip().lower(), limit)).fetchall()
     return [(r[0], r[1]) for r in rs]

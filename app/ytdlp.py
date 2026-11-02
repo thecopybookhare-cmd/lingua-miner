@@ -46,3 +46,28 @@ def base_opts() -> dict:
         "no hay Deno: YouTube pierde formatos y «Ver online» puede quedarse "
         "en 0:00. Vuelve a ejecutar el instalador para traerlo.")
     return opts
+
+
+# Texto de reserva (castellano) del error err.geo_blocked; el navegador lo
+# traduce por la clave.
+BLOCKED_MSG = ("El sitio no deja reproducir este vídeo desde tu conexión "
+               "(error 403). Suele pasar con programas que solo se pueden ver "
+               "en algunos países: prueba con otro. Si te pasa con todos, "
+               "actualiza LinguaMiner (⚙️ → Buscar actualizaciones).")
+
+_BLOCKED = ("http error 403", "http error 451", "geo restriction",
+            "geo-restrict", "available in your country",
+            "available from your location")
+
+
+def is_blocked(exc: BaseException) -> bool:
+    """¿Falló porque el sitio no deja ver el vídeo desde esta conexión?
+
+    Bloqueo por país (GeoRestrictedError, que extract_info envuelve en un
+    DownloadError) o un 403/451 al pedir el archivo: RTVE fuera de su zona da
+    las URLs de los mp4 y luego responde 403 al pedirlos."""
+    inner = (getattr(exc, "exc_info", None) or (None, None))[1]
+    if any(type(e).__name__ == "GeoRestrictedError" for e in (exc, inner) if e):
+        return True
+    msg = str(exc).lower()
+    return any(s in msg for s in _BLOCKED)

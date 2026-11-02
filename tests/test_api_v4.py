@@ -337,7 +337,7 @@ def test_wikdict_build_and_lookup(tmp_path, monkeypatch):
 def test_lookup_includes_glosses(_tr, _sen, _ipa, tmp_path, monkeypatch):
     from app import wikdict
     monkeypatch.setattr(wikdict, "lookup",
-                        lambda t: [("Perro.", "noun")] if t == "gos" else [])
+                        lambda t, limit=6: [("Perro.", "noun")] if t == "gos" else [])
     c = client(tmp_path)
     c.post("/api/settings", json={"base_language": "es"})   # glosas en español
     r = c.post("/api/lookup",

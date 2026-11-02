@@ -30,6 +30,19 @@ def parse_subtitles(text: str) -> list[dict]:
     return segs
 
 
+def merge_split_cues(segs: list[dict]) -> list[dict]:
+    """Subtítulos troceados (HLS): una frase que cruza el corte entre dos
+    trozos llega en los dos, con el tiempo recortado en cada uno. Se ordenan
+    y se funden las repeticiones contiguas."""
+    out: list[dict] = []
+    for s in sorted(segs, key=lambda x: (x["start"], x["end"])):
+        if out and s["text"] == out[-1]["text"] and s["start"] <= out[-1]["end"] + 0.5:
+            out[-1]["end"] = max(out[-1]["end"], s["end"])
+            continue
+        out.append(dict(s))
+    return out
+
+
 def _strip_overlap(prev: str, cur: str) -> str:
     """Quita del inicio de `cur` el mayor sufijo de `prev` que lo prefija."""
     for k in range(min(len(prev), len(cur)), 3, -1):
