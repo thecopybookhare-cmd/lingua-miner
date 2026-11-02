@@ -124,11 +124,15 @@ def test_every_language_has_english_glosses():
 
 
 def test_english_gloss_urls_point_at_english_wiktionary():
+    """kaikki /dictionary/ es el Wikcionario inglés; el sqlite X-en de WikDict
+    trae traducciones al inglés (el español lo usa: su JSONL pesa ~1 GB)."""
     for code, p in L.PROFILES.items():
         u = p.get("wikdict_url_en")
         if not u:
             continue
-        assert u.startswith("https://kaikki.org/dictionary/"), (code, u)
+        assert (u.startswith("https://kaikki.org/dictionary/")
+                or (u.startswith("https://download.wikdict.com/")
+                    and u.endswith("-en.sqlite3"))), (code, u)
         assert "eswiktionary" not in u, f"{code} apunta al Wikcionario español"
 
 

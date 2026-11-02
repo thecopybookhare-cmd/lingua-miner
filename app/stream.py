@@ -88,10 +88,21 @@ def _hls_stream(info: dict) -> tuple[str, int]:
     return best
 
 
-def _subs_url(info: dict) -> tuple[str, bool]:
-    """(url del .vtt en catalán, es_automático) o ('', False)."""
+def _subs_url(info: dict, lang: str | None = None) -> tuple[str, bool]:
+    """(url del .vtt en el idioma de estudio, es_automático) o ('', False).
+
+    Venía fijado a "ca" desde CatalàMiner: con cualquier otro idioma «Ver
+    online» nunca encontraba los subtítulos del propio vídeo y había que
+    transcribir con Whisper. Se aceptan también las variantes regionales
+    ("es-ES", "pt-BR", "zh-Hans"), que es como etiquetan muchos sitios."""
+    if lang is None:
+        from . import languages
+        lang = languages.active_code()
     for key, auto in (("subtitles", False), ("automatic_captions", True)):
-        tracks = (info.get(key) or {}).get("ca") or []
+        found = info.get(key) or {}
+        tag = lang if lang in found else next(
+            (k for k in found if k.startswith(lang + "-")), None)
+        tracks = (found.get(tag) or []) if tag else []
         for t in tracks:
             if (t.get("ext") == "vtt" or "vtt" in (t.get("url") or "")) and t.get("url"):
                 return t["url"], auto
@@ -102,8 +113,12 @@ def _subs_url(info: dict) -> tuple[str, bool]:
 
 def _extract(url: str) -> dict:
     import yt_dlp
+    # writesubtitles: algunos extractores (RTVE) solo piden la lista de
+    # subtítulos a su API cuando se la piden; sin esto info["subtitles"]
+    # llega vacío aunque el vídeo los tenga. Con download=False no se escribe
+    # ningún archivo.
     opts = {**ytdlp.base_opts(), "quiet": True, "no_warnings": True,
-            "noplaylist": True, "skip_download": True}
+            "noplaylist": True, "skip_download": True, "writesubtitles": True}
     with yt_dlp.YoutubeDL(opts) as y:
         return y.extract_info(url, download=False)
 
@@ -176,19 +191,22 @@ def resolve(url: str) -> dict:
         return {}
     formats = _progressive(info)            # ideal: mp4 progresivo (mejor para ffmpeg)
     is_hls = is_audio = False
+    has_video = _has_video(info)
+    if not formats and not has_video:       # podcast/radio: el archivo de audio
+        # Va antes que el HLS: la radio de RTVE sirve mp3 y HLS a la vez, y
+        # con el HLS primero se abría como vídeo sin imagen, no como podcast.
+        formats = _audio_only(info)
+        is_audio = bool(formats)
     if not formats:                         # si no hay, caer a HLS (m3u8)
         hls_url, hls_h = _hls_stream(info)
         if hls_url and _browser_can_load(hls_url):
             formats = [{"height": hls_h, "label": "HLS", "url": hls_url}]
             is_hls = True
-    if not formats and not _has_video(info):   # ni vídeo ni HLS: ¿podcast/radio?
-        formats = _audio_only(info)
-        is_audio = bool(formats)
     if not formats:
         # Hay vídeo, pero ninguno que un <video> pueda reproducir. Mejor
         # decirlo y mandar a la descarga —que además ya trae los subtítulos—
         # que abrir una sesión muda.
-        if _has_video(info):
+        if has_video:
             return {"needs_download": True, "title": info.get("title") or url}
         return {}
     subs_url, subs_auto = _subs_url(info)

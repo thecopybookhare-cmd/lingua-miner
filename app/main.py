@@ -339,7 +339,7 @@ def _fmt_ts(secs: float) -> str:
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "anki": anki.is_up(),
+    return {"ok": True, "anki": anki.is_up(_settings().get("anki_port")),
             "translator": translate.is_downloaded(),
             # lo que está degradado ahora mismo: el frontend lo enseña para
             # que el usuario sepa que no es normal y pueda reportarlo
@@ -352,14 +352,20 @@ def _setup_checks() -> dict:
     import shutil
     prof = languages.profile()
     dl = config.MODELS_DIR
+    # Un idioma sin diccionario Apertium ni tabla de formas que bajar (todos
+    # menos el catalán y el francés) los tiene «listos» por definición. Antes
+    # se miraba solo si existía el archivo, que nunca llega a existir: el
+    # asistente se quedaba pidiendo una descarga que no descargaba nada.
     return {
         "ffmpeg": media.ffmpeg_available(),   # PATH o binario estático descargable
         "espeak": bool(shutil.which("espeak-ng") or shutil.which("espeak")),
         "spacy": importlib.util.find_spec(prof["spacy"]) is not None,
         "translator": translate.is_downloaded(),
-        "forms": (dl / "forms.sqlite").exists()
+        "forms": not prof.get("forms_url")
+                 or (dl / "forms.sqlite").exists()
                  or (dl / f"forms-{_lang()}.sqlite").exists(),
-        "dictionary": (dl / prof["bidix_file"]).exists(),
+        "dictionary": not prof.get("bidix_url")
+                      or (dl / prof["bidix_file"]).exists(),
         "tts": piper_tts.is_downloaded(),
         "anki": anki.is_up(_settings().get("anki_port")),
     }
@@ -410,13 +416,15 @@ def setup_download():
                           key="job.translator")
         if not translate.is_downloaded():
             translate.download()
-        jobs.set_progress(jid, 0.6, "Diccionario de acepciones…",
-                          key="job.bidix")
-        _dict()
-        jobs.set_progress(jid, 0.75, "Diccionario de formas (~66 MB)…",
-                          key="job.forms")
-        forms.lookup("hola")          # dispara descarga+build
-        jobs.set_progress(jid, 0.9, "Glosas del Wikcionario (~4 MB)…",
+        if prof.get("bidix_url"):
+            jobs.set_progress(jid, 0.6, "Diccionario de acepciones…",
+                              key="job.bidix")
+            _dict()
+        if prof.get("forms_url"):
+            jobs.set_progress(jid, 0.75, "Diccionario de formas (~66 MB)…",
+                              key="job.forms")
+            forms.lookup("hola")      # dispara descarga+build
+        jobs.set_progress(jid, 0.9, "Glosas del Wikcionario…",
                           key="job.gloss")
         wikdict.lookup("hola")
         jobs.set_progress(jid, 0.95, "Voz neural (Piper, ~20 MB)…",
@@ -724,7 +732,7 @@ def url_session(req: UrlReq):
 
 
 def _stream_subs_transcript(r: dict) -> tuple[str, str]:
-    """Descarga y tokeniza los subtítulos catalanes de un stream resuelto.
+    """Descarga y tokeniza los subtítulos (idioma de estudio) de un stream resuelto.
     Devuelve (transcript_json, srt_source). '' si no hay."""
     if not r.get("subs_url"):
         return "[]", "none"
@@ -732,7 +740,11 @@ def _stream_subs_transcript(r: dict) -> tuple[str, str]:
         import requests
 
         from .transcribe import tokens_for_existing
-        vtt = requests.get(r["subs_url"], timeout=20).text
+        # WebVTT siempre es UTF-8, pero RTVE lo sirve como "text/vtt" sin
+        # charset y requests cae entonces a Latin-1: los acentos llegaban
+        # rotos («SÃ» en vez de «Sí»).
+        vtt = requests.get(r["subs_url"], timeout=20).content.decode(
+            "utf-8", errors="replace")
         segs = subs.parse_subtitles(vtt)
         if r.get("subs_auto"):
             segs = subs.clean_auto(segs)

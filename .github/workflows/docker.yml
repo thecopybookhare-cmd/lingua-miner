@@ -88,11 +88,11 @@ jobs:
 
           docker exec lm python -c "
           import importlib.util as u, sys
-          ms = ['ca_core_news_sm','fr_core_news_sm','en_core_web_sm','de_core_news_sm',
+          ms = ['ca_core_news_sm','fr_core_news_sm','en_core_web_sm','es_core_news_sm','de_core_news_sm',
                 'pt_core_news_sm','it_core_news_sm','ru_core_news_sm','nl_core_news_sm',
                 'zh_core_web_sm','ja_core_news_sm','ko_core_news_sm']
           miss = [m for m in ms if u.find_spec(m) is None]
-          print('spaCy: faltan', miss) if miss else print('spaCy: los 11 modelos dentro')
+          print('spaCy: faltan', miss) if miss else print('spaCy: los', len(ms), 'modelos dentro')
           sys.exit(1 if miss else 0)"
 
           docker exec lm python -c "
