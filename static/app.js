@@ -872,6 +872,18 @@ function bindTokenEvents(container, segIndex) {
       if (!PINNED && !$("word-pop").hidden) scheduleClose();
     };
   }
+  container.onclick = (ev) => {
+    // Arrastrar de una palabra a otra no dispara el click de ninguna: el
+    // navegador lo manda al ancestro común, este contenedor. Sin esto,
+    // marcar una frase entera no abría nada. stopPropagation: el click del
+    // documento cerraría el popup recién abierto.
+    const s = window.getSelection();
+    const sel = s.toString().trim();
+    if (!sel || !container.contains(s.anchorNode)) return;
+    ev.stopPropagation();
+    const first = s.anchorNode.parentElement?.closest(".t") || container.querySelector(".t");
+    if (first) openPopup(segIndex, sel, first, true);
+  };
 }
 
 function scheduleClose() {

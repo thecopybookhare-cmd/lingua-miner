@@ -184,7 +184,7 @@ def subtitle_segments(url: str) -> list[dict]:
     return subs.merge_split_cues([c for t in texts for c in subs.parse_subtitles(t)])
 
 
-def _extract(url: str) -> dict:
+def _extract(url: str, extractor_args: dict | None = None) -> dict:
     import yt_dlp
     # writesubtitles: algunos extractores (RTVE) solo piden la lista de
     # subtítulos a su API cuando se la piden; sin esto info["subtitles"]
@@ -192,8 +192,34 @@ def _extract(url: str) -> dict:
     # ningún archivo.
     opts = {**ytdlp.base_opts(), "quiet": True, "no_warnings": True,
             "noplaylist": True, "skip_download": True, "writesubtitles": True}
+    if extractor_args:
+        opts["extractor_args"] = extractor_args
     with yt_dlp.YoutubeDL(opts) as y:
         return y.extract_info(url, download=False)
+
+
+_YOUTUBE = re.compile(r"(^|[/.])(youtube\.com|youtu\.be)/", re.I)
+# Con los clientes por defecto, algunos vídeos de YouTube dan un formato 18
+# cuya URL responde 403 (p. ej. mjy86srfb1c en nov-2026), y la app lo
+# anunciaba como bloqueo por país. El cliente tv_simply da para ese mismo
+# vídeo una URL que responde 206. Solo de reserva, no por defecto: fijar un
+# cliente es justo lo que rompió «web» en cuanto YouTube cambió (ytdlp.py).
+_FALLBACK_YT_ARGS = {"youtube": {"player_client": ["tv_simply"]}}
+
+
+def _youtube_fallback(url: str) -> tuple[dict, list[dict]] | None:
+    """(info, formatos) con el cliente de reserva, o None si no es YouTube o
+    tampoco así hay un formato progresivo que no responda 403."""
+    if not _YOUTUBE.search(url):
+        return None
+    try:
+        info = _extract(url, _FALLBACK_YT_ARGS)
+    except Exception:  # noqa: BLE001
+        return None
+    formats = _progressive(info)
+    if not formats or _forbidden(formats[-1]["url"]):
+        return None
+    return info, formats
 
 
 def _browser_can_load(url: str) -> bool:
@@ -295,7 +321,10 @@ def resolve(url: str) -> dict:
         return {}
     if not is_hls and _forbidden(formats[-1]["url"]):
         # El HLS ya se probó en _browser_can_load; esto cubre mp4 y audio.
-        return {"blocked": True, "title": info.get("title") or url}
+        alt = _youtube_fallback(url)
+        if not alt:
+            return {"blocked": True, "title": info.get("title") or url}
+        info, formats = alt
     subs_url, subs_auto = _subs_url(info, lang)
     r = {"title": info.get("title") or url,
          "duration": float(info.get("duration") or 0),

@@ -38,6 +38,13 @@ def test_note_payload():
     assert note["options"]["allowDuplicate"] is False
 
 
+def test_empty_word_falls_back_to_lemma():
+    # una Paraula vacía hacía que Anki rechazara la nota y atascaba la cola
+    card = {"paraula": "", "lema": "gleich", "paraula_es": "", "frase": "x",
+            "frase_es": ""}
+    assert anki.build_note(card, deck="D")["fields"]["Paraula"] == "gleich"
+
+
 @patch("app.anki.requests.post")
 def test_invoke_ok_and_error(post):
     post.return_value = _resp(result=["Default"])
