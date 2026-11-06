@@ -29,10 +29,10 @@ def test_without_deno_it_says_so(monkeypatch):
     assert "ytdlp-no-js" in ytdlp.failures._SEEN          # visible en la app, no solo en el log
 
 
-def test_youtube_uses_only_the_web_client():
-    # Con los clientes por defecto de yt-dlp 2026.10.21 el formato sale de
-    # TVHTML5 y su URL da 403; añadir «web» junto a ellos no basta (issue #9)
-    assert ytdlp.base_opts()["extractor_args"] == {"youtube": {"player_client": ["web"]}}
+def test_youtube_client_is_not_forced():
+    # Forzar «web» (issue #9) acabó en «No video formats found» para todos
+    # los vídeos: yt-dlp elige los clientes
+    assert "extractor_args" not in ytdlp.base_opts()
 
 
 class _Captured(Exception):
@@ -65,7 +65,6 @@ def test_watch_online_gives_ytdlp_deno(monkeypatch):
     with pytest.raises(_Captured):
         stream._extract("https://www.youtube.com/watch?v=x")
     assert seen["js_runtimes"] == {"deno": {"path": "/venv/bin/deno"}}
-    assert seen["extractor_args"]["youtube"]["player_client"] == ["web"]
 
 
 def test_download_gives_ytdlp_deno(monkeypatch):
@@ -74,7 +73,6 @@ def test_download_gives_ytdlp_deno(monkeypatch):
     with pytest.raises(_Captured):
         youtube.download("job", "https://www.youtube.com/watch?v=x")
     assert seen["js_runtimes"] == {"deno": {"path": "/venv/bin/deno"}}
-    assert seen["extractor_args"]["youtube"]["player_client"] == ["web"]
 
 
 class _Resp:

@@ -65,6 +65,13 @@ def download(jid: str, url: str) -> dict:
         "quiet": True,
         "noprogress": True,          # la barra ya va por el hook; en consola era ruido
     }
+    # Juntar vídeo y audio (bv*+ba) necesita ffmpeg. Sin uno en el PATH, la app
+    # usa el de static-ffmpeg, pero yt-dlp no lo encontraba solo: «requested
+    # merging of multiple formats but ffmpeg is not installed».
+    from . import media
+    ff = media._exe("ffmpeg")
+    if Path(ff).is_absolute():
+        opts["ffmpeg_location"] = ff
     with yt_dlp.YoutubeDL(opts) as ydl:
         try:
             info = ydl.extract_info(url, download=True)

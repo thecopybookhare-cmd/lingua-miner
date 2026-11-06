@@ -47,6 +47,30 @@ def test_forbidden_file_says_blocked_instead_of_opening(monkeypatch):
     assert stream.stream_url("https://www.rtve.es/play/videos/x/16281015/") == ("", [], False)
 
 
+def _yt_info(url):
+    return {"title": "Simpsons", "duration": 600, "formats": [
+        {"format_id": "18", "protocol": "https", "ext": "mp4", "height": 360,
+         "vcodec": "avc1", "acodec": "mp4a", "url": url}]}
+
+
+def test_youtube_403_retries_with_the_fallback_client(monkeypatch):
+    """El formato 18 de los clientes por defecto puede dar 403 en un vídeo
+    que con tv_simply responde 206: no es un bloqueo por país."""
+    def fake_extract(u, extractor_args=None):
+        return _yt_info("https://gv/tv.mp4" if extractor_args else "https://gv/default.mp4")
+    monkeypatch.setattr(stream, "_extract", fake_extract)
+    monkeypatch.setattr(stream, "_forbidden", lambda u: u.endswith("default.mp4"))
+    r = stream.resolve("https://www.youtube.com/watch?v=mjy86srfb1c")
+    assert r["best_url"] == "https://gv/tv.mp4"
+
+
+def test_youtube_403_with_both_clients_is_blocked(monkeypatch):
+    monkeypatch.setattr(stream, "_extract", lambda u, extractor_args=None: _yt_info("https://gv/a.mp4"))
+    monkeypatch.setattr(stream, "_forbidden", lambda u: True)
+    r = stream.resolve("https://www.youtube.com/watch?v=x")
+    assert r == {"blocked": True, "title": "Simpsons"}
+
+
 def test_blocked_result_is_not_cached(monkeypatch):
     calls = []
     monkeypatch.setattr(stream, "_extract", lambda u: calls.append(u) or _RTVE_OUTSIDE)

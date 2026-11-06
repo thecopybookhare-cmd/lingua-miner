@@ -197,7 +197,11 @@ def build_note(card: dict, deck: str, model: str | None = None) -> dict:
         "deckName": deck,
         "modelName": model or config.NOTE_TYPE,
         "fields": {
-            "Paraula": card["paraula"] or "",
+            # Paraula es el primer campo: si va vacío Anki rechaza la nota
+            # («cannot create note because it is empty») y, como el envío se
+            # para en el primer error, la cola entera quedaba atascada en
+            # «enviando N». El lema siempre está.
+            "Paraula": card["paraula"] or card.get("lema") or "",
             "ParaulaES": card["paraula_es"] or "",
             "Frase": card["frase"] or "",
             "FraseES": card["frase_es"] or "",
