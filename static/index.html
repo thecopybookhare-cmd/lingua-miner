@@ -375,6 +375,11 @@
     <section>
       <h3 data-i18n="set.sec_anki">Anki</h3>
       <div class="set-row"><label data-i18n="set.deck">Mazo de minado</label><select id="set-deck"></select></div>
+      <div class="set-row"><label data-i18n="set.card_layout">Anverso de la tarjeta</label>
+        <select id="set-card-layout">
+          <option value="reading" data-i18n="set.layout_reading">Lectura: palabra y frase</option>
+          <option value="listening" data-i18n="set.layout_listening">Oído: solo imagen y audio</option>
+        </select></div>
       <div class="set-row"><label data-i18n="set.port">Puerto AnkiConnect</label>
         <input id="set-port" type="number" min="1" max="65535" placeholder="automático" data-i18n-ph="set.port_ph"></div>
       <div class="set-row"><label data-i18n="set.apkg_pending">Exportar solo las que aún no están en Anki</label>

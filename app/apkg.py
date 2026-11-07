@@ -21,11 +21,12 @@ from . import anki, config
 MODEL_ID = 1874263951
 
 
-def _model() -> genanki.Model:
+def _model(layout: str = "reading") -> genanki.Model:
+    front, back = anki.templates(layout)
     return genanki.Model(
         MODEL_ID, config.NOTE_TYPE,
         fields=[{"name": f} for f in config.NOTE_FIELDS],
-        templates=[{"name": "Card 1", "qfmt": anki.FRONT, "afmt": anki.BACK}],
+        templates=[{"name": "Card 1", "qfmt": front, "afmt": back}],
         css=anki.CARD_CSS)
 
 
@@ -37,11 +38,12 @@ def guid(card_id: str) -> str:
     return genanki.guid_for("lingua-miner", card_id)
 
 
-def build(cards: list[dict], deck_name: str, dest: Path) -> int:
+def build(cards: list[dict], deck_name: str, dest: Path,
+          layout: str = "reading") -> int:
     """Escribe el .apkg en `dest` con sus audios e imágenes. Devuelve cuántas
     notas lleva. Un medio que ya no está en disco se omite: la tarjeta va
     igual, como haría AnkiConnect."""
-    model = _model()
+    model = _model(layout)
     deck = genanki.Deck(deck_id(deck_name), deck_name)
     media = []
     for c in cards:
