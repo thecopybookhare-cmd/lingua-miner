@@ -176,3 +176,14 @@ def test_the_undo_toast_can_actually_carry_a_button():
     cabecera = cabecera[:cabecera.index("\n};")]
     assert "accion" in cabecera and "appendChild" in cabecera
     assert 't("rd.undo")' in APP_JS
+
+
+def test_card_layout_setting(tmp_path):
+    c = client(tmp_path)
+    assert c.get("/api/settings").json()["card_layout"] == "reading"
+    assert c.post("/api/settings",
+                  json={"card_layout": "listening"}).status_code == 200
+    assert c.get("/api/settings").json()["card_layout"] == "listening"
+    assert c.post("/api/settings",
+                  json={"card_layout": "otro"}).status_code == 400
+    assert 'saveSettings({ card_layout:' in APP_JS

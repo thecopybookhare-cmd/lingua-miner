@@ -303,6 +303,9 @@ DEFAULT_SETTINGS = {
     # al pasar de página en el lector, ¿las palabras que quedaron sin tocar
     # pasan a conocidas? Apagado: se activa a mano y siempre se puede deshacer.
     "reader_mark_known": False,
+    # plantilla de las tarjetas en Anki: "reading" (palabra y frase delante)
+    # o "listening" (delante solo imagen y audio, para entrenar el oído)
+    "card_layout": "reading",
     "keymap": {"prev": "a", "next": "d", "replay": "s", "mine": "q",
                "subs": "w", "browser": "g", "copy": "c", "dual": "e",
                "autopause": "p", "fullscreen": "f", "recommended": "r"},
@@ -983,7 +986,7 @@ def sync_statuses():
     if not anki.is_up(_settings().get("anki_port")):
         return {"synced": 0}
     try:
-        anki.ensure_note_type()  # keeps card template in sync with app version
+        anki.ensure_note_type(_settings()["card_layout"])  # keeps card template in sync
     except Exception:
         pass
     pairs = db.cards_with_notes(CON, _lang())
@@ -1437,10 +1440,11 @@ def _flush_locked() -> int:
     if not anki.is_up(_settings().get("anki_port")):
         return 0
     deck = _settings()["deck"]
+    layout = _settings()["card_layout"]
     n = 0
     for card in db.pending_cards(CON):
         try:
-            note_id = anki.send_card(card, deck)
+            note_id = anki.send_card(card, deck, layout)
             db.mark_card_sent(CON, card["id"], note_id)
             n += 1
         except anki.AnkiError as e:
@@ -1580,7 +1584,7 @@ def cards_export_apkg(all: int = 0):
         return _err("err.no_cards", "no hay tarjetas para exportar", 404)
     tmp = Path(tempfile.mkdtemp())
     dest = tmp / f"linguaminer-{time.strftime('%Y-%m-%d')}.apkg"
-    apkg.build(cards, _settings()["deck"], dest)
+    apkg.build(cards, _settings()["deck"], dest, _settings()["card_layout"])
     return FileResponse(dest, media_type="application/octet-stream", filename=dest.name,
                         background=BackgroundTask(shutil.rmtree, tmp, True))
 
@@ -1764,7 +1768,7 @@ _SETTING_TYPES = {
     "speed_default": (int, float), "ipa_enabled": bool, "online_enabled": bool,
     "audio_trim": bool, "ui_lang": str, "keymap": dict,
     "base_language": str, "rec_min_zipf": (int, float),
-    "reader_mark_known": bool,
+    "reader_mark_known": bool, "card_layout": str,
 }
 _SETTING_RANGES = {"sub_scale": (0.3, 3.0), "speed_default": (0.25, 3.0),
                    "anki_port": (1, 65535), "rec_min_zipf": (0, 7)}
@@ -1789,6 +1793,8 @@ def post_settings(body: dict):
                                 status_code=400)
     if "ui_lang" in body and body["ui_lang"] not in ("auto", "es", "ca", "en"):
         return JSONResponse({"error": "ui_lang no soportado"}, status_code=400)
+    if "card_layout" in body and body["card_layout"] not in anki.CARD_LAYOUTS:
+        return JSONResponse({"error": "card_layout no soportado"}, status_code=400)
     if ("base_language" in body and body["base_language"] != "auto"
             and body["base_language"] not in languages.BASE_NAMES):
         return _err("err.base_lang", "idioma base no soportado")
@@ -1811,6 +1817,14 @@ def post_settings(body: dict):
         else:
             saved[k] = v
     _save_settings(saved)
+    if "card_layout" in body:
+        # la plantilla es del tipo de nota: cambia también las tarjetas que
+        # ya están en Anki. Si Anki está cerrado, se aplica al próximo envío.
+        try:
+            if anki.is_up(_settings().get("anki_port")):
+                anki.ensure_note_type(body["card_layout"])
+        except Exception:  # noqa: BLE001
+            pass
     return _settings_payload()
 
 

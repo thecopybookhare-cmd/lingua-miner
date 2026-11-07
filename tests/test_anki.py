@@ -83,3 +83,12 @@ def test_find_port_discovers_8766_when_8765_squatted(post):
     # discovered port is remembered and reused by invoke
     assert anki._PORT == 8766
     assert anki.invoke("version") == 6
+
+
+def test_listening_layout_hides_the_text_on_the_front():
+    # modo oído: delante solo imagen y audio; palabra, frase y traducciones detrás
+    front, back = anki.templates("listening")
+    for campo in ("{{Paraula}}", "{{Frase}}", "{{ParaulaES}}", "{{FraseES}}"):
+        assert campo not in front and campo in back
+    assert "{{Audio}}" in front and "{{Imatge}}" in front
+    assert anki.templates("reading") == (anki.FRONT, anki.BACK)
