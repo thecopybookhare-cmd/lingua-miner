@@ -110,6 +110,25 @@ BACK = """{{FrontSide}}<hr id=answer>
 <div class="es">{{FraseES}}</div>
 <div class="font">{{Font}} · {{Freq}}</div>"""
 
+# Para entrenar el oído: delante solo la escena y el audio, sin texto; la
+# palabra, la frase y las traducciones van detrás.
+LISTEN_FRONT = """{{Imatge}}<br>{{Audio}}"""
+LISTEN_BACK = """{{FrontSide}}<hr id=answer>
+<div class="front">{{Paraula}}</div>
+<div class="frase">{{Frase}}</div>
+<div class="es">{{ParaulaES}}</div>
+<div class="es">{{FraseES}}</div>
+<div class="font">{{Font}} · {{Freq}}</div>"""
+
+CARD_LAYOUTS = ("reading", "listening")
+
+
+def templates(layout: str = "reading") -> tuple[str, str]:
+    """(anverso, reverso) de la plantilla según el ajuste card_layout."""
+    if layout == "listening":
+        return LISTEN_FRONT, LISTEN_BACK
+    return FRONT, BACK
+
 
 def model_in_use() -> str:
     """Nombre del modelo en el Anki del usuario. Las instalaciones previas
@@ -121,19 +140,20 @@ def model_in_use() -> str:
     return config.NOTE_TYPE
 
 
-def ensure_note_type() -> str:
+def ensure_note_type(layout: str = "reading") -> str:
     """Create the note type, or sync its templates/styling if it exists
     (so template improvements reach decks created by older versions).
     Returns the model name in use."""
     model = model_in_use()
+    front, back = templates(layout)
     if model not in (invoke("modelNames") or []):
         invoke("createModel", modelName=model,
                inOrderFields=config.NOTE_FIELDS, css=CARD_CSS,
-               cardTemplates=[{"Name": "Card 1", "Front": FRONT, "Back": BACK}])
+               cardTemplates=[{"Name": "Card 1", "Front": front, "Back": back}])
         return model
     invoke("updateModelTemplates",
            model={"name": model,
-                  "templates": {"Card 1": {"Front": FRONT, "Back": BACK}}})
+                  "templates": {"Card 1": {"Front": front, "Back": back}}})
     invoke("updateModelStyling",
            model={"name": model, "css": CARD_CSS})
     return model
@@ -211,9 +231,9 @@ def build_note(card: dict, deck: str, model: str | None = None) -> dict:
     }
 
 
-def send_card(card: dict, deck: str) -> int:
+def send_card(card: dict, deck: str, layout: str = "reading") -> int:
     """Upload media + note. Raises AnkiError/requests errors if Anki is down."""
-    model = ensure_note_type()
+    model = ensure_note_type(layout)
     if deck not in invoke("deckNames"):
         invoke("createDeck", deck=deck)
     for key in ("audio_file", "image_file"):
