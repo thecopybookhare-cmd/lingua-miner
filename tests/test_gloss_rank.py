@@ -48,7 +48,8 @@ def test_unknown_pos_changes_nothing():
 @patch("app.main.ipa.ipa", return_value="")
 @patch("app.main.translate.sentence", side_effect=lambda t: "EN:" + t)
 @patch("app.main.translate.translate", side_effect=lambda t: "but")
-@patch("app.main.nlp.analyze_selection", return_value=("pero", "CCONJ"))
+@patch("app.main.nlp.selection_info",
+       return_value={"lemma": "pero", "pos": "CCONJ", "separable": False})
 def test_popup_for_pero_does_not_say_apple(_an, _tr, _sen, _ipa, tmp_path, monkeypatch):
     from app import wikdict
     seen = {}

@@ -139,13 +139,14 @@ def _subs_url(info: dict, lang: str | None = None) -> tuple[str, bool]:
     online» nunca encontraba los subtítulos del propio vídeo y había que
     transcribir con Whisper. Se aceptan también las variantes regionales
     ("es-ES", "pt-BR", "zh-Hans"), que es como etiquetan muchos sitios."""
+    from . import languages
     if lang is None:
-        from . import languages
         lang = languages.active_code()
+    tags = languages.sub_tags(lang)
     for key, auto in (("subtitles", False), ("automatic_captions", True)):
         found = info.get(key) or {}
-        tag = lang if lang in found else next(
-            (k for k in found if k.startswith(lang + "-")), None)
+        tag = next((t for t in tags if t in found), None) or next(
+            (k for k in found for t in tags if k.startswith(t + "-")), None)
         tracks = (found.get(tag) or []) if tag else []
         for t in tracks:
             if (t.get("ext") == "vtt" or "vtt" in (t.get("url") or "")) and t.get("url"):
@@ -182,6 +183,16 @@ def subtitle_segments(url: str) -> list[dict]:
     with ThreadPoolExecutor(max_workers=12) as ex:
         texts = list(ex.map(_get_text, parts))
     return subs.merge_split_cues([c for t in texts for c in subs.parse_subtitles(t)])
+
+
+def _first_item(info: dict) -> dict:
+    """Una página que es una lista (la de un podcast de Deutschlandfunk, con
+    sus 100 episodios) abre el primero, que en esas listas es el más reciente.
+    Antes caía en «yt-dlp no soporta ese sitio»."""
+    if info.get("formats") or not info.get("entries"):
+        return info
+    first = next(iter(info["entries"]), None)
+    return first if isinstance(first, dict) else info
 
 
 def _extract(url: str) -> dict:
@@ -263,7 +274,7 @@ def resolve(url: str) -> dict:
     if cached is not None:
         return cached
     try:
-        info = _extract(url)
+        info = _first_item(_extract(url))
     except Exception as e:
         if ytdlp.is_blocked(e):
             return {"blocked": True, "title": url}
