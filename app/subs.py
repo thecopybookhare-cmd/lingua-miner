@@ -4,6 +4,10 @@ _TS = re.compile(
     r"(?:(\d+):)?(\d{1,2}):(\d{2})[.,](\d{3})\s*-->\s*"
     r"(?:(\d+):)?(\d{1,2}):(\d{2})[.,](\d{3})")
 _TAG = re.compile(r"<[^>]+>")
+# Cue que es solo una descripción de sonido, en los subtítulos para sordos de
+# ARD/ZDF («* fröhlicher Elektropop *», «♪ … ♪»): no es diálogo, y contaba
+# como frase y como palabras nuevas.
+_SOUND = re.compile(r"^\s*([*♪#]).*\1\s*$")
 
 
 def _secs(h, m, s, ms) -> float:
@@ -11,23 +15,49 @@ def _secs(h, m, s, ms) -> float:
 
 
 def parse_subtitles(text: str) -> list[dict]:
-    """Parse SRT or WebVTT into [{start, end, text}]. Strips markup tags."""
+    """Parse SRT or WebVTT into [{start, end, text}]. Strips markup tags.
+
+    Lo que viene tras una línea en blanco no es texto del cue anterior: o es
+    el identificador del siguiente (en WebVTT puede ser cualquier cosa, «sub9»,
+    no solo el número del SRT) o un bloque NOTE. Antes se pegaba al final de
+    la frase anterior: «… gegrillt!" sub9».
+    """
     segs = []
     cur = None
+    held: list[str] = []       # líneas tras un blanco, a la espera de saber qué son
+    after_blank = False
     for line in text.splitlines():
         m = _TS.search(line)
         if m:
+            held = []          # eran el identificador de este cue
             if cur and cur["text"]:
                 segs.append(cur)
             g = m.groups()
             cur = {"start": _secs(*g[:4]), "end": _secs(*g[4:]), "text": ""}
-        elif cur is not None:
-            clean = _TAG.sub("", line).strip()
-            if clean and not clean.isdigit():
-                cur["text"] = (cur["text"] + " " + clean).strip()
+            after_blank = False
+            continue
+        clean = _TAG.sub("", line).strip()
+        if not line.strip():
+            held = []          # un bloque suelto (NOTE, STYLE…): fuera
+            after_blank = True
+            continue
+        if cur is None or not clean or clean.isdigit():
+            after_blank = False
+            continue
+        if (after_blank or held) and cur["text"]:
+            # tras un blanco, ¿texto o identificador del cue siguiente? Se sabe
+            # en la línea de después: si es un tiempo, era el identificador
+            if held:
+                held.append(clean)
+            else:
+                held = [clean]
+            after_blank = False
+            continue
+        cur["text"] = (cur["text"] + " " + clean).strip()
+        after_blank = False
     if cur and cur["text"]:
         segs.append(cur)
-    return segs
+    return [x for x in segs if not _SOUND.match(x["text"])]
 
 
 def merge_split_cues(segs: list[dict]) -> list[dict]:
