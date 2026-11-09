@@ -1817,9 +1817,11 @@ async function openSettings() {
   refreshShare();
   refreshUserdicts();
   const st = await api("/api/anki/status");
-  $("set-deck").innerHTML = (st.decks || []).map((d) =>
-    `<option${d === st.deck ? " selected" : ""}>${d}</option>`).join("")
-    || `<option>${SETTINGS?.deck || ""}</option>`;
+  // el mazo del idioma activo puede no existir aún en Anki (se crea con la
+  // primera tarjeta): si no se añade, el desplegable enseñaba otro
+  const names = [...new Set([...(st.decks || []), st.deck || SETTINGS?.deck].filter(Boolean))];
+  $("set-deck").innerHTML = names.map((d) =>
+    `<option${d === st.deck ? " selected" : ""}>${esc(d)}</option>`).join("");
   loadSeedDecks();               // mazos para sembrar vocabulario ya conocido
 }
 

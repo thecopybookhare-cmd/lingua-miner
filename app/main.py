@@ -366,6 +366,9 @@ def _segment_es(sid: str, idx: int) -> str:
 
 DEFAULT_SETTINGS = {
     "deck": "LinguaMiner::Mining", "anki_port": None, "language": "ca",
+    # mazo de cada idioma: «deck» es el del idioma activo, y al cambiar de
+    # idioma se guarda aquí y se recupera el del nuevo
+    "deck_by_lang": {},
     "sub_scale": 1.0, "dual_default": False, "autopause_default": False,
     "speed_default": 1.0, "ipa_enabled": True, "online_enabled": False,
     # "auto" = el navegador decide (i18n.js); quien ya tenga un idioma guardado
@@ -1520,11 +1523,10 @@ def _flush() -> int:
 def _flush_locked() -> int:
     if not anki.is_up(_settings().get("anki_port")):
         return 0
-    deck = _settings()["deck"]
     n = 0
     for card in db.pending_cards(CON):
         try:
-            note_id = anki.send_card(card, deck)
+            note_id = anki.send_card(card, _deck_for(card.get("language")))
             db.mark_card_sent(CON, card["id"], note_id)
             n += 1
         except anki.AnkiError as e:
@@ -1664,7 +1666,8 @@ def cards_export_apkg(all: int = 0):
         return _err("err.no_cards", "no hay tarjetas para exportar", 404)
     tmp = Path(tempfile.mkdtemp())
     dest = tmp / f"linguaminer-{time.strftime('%Y-%m-%d')}.apkg"
-    apkg.build(cards, _settings()["deck"], dest)
+    apkg.build(cards, _settings()["deck"], dest,
+               deck_for=lambda c: _deck_for(c.get("language")))
     return FileResponse(dest, media_type="application/octet-stream", filename=dest.name,
                         background=BackgroundTask(shutil.rmtree, tmp, True))
 
@@ -1848,7 +1851,7 @@ _SETTING_TYPES = {
     "speed_default": (int, float), "ipa_enabled": bool, "online_enabled": bool,
     "audio_trim": bool, "ui_lang": str, "keymap": dict,
     "base_language": str, "rec_min_zipf": (int, float),
-    "reader_mark_known": bool,
+    "reader_mark_known": bool, "deck_by_lang": dict,
 }
 _SETTING_RANGES = {"sub_scale": (0.3, 3.0), "speed_default": (0.25, 3.0),
                    "anki_port": (1, 65535), "rec_min_zipf": (0, 7)}
@@ -1887,6 +1890,11 @@ def post_settings(body: dict):
                 or len(keys) != len(set(keys))):
             return _err("err.bad_keys",
                         "atajos inválidos (letras a-z, sin repetir)")
+    if "deck_by_lang" in body and not all(
+            isinstance(k, str) and isinstance(v, str) for k, v in body["deck_by_lang"].items()):
+        return JSONResponse({"error": "tipo inválido para deck_by_lang"}, status_code=400)
+    before = _settings()
+    old_lang = _lang()
     saved = (json.loads(config.SETTINGS_PATH.read_text(encoding="utf-8"))
              if config.SETTINGS_PATH.exists() else {})
     for k, v in body.items():
@@ -1894,8 +1902,35 @@ def post_settings(body: dict):
             saved["keymap"] = {**saved.get("keymap", {}), **v}
         else:
             saved[k] = v
+    new_lang = body.get("language", old_lang)
+    by_lang = dict(saved.get("deck_by_lang") or before.get("deck_by_lang") or {})
+    if new_lang != old_lang:
+        # Con un solo mazo para todo, al pasar al alemán las tarjetas nuevas
+        # caían en el mazo del catalán. El del idioma que se deja se guarda y
+        # el nuevo recupera el suyo (o estrena uno con su nombre).
+        by_lang[old_lang] = before["deck"]
+        if "deck" in body:
+            by_lang[new_lang] = body["deck"]
+        saved["deck"] = by_lang.get(new_lang) or _default_deck(new_lang)
+    if "deck" in body:
+        by_lang[new_lang] = saved["deck"]
+    if by_lang:
+        saved["deck_by_lang"] = by_lang
     _save_settings(saved)
     return _settings_payload()
+
+
+def _default_deck(code: str) -> str:
+    return f"LinguaMiner::{languages.PROFILES.get(code, {}).get('name', code)}"
+
+
+def _deck_for(lang: str | None) -> str:
+    """Mazo al que va una tarjeta según su idioma: las pendientes de antes de
+    cambiar de idioma siguen yendo a su mazo, no al del idioma nuevo."""
+    s = _settings()
+    if not lang or lang == _lang():
+        return s["deck"]
+    return (s.get("deck_by_lang") or {}).get(lang) or s["deck"]
 
 
 class DeckReq(BaseModel):
@@ -1906,6 +1941,7 @@ class DeckReq(BaseModel):
 def set_deck(req: DeckReq):
     s = _settings()
     s["deck"] = req.deck
+    s["deck_by_lang"] = {**(s.get("deck_by_lang") or {}), _lang(): req.deck}
     _save_settings(s)
     return {"ok": True}
 
