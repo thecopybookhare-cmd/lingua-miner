@@ -147,16 +147,35 @@ PROFILES = {
                         "kaikki.org-dictionary-Alem%C3%A1n.jsonl"),
         # glosas en inglés (Wikcionario EN vía kaikki)
         "wikdict_url_en": "https://kaikki.org/dictionary/German/kaikki.org-dictionary-German.jsonl",
-        "piper_voice": "de/de_DE/thorsten/low/de_DE-thorsten-low.onnx",
+        # El sqlite de WikDict de→es trae 65.544 palabras alemanas; el extracto
+        # del Wikcionario español, 3.920. Van los dos: definiciones donde las
+        # hay y traducciones para todo lo demás (Kühlschrank, doch, anfangen…).
+        "wikdict_extra": {"es": "https://download.wikdict.com/dictionaries/sqlite/2/de-es.sqlite3"},
+        # Género y formas de ~100.000 sustantivos (Wikcionario alemán, CC BY-SA)
+        # para mostrar «der Handschuh» al tocar «Handschuhe». Fijado a un commit.
+        "noun_lexicon": ("https://raw.githubusercontent.com/gambolputty/german-nouns/"
+                         "8386d23dcf1847906f0f2988d3b0b82ef46975aa/german_nouns/nouns.csv"),
+        "noun_articles": {"m": "der", "f": "die", "n": "das"},
+        "noun_indefinite": {"m": "ein", "f": "eine", "n": "ein"},   # para traducir
+        # «Der Film fängt um acht an» es «anfangen», no «fangen»
+        "separable_particles": True,
+        "separable_purpose": "um {p}zu{v}",   # para traducir: «um aufzustehen»
+        "piper_voice": "de/de_DE/thorsten/medium/de_DE-thorsten-medium.onnx",
         "sources": [
+            {"name": "DW", "kind": "tv", "url": "https://www.dw.com/de/",
+             "note": "Vídeos y reportajes de la emisora internacional alemana: se ven desde cualquier país, muchos con subtítulos",
+             "note_en": "Videos and reports from Germany's international broadcaster: watchable from any country, many subtitled"},
+            {"name": "Nachrichtenleicht", "kind": "pod",
+             "url": "https://www.deutschlandfunk.de/podcast-nachrichtenleicht-der-wochenrueckblick-in-einfacher-sprache-100.html",
+             "note": "Noticias de la semana en alemán sencillo, 5 minutos (Deutschlandfunk). Pega el enlace de la página y se abre el episodio más reciente",
+             "note_en": "The week's news in simple German, 5 minutes (Deutschlandfunk). Paste the page link and the latest episode opens"},
+            {"name": "ZDF", "kind": "tv", "url": "https://www.zdf.de/",
+             "note": "Televisión pública alemana; algunos programas solo se ven desde Alemania",
+             "note_en": "German public television; some shows only play from Germany"},
             {"name": "ARD Mediathek", "kind": "tv",
              "url": "https://www.ardmediathek.de/",
-             "note": "Televisión pública alemana", "note_en": "German public television"},
-            {"name": "ZDF", "kind": "tv", "url": "https://www.zdf.de/",
-             "note": "Segunda cadena pública", "note_en": "The second public channel"},
-            {"name": "Deutschlandfunk", "kind": "pod",
-             "url": "https://www.deutschlandfunk.de/podcasts-100.html",
-             "note": "Podcasts de la radio pública", "note_en": "Podcasts from public radio"},
+             "note": "Televisión pública alemana, con subtítulos; parte del catálogo solo se ve desde Alemania",
+             "note_en": "German public television, with subtitles; part of the catalogue only plays from Germany"},
         ],
         "translate_bases": {
             "en": {"repo": "gaudi/opus-mt-de-en-ctranslate2",
@@ -460,6 +479,18 @@ PROFILES = {
 
 # nombres de los idiomas base para la UI
 BASE_NAMES = {"es": "Español", "en": "English"}
+
+# Códigos ISO 639-2 con que algunos sitios etiquetan los subtítulos: ARD
+# Mediathek los da como «deu», y buscando solo «de» no se encontraban nunca.
+_ISO3 = {"de": ("deu", "ger"), "es": ("spa",), "ca": ("cat",), "fr": ("fra", "fre"),
+         "en": ("eng",), "pt": ("por",), "it": ("ita",), "ru": ("rus",),
+         "nl": ("nld", "dut"), "zh": ("zho", "chi", "cmn"), "ja": ("jpn",),
+         "ko": ("kor",), "yue": ("yue",)}
+
+
+def sub_tags(code: str) -> list[str]:
+    """Etiquetas de subtítulos que valen para un idioma: «de», «deu», «ger»."""
+    return [code, *(t for t in _ISO3.get(code, ()) if t != code)]
 
 
 def has_spanish_base(code: str) -> bool:

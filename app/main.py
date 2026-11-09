@@ -28,6 +28,7 @@ from . import (
     languages,
     media,
     nlp,
+    nouns,
     piper_tts,
     sample,
     share,
@@ -254,6 +255,81 @@ def _word_es(selection: str, lemma: str) -> str:
     return out
 
 
+def _word_info(selection: str, sentence: str) -> dict:
+    """Lema (clave del estado), categoría, forma de diccionario y traducción.
+
+    En alemán la forma de diccionario lleva artículo y singular («Handschuhe»
+    → «der Handschuh») o es el infinitivo del verbo separable («fängt … an» →
+    «anfangen»). Se traduce esa forma y no la palabra suelta: «fängt» a secas
+    es «captura», y la tarjeta enseñaba eso."""
+    si = nlp.selection_info(selection, sentence)
+    lemma, pos = si["lemma"], si["pos"]
+    headword, key, word_es = "", lemma, ""
+    if pos == "NOUN" and languages.profile().get("noun_articles"):
+        hw = nouns.headword(selection, lemma)
+        if hw:
+            headword, key, genus = hw
+            word_es = _noun_es(key, genus)
+    elif si["separable"]:
+        headword = lemma
+        word_es = _separable_es(lemma, si["separable"])
+    word_es = word_es or _word_es(selection, lemma)
+    return {"lemma": lemma, "pos": pos, "headword": headword,
+            "gloss_key": key, "word_es": word_es}
+
+
+def _noun_es(lemma: str, genus: str) -> str:
+    """Traducción de un sustantivo en forma de diccionario.
+
+    Suelto, el traductor inventa («Imkerei» → «Apionabos», «Hund» →
+    «Perros»); con «der» lo lee como genitivo («der Honig» → «de la miel»).
+    Con el indefinido acierta («ein Schlüssel» → «una llave», no «la clave»),
+    y se pasa al definido: así dice también el género en español."""
+    ind = (languages.profile().get("noun_indefinite") or {}).get(genus)
+    out = translate.translate(f"{ind} {lemma}" if ind else lemma).strip().rstrip(".:;,")
+    if not ind:
+        return _lower1(out)
+    swaps = ((("un ", "el "), ("una ", "la ")) if languages.base_code() == "es"
+             else (("a ", ""), ("an ", "")))
+    for a, b in swaps:
+        if out.lower().startswith(a):
+            return b + out[len(a):]
+    return _lower1(out)
+
+
+def _strip_lead(out: str, leads: tuple[str, ...]) -> str:
+    for a in leads:
+        if out.lower().startswith(a):
+            return out[len(a):]
+    return out
+
+
+def _separable_es(lemma: str, particle: str) -> str:
+    """Traducción del infinitivo de un verbo separable. Suelto, el traductor
+    lo toma por imperativo o por sustantivo («aufstehen» → «Levántate»,
+    «fernsehen» → «Televisión»); en «um aufzustehen» sale el infinitivo
+    («para levantarse») y se quita el «para»."""
+    tpl = languages.profile().get("separable_purpose")
+    if not tpl or not lemma.startswith(particle):
+        return _lower1(translate.translate(lemma))
+    out = translate.translate(tpl.format(p=particle, v=lemma[len(particle):]))
+    out = out.strip().rstrip(".:;,")
+    return _lower1(_strip_lead(out, ("para ", "in order to ", "to ")))
+
+
+def _lower1(s: str) -> str:
+    """«Gente» → «gente»: el traductor pone mayúscula a lo que traduce suelto."""
+    return s[:1].lower() + s[1:] if s[:1].isupper() and s[1:2].islower() else s
+
+
+def _card_word(info: dict) -> str:
+    """Traducción para la tarjeta: con la forma de diccionario delante si la
+    hay («der Handschuh — el guante»), que es lo que hay que memorizar."""
+    if info["headword"]:
+        return f"{info['headword']} — {info['word_es']}"
+    return info["word_es"]
+
+
 def _segment_es(sid: str, idx: int) -> str:
     """text_es cacheado del segmento (lo crea si falta).
 
@@ -425,6 +501,10 @@ def setup_download():
             jobs.set_progress(jid, 0.75, "Diccionario de formas (~66 MB)…",
                               key="job.forms")
             forms.lookup("hola")      # dispara descarga+build
+        if prof.get("noun_lexicon"):
+            jobs.set_progress(jid, 0.85, "Sustantivos: género y plurales…",
+                              key="job.nouns")
+            nouns.lookup("Hund")      # dispara descarga+build
         jobs.set_progress(jid, 0.9, "Glosas del Wikcionario…",
                           key="job.gloss")
         wikdict.lookup("hola")
@@ -1053,11 +1133,12 @@ def _rank_glosses(glosses: list[tuple[str, str]], pos: str,
 @app.post("/api/lookup")
 def lookup(req: LookupReq):
     """Instant word info for the Migaku-style popup (no media generated)."""
-    lemma, pos = nlp.analyze_selection(req.selection, req.sentence)
+    info = _word_info(req.selection, req.sentence)
+    lemma, pos = info["lemma"], info["pos"]
     z = nlp.zipf(req.selection)
     es_src = languages.spanish_sources_active()   # bidix/glosas son fuentes es
     senses = _senses(req.selection, lemma) if es_src else []
-    word_es = _word_es(req.selection, lemma)
+    word_es = info["word_es"]
     sentence_es = ""
     if req.session_id and req.segment_index >= 0:
         sentence_es = _segment_es(req.session_id, req.segment_index)
@@ -1065,13 +1146,14 @@ def lookup(req: LookupReq):
         sentence_es = translate.sentence(req.sentence)
     # las glosas ya no dependen del español: wikdict elige el extracto del
     # Wikcionario que toque según la base activa (es o en)
-    glosses = (wikdict.lookup(lemma, limit=12)
+    glosses = (wikdict.lookup(info["gloss_key"], limit=12)
+               or wikdict.lookup(lemma, limit=12)
                or wikdict.lookup(req.selection, limit=12))
     glosses = _rank_glosses(glosses, pos, (lemma, req.selection))
     userdefs = userdict.lookup(lemma) or userdict.lookup(req.selection)
     return {
         "selection": req.selection,
-        "lemma": lemma, "pos": pos,
+        "lemma": lemma, "pos": pos, "headword": info["headword"],
         "zipf": z, "freq_rank": nlp.freq_badge(z),
         "senses": [{"es": es, "pos": p} for es, p in senses[:8]],
         "active": _active_sense(senses[:8], sentence_es, word_es),
@@ -1271,15 +1353,16 @@ def _build_preview(s: dict, segment_index: int, selection: str,
             except OSError:
                 pass
 
-    lemma, pos = nlp.analyze_selection(selection, seg["text"])
+    info = _word_info(selection, seg["text"])
+    lemma, pos = info["lemma"], info["pos"]
     z = nlp.zipf(selection)
     senses = _senses(selection, lemma) if languages.spanish_sources_active() else []
     frase_es = translate.sentence(seg["text"])
-    word_es = _word_es(selection, lemma)
+    word_es = info["word_es"]
     return {
         "paraula": selection,
-        "lema": lemma, "pos": pos,
-        "paraula_es": word_es,
+        "lema": lemma, "pos": pos, "headword": info["headword"],
+        "paraula_es": _card_word(info),
         "senses": [{"es": es, "pos": p} for es, p in senses[:8]],
         "active": _active_sense(senses[:8], frase_es, word_es),
         "frase": seg["text"],
@@ -1309,15 +1392,16 @@ def _text_preview(s: dict, segs: list, idx: int, selection: str,
     except Exception as e:                              # noqa: BLE001
         failures.warn_once("text-tts", "sin voz para las tarjetas de texto", e)
 
-    lemma, pos = nlp.analyze_selection(selection, frase)
+    info = _word_info(selection, frase)
+    lemma, pos = info["lemma"], info["pos"]
     z = nlp.zipf(selection)
     senses = _senses(selection, lemma) if languages.spanish_sources_active() else []
     frase_es = translate.sentence(frase)
-    word_es = _word_es(selection, lemma)
+    word_es = info["word_es"]
     return {
         "paraula": selection,
-        "lema": lemma, "pos": pos,
-        "paraula_es": word_es,
+        "lema": lemma, "pos": pos, "headword": info["headword"],
+        "paraula_es": _card_word(info),
         "senses": [{"es": es, "pos": p} for es, p in senses[:8]],
         "active": _active_sense(senses[:8], frase_es, word_es),
         "frase": frase,

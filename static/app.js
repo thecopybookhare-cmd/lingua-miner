@@ -528,10 +528,15 @@ function ensureHls() {
   });
   return _hlsLib;
 }
+// Chrome (desde ~v141) y WebView2 —la ventana de la app en Windows— contestan
+// «maybe» a application/vnd.apple.mpegurl, pero su HLS nativo no reproduce
+// todos los manifiestos: el de DW da MEDIA_ERR_SRC_NOT_SUPPORTED y el vídeo se
+// queda en 0:00 sin decir nada. El nativo solo es fiable en Safari/WKWebView.
+const IS_CHROMIUM = /Chrome\/|Chromium\/|Edg\//.test(navigator.userAgent);
 async function setVideoSrc(url, isHls) {
   if (HLS) { HLS.destroy(); HLS = null; }
   const wantHls = isHls || /\.m3u8(\?|$)/i.test(url || "");
-  if (wantHls && !V.canPlayType("application/vnd.apple.mpegurl")) {
+  if (wantHls && (IS_CHROMIUM || !V.canPlayType("application/vnd.apple.mpegurl"))) {
     const Hls = await ensureHls().catch(() => null);
     if (Hls && Hls.isSupported()) {
       HLS = new Hls({ enableWorker: true, backBufferLength: 30 });
@@ -1144,10 +1149,13 @@ function renderPopupLookup(r) {
   $("wp-ipa").textContent = (SETTINGS?.ipa_enabled ?? true) ? (r.ipa || "") : "";
   const lvl = zipfLevel(r.zipf);
   $("wp-level").textContent = `${LEVEL_LABEL[lvl]} ★${lvl}`;
-  $("wp-meta").textContent = `${lemmaLabel(r.lemma)}${r.pos ? " · " + r.pos : ""}`;
+  // forma de diccionario si la hay («der Handschuh», «anfangen»)
+  $("wp-meta").textContent = `${r.headword || lemmaLabel(r.lemma)}${r.pos ? " · " + r.pos : ""}`;
   $("wp-sentence-es").textContent = r.sentence_es || "";
-  // con base ≠ español no hay acepciones (fuentes en español); no es un fallo
-  const noSenseMsg = (SETTINGS?.base_language_effective || "es") === "es"
+  // con base ≠ español no hay acepciones (fuentes en español); no es un fallo.
+  // Tampoco si hay glosas debajo: el alemán no tiene acepciones de Apertium y
+  // el aviso salía siempre encima de «colmena», como si no hubiera nada.
+  const noSenseMsg = (SETTINGS?.base_language_effective || "es") === "es" && !(r.glosses || []).length
     ? `<span class="dim" style="font-size:13px">${esc(t("wp.no_senses"))}</span>` : "";
   $("wp-senses").innerHTML = (r.senses.length ? r.senses : [])
     .map((s, i) => `<span class="sense${i === r.active ? " active" : ""}" data-es="${esc(s.es)}">${esc(s.es)} <small>${esc(s.pos)}</small></span>`).join("")
@@ -1340,7 +1348,7 @@ async function mine(segIndex, selection, padB = 0, padA = 0, extra = {}) {
   $("c-paraula-es").value = extra.chosen || p.paraula_es;
   $("c-frase").value = p.frase;
   $("c-frase-es").value = p.frase_es;
-  $("c-meta").textContent = `${p.lema} · ${p.pos} · ${p.freq_rank} (zipf ${p.freq_zipf.toFixed(1)}) · ${p.font}`;
+  $("c-meta").textContent = `${p.headword || p.lema} · ${p.pos} · ${p.freq_rank} (zipf ${p.freq_zipf.toFixed(1)}) · ${p.font}`;
   $("senses").innerHTML = p.senses.map((s) =>
     `<span class="sense" data-es="${esc(s.es)}">${esc(s.es)} <small>${esc(s.pos)}</small></span>`).join("");
   for (const sp of $("senses").children)
