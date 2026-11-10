@@ -160,6 +160,8 @@ PROFILES = {
         # «Der Film fängt um acht an» es «anfangen», no «fangen»
         "separable_particles": True,
         "separable_purpose": "um {p}zu{v}",   # para traducir: «um aufzustehen»
+        "verb_purpose": "um zu {v}",          # y el resto: «um zu wissen»
+        "verb_infinitive_check": True,        # «komm» → «kommen» en la clave
         "piper_voice": "de/de_DE/thorsten/medium/de_DE-thorsten-medium.onnx",
         "sources": [
             {"name": "DW", "kind": "tv", "url": "https://www.dw.com/de/",

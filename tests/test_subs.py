@@ -89,4 +89,21 @@ def test_sound_descriptions_are_not_dialogue():
     vtt = ("WEBVTT\n\nsub0\n00:00:07.160 --> 00:00:09.160\n* fröhlicher Elektropop *\n\n"
            "sub1\n00:00:10.000 --> 00:00:11.000\n♪ Lied ♪\n\n"
            "sub2\n00:00:12.000 --> 00:00:13.000\n*seufzt* Na gut.\n")
-    assert [s["text"] for s in parse_subtitles(vtt)] == ["*seufzt* Na gut."]
+    assert [s["text"] for s in parse_subtitles(vtt)] == ["Na gut."]
+
+
+def test_hearing_impaired_annotations_are_stripped():
+    from app.subs import strip_annotations as st
+    assert st('(Handy) "Nur 19 Euro im Monat." * Er lacht. *') == '"Nur 19 Euro im Monat."'
+    assert st("Das ist doch einfach scheiße. * leises Schmatzen *") == "Das ist doch einfach scheiße."
+    assert st("(Lisa, rufend) Frank!") == "Frank!"
+    assert st("[Musik] Hallo zusammen") == "Hallo zusammen"
+    assert st("Ich höre dich. - (Mutter) Weißt du?") == "Ich höre dich. - Weißt du?"
+    assert st("* Er stöhnt schneller. * - \"Ja, Baby...\"") == '"Ja, Baby..."'
+    assert st("Ich höre dich. - \"Weißt du, wie das ist?\"") == 'Ich höre dich. - "Weißt du, wie das ist?"'
+    assert st("(lacht)") == ""
+
+
+def test_cue_left_empty_after_stripping_is_dropped():
+    vtt = "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n(Musik)\n\n00:00:03.000 --> 00:00:04.000\n(Lisa) Hallo\n"
+    assert parse_subtitles(vtt) == [{"start": 3.0, "end": 4.0, "text": "Hallo"}]

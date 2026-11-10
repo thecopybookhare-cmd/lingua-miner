@@ -43,8 +43,9 @@ language, plus where it came from and how common the word is.
   *Settings → Translate to*. Catalan, French, German, Portuguese, Italian and
   English translate into either; the rest are English-base only, since no →es
   model exists for them (or, for Spanish, because it would be translating
-  Spanish into itself). German gets extra help: the popup shows the article
-  and the singular (*Handschuhe* → *der Handschuh*) and joins separable verbs
+  Spanish into itself). German gets extra help: nouns come with article and
+  plural (*Handschuhe* → *der Handschuh (pl. Handschuhe)*), verbs in the
+  infinitive (*weiß* → *wissen*), and separable verbs are joined back
   (*fängt … an* → *anfangen*). Each language downloads its own translator, spaCy model, Wiktionary
   glosses and Piper voice on first use.
   [Requesting a language?](docs/adding-a-language.md) — that page lists what
