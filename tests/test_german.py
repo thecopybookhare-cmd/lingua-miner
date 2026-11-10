@@ -156,6 +156,7 @@ def test_glosses_merge_wiktionary_and_wikdict(tmp_path, monkeypatch):
 
 
 _CSV = """lemma,pos,genus,genus 1,genus 2,nominativ singular,nominativ plural,genitiv singular,dativ plural
+Milch,Substantiv,f,,,Milch,,Milch,
 Hund,Substantiv,m,,,Hund,Hunde,Hundes,Hunden
 Hund,"Nachname,Substantiv",,,,Hund,,,
 Handschuh,Substantiv,m,,,Handschuh,Handschuhe,Handschuhs,Handschuhen
@@ -169,12 +170,39 @@ def test_noun_lexicon_gives_article_and_singular(tmp_path, monkeypatch):
     dbp = tmp_path / "nouns-de.sqlite"
     nouns.build_from_lines(_CSV.splitlines(), dbp)
     monkeypatch.setattr(nouns, "_CONS", {"de": sqlite3.connect(str(dbp))})
-    assert nouns.lookup("Handschuhe") == ("Handschuh", "m")
-    assert nouns.headword("Handschuhe") == ("der Handschuh", "Handschuh", "m")
-    assert nouns.headword("hund") == ("der Hund", "Hund", "m"), "el apellido va detrás"
-    assert nouns.headword("Joghurt")[0] == "der/das Joghurt"
-    assert nouns.headword("Leute")[0] == "Leute", "sin género conocido no se inventa artículo"
+    assert nouns.lookup("Handschuhe") == ("Handschuh", "m", "Handschuhe")
+    assert nouns.headword("Handschuhe") == ("der Handschuh (pl. Handschuhe)", "Handschuh", "m")
+    assert nouns.headword("hund")[0] == "der Hund (pl. Hunde)", "el apellido va detrás"
+    assert nouns.headword("Joghurt")[0] == "der/das Joghurt (pl. Joghurts)"
+    assert nouns.headword("Leute")[0] == "die Leute (pl.)", "solo existe en plural"
     assert nouns.headword("xyz") is None
+    assert nouns.headword("Milch")[0] == "die Milch", "sin plural, solo el artículo"
+
+
+def test_old_noun_index_without_plural_is_replaced(tmp_path, monkeypatch):
+    _set(tmp_path, monkeypatch)
+    monkeypatch.setattr(config, "MODELS_DIR", tmp_path)
+    monkeypatch.setattr(nouns, "_CONS", {})
+    (tmp_path / "nouns-de.sqlite").write_bytes(b"v1")
+
+    class R:
+        encoding = None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def raise_for_status(self):
+            pass
+
+        def iter_lines(self, chunk_size=1, decode_unicode=False):
+            yield from _CSV.splitlines()
+    monkeypatch.setattr(nouns.requests, "get", lambda *a, **k: R())
+    assert nouns.lookup("Hunde") == ("Hund", "m", "Hunde")
+    assert not (tmp_path / "nouns-de.sqlite").exists()
+    assert (tmp_path / "nouns-de-v2.sqlite").exists()
 
 
 # ---------- verbos separables ----------
@@ -257,3 +285,32 @@ def test_chromium_uses_hls_js_not_its_native_hls():
     js = (Path(__file__).resolve().parent.parent / "static" / "app.js").read_text(encoding="utf-8")
     assert re.search(r"const IS_CHROMIUM = /Chrome\\/\|Chromium\\/\|Edg\\//", js)
     assert 'IS_CHROMIUM || !V.canPlayType("application/vnd.apple.mpegurl")' in js
+
+
+
+def test_any_german_verb_is_shown_and_translated_as_infinitive(tmp_path, monkeypatch):
+    """Suelto, «weiß» se traducía «Blancos» y «diskutiere», «Discuta»."""
+    _set(tmp_path, monkeypatch)
+    calls = []
+    monkeypatch.setattr(main.translate, "translate", lambda t: calls.append(t) or "Para saber.")
+    with patch("app.main.nlp.selection_info",
+               return_value={"lemma": "wissen", "pos": "VERB", "separable": ""}):
+        info = main._word_info("weiß", "Ich weiß nicht.")
+    assert calls == ["um zu wissen"]
+    assert main._card_word(info) == "wissen — saber"
+
+
+def test_verb_already_in_infinitive_has_no_redundant_headword(tmp_path, monkeypatch):
+    _set(tmp_path, monkeypatch)
+    monkeypatch.setattr(main.translate, "translate", lambda t: "para apagar")
+    with patch("app.main.nlp.selection_info",
+               return_value={"lemma": "ausschalten", "pos": "VERB", "separable": ""}):
+        info = main._word_info("ausschalten", "Schalt das aus.")
+    assert info["headword"] == "" and main._card_word(info) == "apagar"
+
+
+def test_checked_infinitive_repairs_spacy_lemmas():
+    assert nlp._checked_infinitive("Komm", "komm", "de") == "kommen"
+    assert nlp._checked_infinitive("stehst", "stehsen", "de") == "stehen"
+    assert nlp._checked_infinitive("weiß", "wissen", "de") == "wissen"
+    assert nlp._checked_infinitive("ging", "gehen", "de") == "gehen"

@@ -265,14 +265,18 @@ def _word_info(selection: str, sentence: str) -> dict:
     si = nlp.selection_info(selection, sentence)
     lemma, pos = si["lemma"], si["pos"]
     headword, key, word_es = "", lemma, ""
-    if pos == "NOUN" and languages.profile().get("noun_articles"):
+    prof = languages.profile()
+    if pos == "NOUN" and prof.get("noun_articles"):
         hw = nouns.headword(selection, lemma)
         if hw:
             headword, key, genus = hw
             word_es = _noun_es(key, genus)
-    elif si["separable"]:
-        headword = lemma
-        word_es = _separable_es(lemma, si["separable"])
+    elif si["separable"] or (pos in ("VERB", "AUX") and prof.get("verb_purpose")):
+        # El verbo suelto se traduce mal («weiß» → «Blancos», «diskutiere» →
+        # «Discuta»): va en infinitivo, que es además la forma que se estudia
+        if si["separable"] or lemma != selection.strip().lower():
+            headword = lemma
+        word_es = _verb_es(lemma, si["separable"])
     word_es = word_es or _word_es(selection, lemma)
     return {"lemma": lemma, "pos": pos, "headword": headword,
             "gloss_key": key, "word_es": word_es}
@@ -304,16 +308,19 @@ def _strip_lead(out: str, leads: tuple[str, ...]) -> str:
     return out
 
 
-def _separable_es(lemma: str, particle: str) -> str:
-    """Traducción del infinitivo de un verbo separable. Suelto, el traductor
-    lo toma por imperativo o por sustantivo («aufstehen» → «Levántate»,
-    «fernsehen» → «Televisión»); en «um aufzustehen» sale el infinitivo
-    («para levantarse») y se quita el «para»."""
-    tpl = languages.profile().get("separable_purpose")
-    if not tpl or not lemma.startswith(particle):
+def _verb_es(lemma: str, particle: str = "") -> str:
+    """Traducción del infinitivo. Suelto, el traductor lo toma por imperativo
+    o por sustantivo («aufstehen» → «Levántate», «fernsehen» → «Televisión»);
+    en «um aufzustehen» / «um zu wissen» sale el infinitivo («para
+    levantarse», «para saber») y se quita el «para»."""
+    prof = languages.profile()
+    if particle and lemma.startswith(particle) and prof.get("separable_purpose"):
+        phrase = prof["separable_purpose"].format(p=particle, v=lemma[len(particle):])
+    elif prof.get("verb_purpose"):
+        phrase = prof["verb_purpose"].format(v=lemma)
+    else:
         return _lower1(translate.translate(lemma))
-    out = translate.translate(tpl.format(p=particle, v=lemma[len(particle):]))
-    out = out.strip().rstrip(".:;,")
+    out = translate.translate(phrase).strip().rstrip(".:;,")
     return _lower1(_strip_lead(out, ("para ", "in order to ", "to ")))
 
 

@@ -23,7 +23,8 @@ _NLPS: dict = {}   # modelo spaCy por idioma
 # Bump para re-tokenizar transcripciones guardadas con lemas antiguos.
 # v2: is_word estricto (fuera números y tokens con puntuación interna) + ws.
 # v3: verbos separables del alemán («fängt … an» → «anfangen»).
-TOK_VERSION = 3
+# v4: infinitivos alemanes comprobados («komm» → «kommen»).
+TOK_VERSION = 4
 
 _POS_EQ = {("VERB", "AUX"), ("AUX", "VERB")}
 
@@ -174,6 +175,20 @@ def _infinitive_guesses(form: str, lemma: str) -> list[str]:
     return list(dict.fromkeys(out))
 
 
+def _checked_infinitive(form: str, lemma: str, wf: str) -> str:
+    """Infinitivo alemán fiable para la clave del estado de la palabra.
+
+    spaCy sm deja a veces la forma conjugada («Komm» → «komm») o inventa una
+    («stehst» → «stehsen»). Un infinitivo acaba en -n y existe: si no, gana
+    el candidato más frecuente en wordfreq."""
+    import wordfreq
+    if lemma.endswith("n") and wordfreq.zipf_frequency(lemma, wf) > 0:
+        return lemma
+    cands = [c for c in _infinitive_guesses(form, lemma) if c.endswith("n")]
+    best = max(cands, key=lambda c: wordfreq.zipf_frequency(c, wf), default="")
+    return best if best and wordfreq.zipf_frequency(best, wf) > 0 else lemma
+
+
 def _separable_lemmas(doc) -> dict:
     """{índice del token: (infinitivo, partícula)} para los verbos separables.
 
@@ -208,6 +223,9 @@ def tokenize(text: str) -> list[dict]:
     toks = []
     doc = nlp_model(text)
     sep = _separable_lemmas(doc)
+    from . import languages
+    prof = languages.profile()
+    check_verbs = prof.get("verb_infinitive_check")
     for tok in doc:
         if tok.is_space:
             continue
@@ -223,6 +241,8 @@ def tokenize(text: str) -> list[dict]:
             # lema en los idiomas sin flexión, así que es la caída correcta.
             lemma = lemma or tok.text.lower()
             lemma = _head_morpheme(lemma)
+            if check_verbs and pos in ("VERB", "AUX"):
+                lemma = _checked_infinitive(tok.text, lemma, prof["wordfreq"])
         d = {"t": tok.text, "lemma": lemma, "pos": pos, "is_word": is_word,
              "zipf": _zipf_of(tok.text, lemma) if is_word else 0.0,
              "ws": tok.whitespace_}

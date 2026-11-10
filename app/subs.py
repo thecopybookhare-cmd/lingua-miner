@@ -4,10 +4,20 @@ _TS = re.compile(
     r"(?:(\d+):)?(\d{1,2}):(\d{2})[.,](\d{3})\s*-->\s*"
     r"(?:(\d+):)?(\d{1,2}):(\d{2})[.,](\d{3})")
 _TAG = re.compile(r"<[^>]+>")
-# Cue que es solo una descripción de sonido, en los subtítulos para sordos de
-# ARD/ZDF («* fröhlicher Elektropop *», «♪ … ♪»): no es diálogo, y contaba
-# como frase y como palabras nuevas.
-_SOUND = re.compile(r"^\s*([*♪#]).*\1\s*$")
+# Anotaciones de los subtítulos para sordos: quién habla o desde dónde
+# («(Handy)», «(Lisa, rufend)»), sonidos («* leises Schmatzen *», «[Musik]»,
+# «♪ … ♪»). No son diálogo: salían subrayadas como palabras nuevas, se
+# traducían con la frase y se podían minar.
+_ANNOT = re.compile(r"\([^()]*\)|\[[^\[\]]*\]|([*♪#])[^*♪#\n]*\1")
+_DASHES = re.compile(r"^(?:\s*[-–—]\s*)+|(?:\s*[-–—]\s*)+$")
+
+
+def strip_annotations(text: str) -> str:
+    """El diálogo sin anotaciones: «(Handy) "Nur 19 Euro." * Er lacht. *» →
+    «"Nur 19 Euro."». Quita también el guion que quedaba colgando."""
+    t = " ".join(_ANNOT.sub(" ", text).split())
+    t = re.sub(r"(?:\s*[-–—]\s*){2,}", " - ", t)      # «- (Lisa) -» → «-»
+    return _DASHES.sub("", t).strip()
 
 
 def _secs(h, m, s, ms) -> float:
@@ -57,7 +67,12 @@ def parse_subtitles(text: str) -> list[dict]:
         after_blank = False
     if cur and cur["text"]:
         segs.append(cur)
-    return [x for x in segs if not _SOUND.match(x["text"])]
+    out = []
+    for x in segs:
+        x["text"] = strip_annotations(x["text"])
+        if x["text"]:
+            out.append(x)
+    return out
 
 
 def merge_split_cues(segs: list[dict]) -> list[dict]:
