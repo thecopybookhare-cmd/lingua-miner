@@ -13,7 +13,9 @@ def client(tmp_path):
 
 # ---------- sesiones por URL ----------
 
-def _wait_job(jid, timeout=10):
+def _wait_job(jid, timeout=60):
+    # 10 s no bastaban en los runners de Windows de CI (primer import de spaCy):
+    # el test fallaba sin que nada estuviera roto
     import time
     t0 = time.time()
     while time.time() - t0 < timeout:
