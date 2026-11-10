@@ -1,6 +1,7 @@
 """LinguaMiner — FastAPI backend + static frontend."""
 import json
 import logging
+import re
 import shutil
 import tempfile
 import threading
@@ -624,7 +625,14 @@ def session_detail(sid: str):
         return JSONResponse({"error": "not found"}, status_code=404)
     s["transcript"] = json.loads(s.pop("transcript_json"))
     if s["transcript"] and (s.get("tok_version") or 0) < nlp.TOK_VERSION:
+        from_subs = s.get("srt_source") in ("youtube_subs", "youtube_auto", "srt")
         for seg in s["transcript"]:
+            if from_subs:
+                # Sesiones abiertas antes del arreglo: «… gegrillt!" sub9» y
+                # «(Handy)». No se borra ningún segmento (las tarjetas apuntan
+                # a su índice): si no queda nada, se deja como estaba.
+                clean = subs.strip_annotations(re.sub(r"\s+sub\d+$", "", seg["text"]))
+                seg["text"] = clean or seg["text"]
             seg["tokens"] = nlp.tokenize(seg["text"])
         db.update_transcript(CON, sid, json.dumps(s["transcript"]),
                              s["model_size"], s["srt_source"],

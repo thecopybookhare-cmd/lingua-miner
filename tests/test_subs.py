@@ -107,3 +107,21 @@ def test_hearing_impaired_annotations_are_stripped():
 def test_cue_left_empty_after_stripping_is_dropped():
     vtt = "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n(Musik)\n\n00:00:03.000 --> 00:00:04.000\n(Lisa) Hallo\n"
     assert parse_subtitles(vtt) == [{"start": 3.0, "end": 4.0, "text": "Hallo"}]
+
+
+def test_old_subtitle_sessions_are_cleaned_when_reopened(tmp_path):
+    import json
+
+    from fastapi.testclient import TestClient
+
+    import app.main as main
+    main.CON = main.db.connect(tmp_path / "t.db")
+    segs = [{"start": 1, "end": 2, "text": '"… mich gegrillt!" sub9', "tokens": []},
+            {"start": 3, "end": 4, "text": "(Handy) Hallo", "tokens": []},
+            {"start": 5, "end": 6, "text": "* Musik *", "tokens": []}]
+    sid = main.db.create_session(main.CON, language="de", title="t", source_type="stream",
+                                 media_path="x", srt_source="youtube_subs", model_size="-",
+                                 duration_secs=6, transcript_json=json.dumps(segs))
+    tr = TestClient(main.app).get(f"/api/sessions/{sid}").json()["transcript"]
+    assert [s["text"] for s in tr] == ['"… mich gegrillt!"', "Hallo", "* Musik *"], \
+        "ningún segmento desaparece: las tarjetas guardan su índice"
