@@ -1151,6 +1151,22 @@ def _rank_glosses(glosses: list[tuple[str, str]], pos: str,
     return match + rest
 
 
+def _definition(selection: str, lemma: str, pos: str) -> str:
+    """Todas las glosas del Wikcionario, para el reverso de la tarjeta.
+
+    El popup las enseñaba («clipping of Trabant (East German make of car)»)
+    pero no llegaban a Anki, y el traductor no sabe de palabras así: «Trabi»
+    salía como «Trabi»."""
+    import html
+    try:
+        glosses = (wikdict.lookup(lemma, limit=12)
+                   or wikdict.lookup(selection, limit=12))
+    except Exception:                                  # noqa: BLE001
+        return ""
+    glosses = _rank_glosses(glosses, pos, (lemma, selection))
+    return "<br>".join(html.escape(g) for g, _ in glosses)
+
+
 @app.post("/api/lookup")
 def lookup(req: LookupReq):
     """Instant word info for the Migaku-style popup (no media generated)."""
@@ -1484,7 +1500,8 @@ def card_mine(req: MineReq):
         paraula_es=paraula_es, frase=p["frase"], frase_es=p["frase_es"],
         freq_rank=p["freq_rank"], audio_file=p["audio_file"],
         image_file=p["clip_file"] or p["image_file"], font=p["font"],
-        language=_lang())
+        language=_lang(),
+        definicio=_definition(req.selection, p["lema"], p["pos"]))
     if p["lema"]:
         db.mark_learning_if_new(CON, p["lema"], _lang())
     sent = _flush()
@@ -1517,7 +1534,8 @@ def create_card(req: CardReq):
                          frase=req.frase, frase_es=req.frase_es,
                          freq_rank=req.freq_rank, audio_file=req.audio_file,
                          image_file=req.image_file, font=req.font,
-                         language=_lang())
+                         language=_lang(),
+                         definicio=_definition(req.paraula, req.lema, req.pos))
     if req.lema:
         db.mark_learning_if_new(CON, req.lema, _lang())
     sent = _flush()

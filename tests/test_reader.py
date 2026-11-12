@@ -187,3 +187,19 @@ def test_card_layout_setting(tmp_path):
     assert c.post("/api/settings",
                   json={"card_layout": "otro"}).status_code == 400
     assert 'saveSettings({ card_layout:' in APP_JS
+
+
+def test_card_saves_the_wiktionary_definition(tmp_path, monkeypatch):
+    main.CON = main.db.connect(tmp_path / "t.db")
+    monkeypatch.setattr(main.wikdict, "lookup", lambda term, limit=6: (
+        [("clipping of Trabant (East German make of car)", "noun"),
+         ("<b>second</b>", "noun"), ("third", "noun")] if term == "trabi" else []))
+    d = main._definition("Trabi", "trabi", "PROPN")
+    assert d == ("clipping of Trabant (East German make of car)"
+                 "<br>&lt;b&gt;second&lt;/b&gt;<br>third")
+    assert main._definition("ganzer Satz", "ganzer satz", "") == ""
+    cid = main.db.create_card(main.CON, session_id="s", segment_index=0, paraula="Trabi",
+                              lema="trabi", pos="PROPN", paraula_es="", frase="f",
+                              frase_es="", freq_rank="", audio_file="", image_file="",
+                              font="", definicio=d)
+    assert main.db.pending_cards(main.CON)[0]["definicio"] == d and cid

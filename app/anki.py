@@ -99,15 +99,19 @@ text-align: center; color: #222; background: #fdfdfd; }
 .front { font-size: 34px; font-weight: 700; }
 .frase { margin-top: 12px; } .es { color: #666; font-size: 18px; }
 .font { color: #999; font-size: 13px; margin-top: 10px; }
+.def { color: #888; font-size: 15px; font-style: italic; margin-top: 8px; }
 img { max-width: 90%; border-radius: 8px; margin-top: 10px; }"""
 
 # Migaku-style: full context (sentence + image + audio) on the FRONT
 FRONT = """<div class="front">{{Paraula}}</div>
 <div class="frase">{{Frase}}</div>
 {{Imatge}}<br>{{Audio}}"""
+# La definición del Wikcionario solo cuando la hay (las frases no tienen).
+DEF = """{{#Definicio}}<div class="def">{{Definicio}}</div>{{/Definicio}}"""
 BACK = """{{FrontSide}}<hr id=answer>
 <div class="es">{{ParaulaES}}</div>
 <div class="es">{{FraseES}}</div>
+""" + DEF + """
 <div class="font">{{Font}} · {{Freq}}</div>"""
 
 # Para entrenar el oído: delante solo la escena y el audio, sin texto; la
@@ -118,6 +122,7 @@ LISTEN_BACK = """{{FrontSide}}<hr id=answer>
 <div class="frase">{{Frase}}</div>
 <div class="es">{{ParaulaES}}</div>
 <div class="es">{{FraseES}}</div>
+""" + DEF + """
 <div class="font">{{Font}} · {{Freq}}</div>"""
 
 CARD_LAYOUTS = ("reading", "listening")
@@ -151,11 +156,24 @@ def ensure_note_type(layout: str = "reading") -> str:
                inOrderFields=config.NOTE_FIELDS, css=CARD_CSS,
                cardTemplates=[{"Name": "Card 1", "Front": front, "Back": back}])
         return model
-    invoke("updateModelTemplates",
-           model={"name": model,
-                  "templates": {"Card 1": {"Front": front, "Back": back}}})
-    invoke("updateModelStyling",
-           model={"name": model, "css": CARD_CSS})
+    # Campos nuevos (Definicio) en tipos de nota creados por versiones previas.
+    have = invoke("modelFieldNames", modelName=model) or []
+    for field in config.NOTE_FIELDS:
+        if field not in have:
+            invoke("modelFieldAdd", modelName=model, fieldName=field,
+                   index=len(have))
+            have.append(field)
+    # Escribir solo si cambia: con una ventana de edición abierta en Anki,
+    # AnkiConnect rechaza la escritura («Close the affected editor…») y, como
+    # esto va antes de cada tarjeta, la cola entera se quedaba en «enviando N».
+    current = (invoke("modelTemplates", modelName=model) or {}).get("Card 1") or {}
+    if current.get("Front") != front or current.get("Back") != back:
+        invoke("updateModelTemplates",
+               model={"name": model,
+                      "templates": {"Card 1": {"Front": front, "Back": back}}})
+    if (invoke("modelStyling", modelName=model) or {}).get("css") != CARD_CSS:
+        invoke("updateModelStyling",
+               model={"name": model, "css": CARD_CSS})
     return model
 
 
@@ -229,6 +247,7 @@ def build_note(card: dict, deck: str, model: str | None = None) -> dict:
             "Imatge": f'<img src="{card["image_file"]}">' if card.get("image_file") else "",
             "Font": card.get("font") or "",
             "Freq": card.get("freq_rank") or "",
+            "Definicio": card.get("definicio") or "",
         },
         "options": {"allowDuplicate": False},
         "tags": ["lingua-miner"],

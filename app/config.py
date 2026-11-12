@@ -80,4 +80,4 @@ FORMS_URL = ("https://raw.githubusercontent.com/Softcatala/catalan-dict-tools/"
 NOTE_TYPE = "LinguaMiner"
 NOTE_TYPE_LEGACY = "CatalaMiner"      # instalaciones previas: no partir la colección
 NOTE_FIELDS = ["Paraula", "ParaulaES", "Frase", "FraseES",
-               "Audio", "Imatge", "Font", "Freq"]
+               "Audio", "Imatge", "Font", "Freq", "Definicio"]

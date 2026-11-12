@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app import anki
+from app import anki, config
 
 
 @pytest.fixture(autouse=True)
@@ -92,3 +92,45 @@ def test_listening_layout_hides_the_text_on_the_front():
         assert campo not in front and campo in back
     assert "{{Audio}}" in front and "{{Imatge}}" in front
     assert anki.templates("reading") == (anki.FRONT, anki.BACK)
+
+
+def test_definition_goes_on_the_back_only():
+    for layout in anki.CARD_LAYOUTS:
+        front, back = anki.templates(layout)
+        assert "{{Definicio}}" not in front and "{{Definicio}}" in back
+    card = {"paraula": "Trabi", "lema": "trabi", "paraula_es": "Trabi",
+            "frase": "x", "frase_es": "", "definicio": "clipping of Trabant"}
+    assert anki.build_note(card, deck="D")["fields"]["Definicio"] == "clipping of Trabant"
+
+
+def _fake_anki(model_state):
+    calls = []
+
+    def invoke(action, **kw):
+        calls.append(action)
+        return {"modelNames": ["LinguaMiner"],
+                "modelFieldNames": list(model_state["fields"]),
+                "modelTemplates": {"Card 1": model_state["tmpl"]},
+                "modelStyling": {"css": model_state["css"]}}.get(action)
+    return invoke, calls
+
+
+def test_unchanged_note_type_is_not_rewritten(monkeypatch):
+    # con un editor abierto en Anki, cualquier escritura del modelo falla y
+    # atascaba la cola: si no hay cambios, no se escribe nada
+    front, back = anki.templates("listening")
+    invoke, calls = _fake_anki({"fields": config.NOTE_FIELDS,
+                                "tmpl": {"Front": front, "Back": back},
+                                "css": anki.CARD_CSS})
+    monkeypatch.setattr(anki, "invoke", invoke)
+    anki.ensure_note_type("listening")
+    assert not {"updateModelTemplates", "updateModelStyling", "modelFieldAdd"} & set(calls)
+
+
+def test_old_note_type_gets_the_new_field(monkeypatch):
+    invoke, calls = _fake_anki({"fields": config.NOTE_FIELDS[:-1],
+                                "tmpl": {"Front": "old", "Back": "old"}, "css": ""})
+    monkeypatch.setattr(anki, "invoke", invoke)
+    anki.ensure_note_type()
+    assert calls.count("modelFieldAdd") == 1
+    assert "updateModelTemplates" in calls and "updateModelStyling" in calls
