@@ -4,6 +4,20 @@ _TS = re.compile(
     r"(?:(\d+):)?(\d{1,2}):(\d{2})[.,](\d{3})\s*-->\s*"
     r"(?:(\d+):)?(\d{1,2}):(\d{2})[.,](\d{3})")
 _TAG = re.compile(r"<[^>]+>")
+# Anotaciones de los subtítulos para sordos: quién habla o desde dónde
+# («(Handy)», «(Lisa, rufend)»), sonidos («* leises Schmatzen *», «[Musik]»,
+# «♪ … ♪»). No son diálogo: salían subrayadas como palabras nuevas, se
+# traducían con la frase y se podían minar.
+_ANNOT = re.compile(r"\([^()]*\)|\[[^\[\]]*\]|([*♪#])[^*♪#\n]*\1")
+_DASHES = re.compile(r"^(?:\s*[-–—]\s*)+|(?:\s*[-–—]\s*)+$")
+
+
+def strip_annotations(text: str) -> str:
+    """El diálogo sin anotaciones: «(Handy) "Nur 19 Euro." * Er lacht. *» →
+    «"Nur 19 Euro."». Quita también el guion que quedaba colgando."""
+    t = " ".join(_ANNOT.sub(" ", text).split())
+    t = re.sub(r"(?:\s*[-–—]\s*){2,}", " - ", t)      # «- (Lisa) -» → «-»
+    return _DASHES.sub("", t).strip()
 
 
 def _secs(h, m, s, ms) -> float:
@@ -11,23 +25,54 @@ def _secs(h, m, s, ms) -> float:
 
 
 def parse_subtitles(text: str) -> list[dict]:
-    """Parse SRT or WebVTT into [{start, end, text}]. Strips markup tags."""
+    """Parse SRT or WebVTT into [{start, end, text}]. Strips markup tags.
+
+    Lo que viene tras una línea en blanco no es texto del cue anterior: o es
+    el identificador del siguiente (en WebVTT puede ser cualquier cosa, «sub9»,
+    no solo el número del SRT) o un bloque NOTE. Antes se pegaba al final de
+    la frase anterior: «… gegrillt!" sub9».
+    """
     segs = []
     cur = None
+    held: list[str] = []       # líneas tras un blanco, a la espera de saber qué son
+    after_blank = False
     for line in text.splitlines():
         m = _TS.search(line)
         if m:
+            held = []          # eran el identificador de este cue
             if cur and cur["text"]:
                 segs.append(cur)
             g = m.groups()
             cur = {"start": _secs(*g[:4]), "end": _secs(*g[4:]), "text": ""}
-        elif cur is not None:
-            clean = _TAG.sub("", line).strip()
-            if clean and not clean.isdigit():
-                cur["text"] = (cur["text"] + " " + clean).strip()
+            after_blank = False
+            continue
+        clean = _TAG.sub("", line).strip()
+        if not line.strip():
+            held = []          # un bloque suelto (NOTE, STYLE…): fuera
+            after_blank = True
+            continue
+        if cur is None or not clean or clean.isdigit():
+            after_blank = False
+            continue
+        if (after_blank or held) and cur["text"]:
+            # tras un blanco, ¿texto o identificador del cue siguiente? Se sabe
+            # en la línea de después: si es un tiempo, era el identificador
+            if held:
+                held.append(clean)
+            else:
+                held = [clean]
+            after_blank = False
+            continue
+        cur["text"] = (cur["text"] + " " + clean).strip()
+        after_blank = False
     if cur and cur["text"]:
         segs.append(cur)
-    return segs
+    out = []
+    for x in segs:
+        x["text"] = strip_annotations(x["text"])
+        if x["text"]:
+            out.append(x)
+    return out
 
 
 def merge_split_cues(segs: list[dict]) -> list[dict]:

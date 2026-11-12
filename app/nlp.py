@@ -22,7 +22,9 @@ _NLPS: dict = {}   # modelo spaCy por idioma
 
 # Bump para re-tokenizar transcripciones guardadas con lemas antiguos.
 # v2: is_word estricto (fuera números y tokens con puntuación interna) + ws.
-TOK_VERSION = 2
+# v3: verbos separables del alemán («fängt … an» → «anfangen»).
+# v4: infinitivos alemanes comprobados («komm» → «kommen»).
+TOK_VERSION = 4
 
 _POS_EQ = {("VERB", "AUX"), ("AUX", "VERB")}
 
@@ -68,8 +70,11 @@ def _spacy():
     if code not in _NLPS:
         try:
             import spacy
-            _NLPS[code] = spacy.load(languages.PROFILES[code]["spacy"],
-                                     disable=["parser", "ner"])
+            # El parser solo hace falta para unir la partícula separable con
+            # su verbo; cuesta ~0,3 ms por frase.
+            off = (["ner"] if languages.PROFILES[code].get("separable_particles")
+                   else ["parser", "ner"])
+            _NLPS[code] = spacy.load(languages.PROFILES[code]["spacy"], disable=off)
         except Exception:
             _NLPS[code] = None
     return _NLPS[code]
@@ -150,17 +155,85 @@ def naive_tokenize(text: str) -> list[dict]:
     return toks
 
 
+_UMLAUT = str.maketrans("äöü", "aou")
+
+
+def _infinitive_guesses(form: str, lemma: str) -> list[str]:
+    """Infinitivos posibles de un verbo conjugado. spaCy sm falla a veces
+    («stehst» → «stehsen», el imperativo «Komm» → «komm»): se prueba también
+    quitando la desinencia, con y sin la metafonía («fängt» → «fangen»)."""
+    f = form.lower()
+    out = [lemma.lower()]
+    for suf in ("est", "st", "et", "t", "e", "en", "n", ""):
+        if suf and not f.endswith(suf):
+            continue
+        stem = f[:len(f) - len(suf)] if suf else f
+        if len(stem) < 2:
+            continue
+        for st in dict.fromkeys((stem, stem.translate(_UMLAUT))):
+            out += [st + "n", st + "en"] if st.endswith(("el", "er")) else [st + "en"]
+    return list(dict.fromkeys(out))
+
+
+def _checked_infinitive(form: str, lemma: str, wf: str) -> str:
+    """Infinitivo alemán fiable para la clave del estado de la palabra.
+
+    spaCy sm deja a veces la forma conjugada («Komm» → «komm») o inventa una
+    («stehst» → «stehsen»). Un infinitivo acaba en -n y existe: si no, gana
+    el candidato más frecuente en wordfreq."""
+    import wordfreq
+    if lemma.endswith("n") and wordfreq.zipf_frequency(lemma, wf) > 0:
+        return lemma
+    cands = [c for c in _infinitive_guesses(form, lemma) if c.endswith("n")]
+    best = max(cands, key=lambda c: wordfreq.zipf_frequency(c, wf), default="")
+    return best if best and wordfreq.zipf_frequency(best, wf) > 0 else lemma
+
+
+def _separable_lemmas(doc) -> dict:
+    """{índice del token: (infinitivo, partícula)} para los verbos separables.
+
+    En «Der Film fängt um acht Uhr an» el parser engancha «an» a «fängt»
+    (dep «svp»); el verbo es «anfangen», no «fangen» (capturar). Los dos
+    tokens se quedan con el mismo lema, así que tocar cualquiera de los dos
+    abre «anfangen». Entre los candidatos gana el más frecuente en wordfreq:
+    descarta «aufstehsen» sin depender de ningún diccionario descargado."""
+    from . import languages
+    prof = languages.profile()
+    if not prof.get("separable_particles"):
+        return {}
+    import wordfreq
+    out = {}
+    for tok in doc:
+        head = tok.head
+        if (tok.dep_ not in ("svp", "compound:prt") or head.i == tok.i
+                or head.pos_ not in ("VERB", "AUX")):
+            continue
+        part = tok.text.lower()
+        cands = [part + c for c in _infinitive_guesses(head.text, head.lemma_)]
+        best = max(cands, key=lambda c: wordfreq.zipf_frequency(c, prof["wordfreq"]))
+        if wordfreq.zipf_frequency(best, prof["wordfreq"]) > 0:
+            out[head.i] = out[tok.i] = (best, part)
+    return out
+
+
 def tokenize(text: str) -> list[dict]:
     nlp_model = _spacy()
     if nlp_model is None:
         return naive_tokenize(text)
     toks = []
-    for tok in nlp_model(text):
+    doc = nlp_model(text)
+    sep = _separable_lemmas(doc)
+    from . import languages
+    prof = languages.profile()
+    check_verbs = prof.get("verb_infinitive_check")
+    for tok in doc:
         if tok.is_space:
             continue
         is_word = not tok.is_punct and is_wordlike(tok.text)
         lemma, pos = ("", "")
-        if is_word:
+        if is_word and tok.i in sep:
+            lemma, pos = sep[tok.i][0], "VERB"
+        elif is_word:
             lemma, pos = _correct(tok.text, tok.lemma_.lower(), tok.pos_)
             # Sin lematizador (zh_core_web_sm no trae) spaCy devuelve "" y el
             # estado de la palabra se guarda POR LEMA: sin esto, en chino no
@@ -168,20 +241,26 @@ def tokenize(text: str) -> list[dict]:
             # lema en los idiomas sin flexión, así que es la caída correcta.
             lemma = lemma or tok.text.lower()
             lemma = _head_morpheme(lemma)
-        toks.append({"t": tok.text, "lemma": lemma, "pos": pos,
-                     "is_word": is_word,
-                     "zipf": _zipf_of(tok.text, lemma) if is_word else 0.0,
-                     "ws": tok.whitespace_})
+            if check_verbs and pos in ("VERB", "AUX"):
+                lemma = _checked_infinitive(tok.text, lemma, prof["wordfreq"])
+        d = {"t": tok.text, "lemma": lemma, "pos": pos, "is_word": is_word,
+             "zipf": _zipf_of(tok.text, lemma) if is_word else 0.0,
+             "ws": tok.whitespace_}
+        if is_word and tok.i in sep:
+            d["sep"] = sep[tok.i][1]           # la partícula: «an» de «anfangen»
+        toks.append(d)
     return toks
 
 
-def analyze_selection(text: str, context: str = "") -> tuple[str, str]:
-    """Return (lemma, pos) for a selected word/expression.
+def selection_info(text: str, context: str = "") -> dict:
+    """{lemma, pos, separable} de una palabra o expresión seleccionada
+    (separable: la partícula si es un verbo separable, «an»; si no, "").
 
     When `context` (the full sentence) is given, the selection is located
     inside it and lemma/POS are taken from the in-context analysis — an
     isolated "gos" gets mis-lemmatized as the verb "gosar", but inside
-    "El gos corre" spaCy tags it correctly as a noun.
+    "El gos corre" spaCy tags it correctly as a noun. Lo mismo hace falta para
+    los verbos separables: «fängt» solo no dice nada de «an».
     """
     target = [t["t"].lower() for t in tokenize(text) if t["is_word"]]
     if context and target:
@@ -191,11 +270,21 @@ def analyze_selection(text: str, context: str = "") -> tuple[str, str]:
             if [w["t"].lower() for w in ctx[i:i + n]] == target:
                 span = ctx[i:i + n]
                 if n == 1:
-                    return span[0]["lemma"], span[0]["pos"]
-                return " ".join(w["lemma"] for w in span), "EXPR"
+                    return {"lemma": span[0]["lemma"], "pos": span[0]["pos"],
+                            "separable": span[0].get("sep") or ""}
+                return {"lemma": " ".join(w["lemma"] for w in span), "pos": "EXPR",
+                        "separable": ""}
     words = [t for t in tokenize(text) if t["is_word"]]
     if not words:
-        return text.lower(), ""
+        return {"lemma": text.lower(), "pos": "", "separable": ""}
     if len(words) == 1:
-        return words[0]["lemma"], words[0]["pos"]
-    return " ".join(w["lemma"] for w in words), "EXPR"
+        return {"lemma": words[0]["lemma"], "pos": words[0]["pos"],
+                "separable": words[0].get("sep") or ""}
+    return {"lemma": " ".join(w["lemma"] for w in words), "pos": "EXPR",
+            "separable": ""}
+
+
+def analyze_selection(text: str, context: str = "") -> tuple[str, str]:
+    """Return (lemma, pos) for a selected word/expression."""
+    i = selection_info(text, context)
+    return i["lemma"], i["pos"]

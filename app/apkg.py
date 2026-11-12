@@ -39,22 +39,27 @@ def guid(card_id: str) -> str:
 
 
 def build(cards: list[dict], deck_name: str, dest: Path,
-          layout: str = "reading") -> int:
+          layout: str = "reading", deck_for=None) -> int:
     """Escribe el .apkg en `dest` con sus audios e imágenes. Devuelve cuántas
     notas lleva. Un medio que ya no está en disco se omite: la tarjeta va
-    igual, como haría AnkiConnect."""
+    igual, como haría AnkiConnect.
+
+    `deck_for(card)` reparte por mazos (uno por idioma); sin él, todas van a
+    `deck_name`."""
     model = _model(layout)
-    deck = genanki.Deck(deck_id(deck_name), deck_name)
+    decks: dict[str, genanki.Deck] = {}
     media = []
     for c in cards:
-        fields = anki.build_note(c, deck_name)["fields"]
+        name = (deck_for(c) if deck_for else None) or deck_name
+        deck = decks.setdefault(name, genanki.Deck(deck_id(name), name))
+        fields = anki.build_note(c, name)["fields"]
         deck.add_note(genanki.Note(model=model, guid=guid(c["id"]), tags=["lingua-miner"],
                                    fields=[fields[f] for f in config.NOTE_FIELDS]))
         for key in ("audio_file", "image_file"):
             name = c.get(key)
             if name and (config.MEDIA_DIR / name).is_file():
                 media.append(str(config.MEDIA_DIR / name))
-    pkg = genanki.Package(deck)
+    pkg = genanki.Package(list(decks.values()) or genanki.Deck(deck_id(deck_name), deck_name))
     pkg.media_files = media
     pkg.write_to_file(str(dest))
     return len(cards)

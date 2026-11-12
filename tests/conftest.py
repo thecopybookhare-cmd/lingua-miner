@@ -28,9 +28,11 @@ def no_wikdict_download(monkeypatch):
     españolas; sembrarla con None para todas las combinaciones deja lookup()
     devolviendo [] sin tocar la red.
     """
-    from app import languages, wikdict
+    from app import languages, nouns, wikdict
     seeded = {(c, b): None for c in languages.PROFILES for b in ("es", "en")}
     monkeypatch.setattr(wikdict, "_CONS", seeded)
+    # ni la tabla de sustantivos alemanes (~20 MB)
+    monkeypatch.setattr(nouns, "_CONS", {c: None for c in languages.PROFILES})
 
 
 @pytest.fixture(autouse=True)

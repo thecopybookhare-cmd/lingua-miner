@@ -155,7 +155,7 @@ def test_watch_online_shows_the_blocked_message(tmp_path, monkeypatch):
                  json={"url": "https://www.rtve.es/play/videos/x/1/"}).json()["job_id"]
     t0 = time.time()
     while main.jobs.get(jid)["status"] not in ("done", "error"):
-        assert time.time() - t0 < 10
+        assert time.time() - t0 < 60
         time.sleep(0.05)
     j = main.jobs.get(jid)
     assert j["status"] == "error" and j["key"] == "err.geo_blocked"

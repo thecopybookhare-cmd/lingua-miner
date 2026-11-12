@@ -43,7 +43,10 @@ language, plus where it came from and how common the word is.
   *Settings → Translate to*. Catalan, French, German, Portuguese, Italian and
   English translate into either; the rest are English-base only, since no →es
   model exists for them (or, for Spanish, because it would be translating
-  Spanish into itself). Each language downloads its own translator, spaCy model, Wiktionary
+  Spanish into itself). German gets extra help: nouns come with article and
+  plural (*Handschuhe* → *der Handschuh (pl. Handschuhe)*), verbs in the
+  infinitive (*weiß* → *wissen*), and separable verbs are joined back
+  (*fängt … an* → *anfangen*). Each language downloads its own translator, spaCy model, Wiktionary
   glosses and Piper voice on first use.
   [Requesting a language?](docs/adding-a-language.md) — that page lists what
   has to exist and where each candidate currently stands.
@@ -268,7 +271,11 @@ FastAPI + SQLite + vanilla JS (no build step). Pieces:
 [projecte-aina/faster-whisper-large-v3-ca-3catparla](https://huggingface.co/projecte-aina/faster-whisper-large-v3-ca-3catparla),
 [softcatala/translate-cat-spa](https://huggingface.co/softcatala/translate-cat-spa)
 and OPUS-MT CTranslate2 models per language, Apertium bilingual dictionaries,
-spaCy, wordfreq, yt-dlp, Piper TTS, AnkiConnect.
+spaCy, wordfreq, yt-dlp, Piper TTS, AnkiConnect. Word definitions come from
+Wiktionary via [kaikki.org](https://kaikki.org/) and
+[WikDict](https://www.wikdict.com/); German noun genders and plurals from
+[german-nouns](https://github.com/gambolputty/german-nouns) (Wiktionary,
+CC BY-SA 4.0).
 
 Language profiles live in [`app/languages.py`](app/languages.py) — adding a
 language is mostly adding one entry there.

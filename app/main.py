@@ -1,6 +1,7 @@
 """LinguaMiner — FastAPI backend + static frontend."""
 import json
 import logging
+import re
 import shutil
 import tempfile
 import threading
@@ -28,6 +29,7 @@ from . import (
     languages,
     media,
     nlp,
+    nouns,
     piper_tts,
     sample,
     share,
@@ -254,6 +256,88 @@ def _word_es(selection: str, lemma: str) -> str:
     return out
 
 
+def _word_info(selection: str, sentence: str) -> dict:
+    """Lema (clave del estado), categoría, forma de diccionario y traducción.
+
+    En alemán la forma de diccionario lleva artículo y singular («Handschuhe»
+    → «der Handschuh») o es el infinitivo del verbo separable («fängt … an» →
+    «anfangen»). Se traduce esa forma y no la palabra suelta: «fängt» a secas
+    es «captura», y la tarjeta enseñaba eso."""
+    si = nlp.selection_info(selection, sentence)
+    lemma, pos = si["lemma"], si["pos"]
+    headword, key, word_es = "", lemma, ""
+    prof = languages.profile()
+    if pos == "NOUN" and prof.get("noun_articles"):
+        hw = nouns.headword(selection, lemma)
+        if hw:
+            headword, key, genus = hw
+            word_es = _noun_es(key, genus)
+    elif si["separable"] or (pos in ("VERB", "AUX") and prof.get("verb_purpose")):
+        # El verbo suelto se traduce mal («weiß» → «Blancos», «diskutiere» →
+        # «Discuta»): va en infinitivo, que es además la forma que se estudia
+        if si["separable"] or lemma != selection.strip().lower():
+            headword = lemma
+        word_es = _verb_es(lemma, si["separable"])
+    word_es = word_es or _word_es(selection, lemma)
+    return {"lemma": lemma, "pos": pos, "headword": headword,
+            "gloss_key": key, "word_es": word_es}
+
+
+def _noun_es(lemma: str, genus: str) -> str:
+    """Traducción de un sustantivo en forma de diccionario.
+
+    Suelto, el traductor inventa («Imkerei» → «Apionabos», «Hund» →
+    «Perros»); con «der» lo lee como genitivo («der Honig» → «de la miel»).
+    Con el indefinido acierta («ein Schlüssel» → «una llave», no «la clave»),
+    y se pasa al definido: así dice también el género en español."""
+    ind = (languages.profile().get("noun_indefinite") or {}).get(genus)
+    out = translate.translate(f"{ind} {lemma}" if ind else lemma).strip().rstrip(".:;,")
+    if not ind:
+        return _lower1(out)
+    swaps = ((("un ", "el "), ("una ", "la ")) if languages.base_code() == "es"
+             else (("a ", ""), ("an ", "")))
+    for a, b in swaps:
+        if out.lower().startswith(a):
+            return b + out[len(a):]
+    return _lower1(out)
+
+
+def _strip_lead(out: str, leads: tuple[str, ...]) -> str:
+    for a in leads:
+        if out.lower().startswith(a):
+            return out[len(a):]
+    return out
+
+
+def _verb_es(lemma: str, particle: str = "") -> str:
+    """Traducción del infinitivo. Suelto, el traductor lo toma por imperativo
+    o por sustantivo («aufstehen» → «Levántate», «fernsehen» → «Televisión»);
+    en «um aufzustehen» / «um zu wissen» sale el infinitivo («para
+    levantarse», «para saber») y se quita el «para»."""
+    prof = languages.profile()
+    if particle and lemma.startswith(particle) and prof.get("separable_purpose"):
+        phrase = prof["separable_purpose"].format(p=particle, v=lemma[len(particle):])
+    elif prof.get("verb_purpose"):
+        phrase = prof["verb_purpose"].format(v=lemma)
+    else:
+        return _lower1(translate.translate(lemma))
+    out = translate.translate(phrase).strip().rstrip(".:;,")
+    return _lower1(_strip_lead(out, ("para ", "in order to ", "to ")))
+
+
+def _lower1(s: str) -> str:
+    """«Gente» → «gente»: el traductor pone mayúscula a lo que traduce suelto."""
+    return s[:1].lower() + s[1:] if s[:1].isupper() and s[1:2].islower() else s
+
+
+def _card_word(info: dict) -> str:
+    """Traducción para la tarjeta: con la forma de diccionario delante si la
+    hay («der Handschuh — el guante»), que es lo que hay que memorizar."""
+    if info["headword"]:
+        return f"{info['headword']} — {info['word_es']}"
+    return info["word_es"]
+
+
 def _segment_es(sid: str, idx: int) -> str:
     """text_es cacheado del segmento (lo crea si falta).
 
@@ -290,6 +374,9 @@ def _segment_es(sid: str, idx: int) -> str:
 
 DEFAULT_SETTINGS = {
     "deck": "LinguaMiner::Mining", "anki_port": None, "language": "ca",
+    # mazo de cada idioma: «deck» es el del idioma activo, y al cambiar de
+    # idioma se guarda aquí y se recupera el del nuevo
+    "deck_by_lang": {},
     "sub_scale": 1.0, "dual_default": False, "autopause_default": False,
     "speed_default": 1.0, "ipa_enabled": True, "online_enabled": False,
     # "auto" = el navegador decide (i18n.js); quien ya tenga un idioma guardado
@@ -428,6 +515,10 @@ def setup_download():
             jobs.set_progress(jid, 0.75, "Diccionario de formas (~66 MB)…",
                               key="job.forms")
             forms.lookup("hola")      # dispara descarga+build
+        if prof.get("noun_lexicon"):
+            jobs.set_progress(jid, 0.85, "Sustantivos: género y plurales…",
+                              key="job.nouns")
+            nouns.lookup("Hund")      # dispara descarga+build
         jobs.set_progress(jid, 0.9, "Glosas del Wikcionario…",
                           key="job.gloss")
         wikdict.lookup("hola")
@@ -537,7 +628,14 @@ def session_detail(sid: str):
         return JSONResponse({"error": "not found"}, status_code=404)
     s["transcript"] = json.loads(s.pop("transcript_json"))
     if s["transcript"] and (s.get("tok_version") or 0) < nlp.TOK_VERSION:
+        from_subs = s.get("srt_source") in ("youtube_subs", "youtube_auto", "srt")
         for seg in s["transcript"]:
+            if from_subs:
+                # Sesiones abiertas antes del arreglo: «… gegrillt!" sub9» y
+                # «(Handy)». No se borra ningún segmento (las tarjetas apuntan
+                # a su índice): si no queda nada, se deja como estaba.
+                clean = subs.strip_annotations(re.sub(r"\s+sub\d+$", "", seg["text"]))
+                seg["text"] = clean or seg["text"]
             seg["tokens"] = nlp.tokenize(seg["text"])
         db.update_transcript(CON, sid, json.dumps(s["transcript"]),
                              s["model_size"], s["srt_source"],
@@ -1056,11 +1154,12 @@ def _rank_glosses(glosses: list[tuple[str, str]], pos: str,
 @app.post("/api/lookup")
 def lookup(req: LookupReq):
     """Instant word info for the Migaku-style popup (no media generated)."""
-    lemma, pos = nlp.analyze_selection(req.selection, req.sentence)
+    info = _word_info(req.selection, req.sentence)
+    lemma, pos = info["lemma"], info["pos"]
     z = nlp.zipf(req.selection)
     es_src = languages.spanish_sources_active()   # bidix/glosas son fuentes es
     senses = _senses(req.selection, lemma) if es_src else []
-    word_es = _word_es(req.selection, lemma)
+    word_es = info["word_es"]
     sentence_es = ""
     if req.session_id and req.segment_index >= 0:
         sentence_es = _segment_es(req.session_id, req.segment_index)
@@ -1068,13 +1167,14 @@ def lookup(req: LookupReq):
         sentence_es = translate.sentence(req.sentence)
     # las glosas ya no dependen del español: wikdict elige el extracto del
     # Wikcionario que toque según la base activa (es o en)
-    glosses = (wikdict.lookup(lemma, limit=12)
+    glosses = (wikdict.lookup(info["gloss_key"], limit=12)
+               or wikdict.lookup(lemma, limit=12)
                or wikdict.lookup(req.selection, limit=12))
     glosses = _rank_glosses(glosses, pos, (lemma, req.selection))
     userdefs = userdict.lookup(lemma) or userdict.lookup(req.selection)
     return {
         "selection": req.selection,
-        "lemma": lemma, "pos": pos,
+        "lemma": lemma, "pos": pos, "headword": info["headword"],
         "zipf": z, "freq_rank": nlp.freq_badge(z),
         "senses": [{"es": es, "pos": p} for es, p in senses[:8]],
         "active": _active_sense(senses[:8], sentence_es, word_es),
@@ -1274,15 +1374,16 @@ def _build_preview(s: dict, segment_index: int, selection: str,
             except OSError:
                 pass
 
-    lemma, pos = nlp.analyze_selection(selection, seg["text"])
+    info = _word_info(selection, seg["text"])
+    lemma, pos = info["lemma"], info["pos"]
     z = nlp.zipf(selection)
     senses = _senses(selection, lemma) if languages.spanish_sources_active() else []
     frase_es = translate.sentence(seg["text"])
-    word_es = _word_es(selection, lemma)
+    word_es = info["word_es"]
     return {
         "paraula": selection,
-        "lema": lemma, "pos": pos,
-        "paraula_es": word_es,
+        "lema": lemma, "pos": pos, "headword": info["headword"],
+        "paraula_es": _card_word(info),
         "senses": [{"es": es, "pos": p} for es, p in senses[:8]],
         "active": _active_sense(senses[:8], frase_es, word_es),
         "frase": seg["text"],
@@ -1312,15 +1413,16 @@ def _text_preview(s: dict, segs: list, idx: int, selection: str,
     except Exception as e:                              # noqa: BLE001
         failures.warn_once("text-tts", "sin voz para las tarjetas de texto", e)
 
-    lemma, pos = nlp.analyze_selection(selection, frase)
+    info = _word_info(selection, frase)
+    lemma, pos = info["lemma"], info["pos"]
     z = nlp.zipf(selection)
     senses = _senses(selection, lemma) if languages.spanish_sources_active() else []
     frase_es = translate.sentence(frase)
-    word_es = _word_es(selection, lemma)
+    word_es = info["word_es"]
     return {
         "paraula": selection,
-        "lema": lemma, "pos": pos,
-        "paraula_es": word_es,
+        "lema": lemma, "pos": pos, "headword": info["headword"],
+        "paraula_es": _card_word(info),
         "senses": [{"es": es, "pos": p} for es, p in senses[:8]],
         "active": _active_sense(senses[:8], frase_es, word_es),
         "frase": frase,
@@ -1439,12 +1541,11 @@ def _flush() -> int:
 def _flush_locked() -> int:
     if not anki.is_up(_settings().get("anki_port")):
         return 0
-    deck = _settings()["deck"]
     layout = _settings()["card_layout"]
     n = 0
     for card in db.pending_cards(CON):
         try:
-            note_id = anki.send_card(card, deck, layout)
+            note_id = anki.send_card(card, _deck_for(card.get("language")), layout)
             db.mark_card_sent(CON, card["id"], note_id)
             n += 1
         except anki.AnkiError as e:
@@ -1584,7 +1685,8 @@ def cards_export_apkg(all: int = 0):
         return _err("err.no_cards", "no hay tarjetas para exportar", 404)
     tmp = Path(tempfile.mkdtemp())
     dest = tmp / f"linguaminer-{time.strftime('%Y-%m-%d')}.apkg"
-    apkg.build(cards, _settings()["deck"], dest, _settings()["card_layout"])
+    apkg.build(cards, _settings()["deck"], dest, _settings()["card_layout"],
+               deck_for=lambda c: _deck_for(c.get("language")))
     return FileResponse(dest, media_type="application/octet-stream", filename=dest.name,
                         background=BackgroundTask(shutil.rmtree, tmp, True))
 
@@ -1768,7 +1870,7 @@ _SETTING_TYPES = {
     "speed_default": (int, float), "ipa_enabled": bool, "online_enabled": bool,
     "audio_trim": bool, "ui_lang": str, "keymap": dict,
     "base_language": str, "rec_min_zipf": (int, float),
-    "reader_mark_known": bool, "card_layout": str,
+    "reader_mark_known": bool, "card_layout": str, "deck_by_lang": dict,
 }
 _SETTING_RANGES = {"sub_scale": (0.3, 3.0), "speed_default": (0.25, 3.0),
                    "anki_port": (1, 65535), "rec_min_zipf": (0, 7)}
@@ -1809,6 +1911,11 @@ def post_settings(body: dict):
                 or len(keys) != len(set(keys))):
             return _err("err.bad_keys",
                         "atajos inválidos (letras a-z, sin repetir)")
+    if "deck_by_lang" in body and not all(
+            isinstance(k, str) and isinstance(v, str) for k, v in body["deck_by_lang"].items()):
+        return JSONResponse({"error": "tipo inválido para deck_by_lang"}, status_code=400)
+    before = _settings()
+    old_lang = _lang()
     saved = (json.loads(config.SETTINGS_PATH.read_text(encoding="utf-8"))
              if config.SETTINGS_PATH.exists() else {})
     for k, v in body.items():
@@ -1816,6 +1923,20 @@ def post_settings(body: dict):
             saved["keymap"] = {**saved.get("keymap", {}), **v}
         else:
             saved[k] = v
+    new_lang = body.get("language", old_lang)
+    by_lang = dict(saved.get("deck_by_lang") or before.get("deck_by_lang") or {})
+    if new_lang != old_lang:
+        # Con un solo mazo para todo, al pasar al alemán las tarjetas nuevas
+        # caían en el mazo del catalán. El del idioma que se deja se guarda y
+        # el nuevo recupera el suyo (o estrena uno con su nombre).
+        by_lang[old_lang] = before["deck"]
+        if "deck" in body:
+            by_lang[new_lang] = body["deck"]
+        saved["deck"] = by_lang.get(new_lang) or _default_deck(new_lang)
+    if "deck" in body:
+        by_lang[new_lang] = saved["deck"]
+    if by_lang:
+        saved["deck_by_lang"] = by_lang
     _save_settings(saved)
     if "card_layout" in body:
         # la plantilla es del tipo de nota: cambia también las tarjetas que
@@ -1828,6 +1949,19 @@ def post_settings(body: dict):
     return _settings_payload()
 
 
+def _default_deck(code: str) -> str:
+    return f"LinguaMiner::{languages.PROFILES.get(code, {}).get('name', code)}"
+
+
+def _deck_for(lang: str | None) -> str:
+    """Mazo al que va una tarjeta según su idioma: las pendientes de antes de
+    cambiar de idioma siguen yendo a su mazo, no al del idioma nuevo."""
+    s = _settings()
+    if not lang or lang == _lang():
+        return s["deck"]
+    return (s.get("deck_by_lang") or {}).get(lang) or s["deck"]
+
+
 class DeckReq(BaseModel):
     deck: str
 
@@ -1836,6 +1970,7 @@ class DeckReq(BaseModel):
 def set_deck(req: DeckReq):
     s = _settings()
     s["deck"] = req.deck
+    s["deck_by_lang"] = {**(s.get("deck_by_lang") or {}), _lang(): req.deck}
     _save_settings(s)
     return {"ok": True}
 

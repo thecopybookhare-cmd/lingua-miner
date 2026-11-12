@@ -73,7 +73,18 @@ _WIKDICT_POS = {
     "pronombre": "pron", "preposición": "prep", "conjunción": "conj",
     "artículo": "article", "interjección": "intj", "sufijo": "suffix",
     "prefijo": "prefix", "refrán": "proverb",
+    # los sqlite X-es de WikDict vienen del Wikcionario de X: en alemán
+    # («deu/Hund__Substantiv__1»)
+    "Substantiv": "noun", "Eigenname": "name", "Vorname": "name",
+    "Nachname": "name", "Toponym": "name", "Verb": "verb", "Adjektiv": "adj",
+    "Präposition": "prep", "Konjunktion": "conj", "Subjunktion": "conj",
+    "Artikel": "article", "Interjektion": "intj", "Grußformel": "intj",
+    "Numerale": "num", "Redewendung": "phrase", "Wortverbindung": "phrase",
+    "Sprichwort": "proverb", "Abkürzung": "abbrev", "Suffix": "suffix",
+    "Präfix": "prefix",
 }
+# «Personalpronomen», «Lokaladverb», «Modalpartikel»…
+_WIKDICT_POS_END = {"pronomen": "pron", "adverb": "adv", "partikel": "particle"}
 
 
 def _wikdict_pos(lexentry: str | None) -> str:
@@ -83,6 +94,9 @@ def _wikdict_pos(lexentry: str | None) -> str:
     raw = parts[1]
     for k, v in _WIKDICT_POS.items():
         if raw.startswith(k):
+            return v
+    for k, v in _WIKDICT_POS_END.items():
+        if raw.lower().endswith(k):
             return v
     return raw.replace("_", " ")
 
@@ -137,6 +151,40 @@ def _url_for(code: str, base: str) -> str | None:
     return p.get("wikdict_url_en") if base == "en" else p.get("wikdict_url")
 
 
+def _extra_url_for(code: str, base: str) -> str | None:
+    """Segunda fuente (un sqlite de WikDict) para un par con poca cobertura."""
+    from . import languages
+    p = languages.PROFILES.get(code) or {}
+    return (p.get("wikdict_extra") or {}).get(base)
+
+
+def _open(url: str, dbp: Path):
+    """Índice de una fuente, descargándolo y construyéndolo si falta."""
+    if not dbp.exists():
+        if url.endswith((".sqlite3", ".sqlite")):
+            src = dbp.with_suffix(".src.part")
+            with requests.get(url, stream=True, timeout=600) as r:
+                r.raise_for_status()
+                with open(src, "wb") as f:
+                    for chunk in r.iter_content(chunk_size=1 << 20):
+                        f.write(chunk)
+            try:
+                build_from_wikdict(src, dbp)
+            finally:
+                src.unlink(missing_ok=True)
+        else:
+            # Se indexa según llega, sin guardar el JSONL: los extractos
+            # ingleses pesan cientos de MB y quedaban en disco para
+            # siempre. Además, un JSONL cortado a media descarga se daba
+            # por bueno en el siguiente arranque.
+            with requests.get(url, stream=True, timeout=600) as r:
+                r.raise_for_status()
+                # iter_lines lee de 512 en 512 bytes por defecto: con
+                # cientos de MB son millones de lecturas.
+                build_from_lines(r.iter_lines(chunk_size=1 << 16), dbp)
+    return sqlite3.connect(str(dbp), check_same_thread=False)
+
+
 def _drop_stale_jsonl():
     """Las versiones anteriores dejaban el JSONL descargado junto al índice
     (hasta ~1 GB por idioma). Ya no se usa: se borra."""
@@ -147,58 +195,43 @@ def _drop_stale_jsonl():
             pass
 
 
-def _con():
+def _cons() -> list:
+    """Conexiones a las fuentes de glosas del par activo, en orden de
+    preferencia: el Wikcionario primero (definiciones), WikDict después."""
     from . import languages
     code, base = languages.active_code(), languages.base_code()
     key = (code, base)
-    if key in _CONS:
-        return _CONS[key]
-    _CONS[key] = None
-    try:
-        url = _url_for(code, base)
-        if not url:
-            return None
-        suffix = f"{code}-{base}" if base != "es" else code   # compat: es sin sufijo
-        dbp = config.MODELS_DIR / f"wikdict-{suffix}.sqlite"
-        _drop_stale_jsonl()
-        if not dbp.exists():
-            if url.endswith((".sqlite3", ".sqlite")):
-                src = config.MODELS_DIR / f"wikdict-{suffix}.src.part"
-                with requests.get(url, stream=True, timeout=600) as r:
-                    r.raise_for_status()
-                    with open(src, "wb") as f:
-                        for chunk in r.iter_content(chunk_size=1 << 20):
-                            f.write(chunk)
-                try:
-                    build_from_wikdict(src, dbp)
-                finally:
-                    src.unlink(missing_ok=True)
-            else:
-                # Se indexa según llega, sin guardar el JSONL: los extractos
-                # ingleses pesan cientos de MB y quedaban en disco para
-                # siempre. Además, un JSONL cortado a media descarga se daba
-                # por bueno en el siguiente arranque.
-                with requests.get(url, stream=True, timeout=600) as r:
-                    r.raise_for_status()
-                    # iter_lines lee de 512 en 512 bytes por defecto: con
-                    # cientos de MB son millones de lecturas.
-                    build_from_lines(r.iter_lines(chunk_size=1 << 16), dbp)
-        _CONS[key] = sqlite3.connect(str(dbp), check_same_thread=False)
-    except Exception as e:
-        failures.warn_once(
-            f"wikdict-{key}",
-            f"sin glosas del Wikcionario para {key[0]} (base {key[1]}): el "
-            "popup se quedará sin definiciones", e)
+    if key not in _CONS:
         _CONS[key] = None
-    return _CONS[key]
+        suffix = f"{code}-{base}" if base != "es" else code   # compat: es sin sufijo
+        _drop_stale_jsonl()
+        conns = []
+        for url, dbp in ((_url_for(code, base), config.MODELS_DIR / f"wikdict-{suffix}.sqlite"),
+                         (_extra_url_for(code, base), config.MODELS_DIR / f"wikdict-{suffix}-wd.sqlite")):
+            if not url:
+                continue
+            try:
+                conns.append(_open(url, dbp))
+            except Exception as e:
+                failures.warn_once(
+                    f"wikdict-{key}-{dbp.stem}",
+                    f"sin glosas del Wikcionario para {key[0]} (base {key[1]}): el "
+                    "popup se quedará sin definiciones", e)
+        _CONS[key] = conns or None
+    v = _CONS[key]
+    return v if isinstance(v, list) else ([v] if v is not None else [])
 
 
 def lookup(term: str, limit: int = 6) -> list[tuple[str, str]]:
     """[(glosa, pos)] para el término, en el idioma base activo."""
-    con = _con()
-    if con is None or not term:
+    if not term:
         return []
-    rs = con.execute(
-        "SELECT gloss, pos FROM glosses WHERE word=? LIMIT ?",
-        (term.strip().lower(), limit)).fetchall()
-    return [(r[0], r[1]) for r in rs]
+    out: list[tuple[str, str]] = []
+    for con in _cons():
+        rs = con.execute(
+            "SELECT gloss, pos FROM glosses WHERE word=? LIMIT ?",
+            (term.strip().lower(), limit - len(out))).fetchall()
+        out += [(r[0], r[1]) for r in rs]
+        if len(out) >= limit:
+            break
+    return out

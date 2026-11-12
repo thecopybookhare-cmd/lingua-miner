@@ -58,9 +58,12 @@ def download(jid: str, url: str) -> dict:
         "outtmpl": str(config.DL_DIR / "%(title).80s-%(id)s.%(ext)s"),
         "writesubtitles": True,
         "writeautomaticsub": True,   # fallback: subs autogenerados de YouTube
-        "subtitleslangs": [lang, f"{lang}-.*"],
+        "subtitleslangs": [x for t in languages.sub_tags(lang) for x in (t, f"{t}-.*")],
         "subtitlesformat": "vtt",
         "noplaylist": True,
+        # Una página que es una lista (podcast de Deutschlandfunk) se bajaría
+        # entera: 100 episodios. Solo el primero, el más reciente.
+        "playlist_items": "1",
         "progress_hooks": [hook],
         "quiet": True,
         "noprogress": True,          # la barra ya va por el hook; en consola era ruido
@@ -81,13 +84,17 @@ def download(jid: str, url: str) -> dict:
             if ytdlp.is_blocked(e):
                 raise jobs.JobError("err.geo_blocked", ytdlp.BLOCKED_MSG) from e
             raise
+        if info.get("entries") and not info.get("formats"):
+            info = next(iter(info["entries"]), None) or info
         media = Path(ydl.prepare_filename(info))
     # yt-dlp nombra el archivo con la etiqueta exacta que sirvió YouTube
     # ("ja", "pt-BR"…), así que se busca cualquiera que empiece por el idioma.
     stem = media.with_suffix("")
-    vtt = next((q for q in stem.parent.glob(f"{glob.escape(stem.name)}.{lang}*.vtt")), None)
-    manual = any(k == lang or k.startswith(lang + "-")
-                 for k in (info.get("subtitles") or {}))
+    tags = languages.sub_tags(lang)          # ARD los etiqueta «deu», no «de»
+    vtt = next((q for t in tags
+                for q in stem.parent.glob(f"{glob.escape(stem.name)}.{t}*.vtt")), None)
+    manual = any(k == t or k.startswith(t + "-")
+                 for k in (info.get("subtitles") or {}) for t in tags)
     return {"media_path": str(media),
             "title": info.get("title") or media.stem,
             "subtitles": str(vtt) if vtt else None,
