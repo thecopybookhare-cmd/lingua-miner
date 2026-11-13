@@ -117,3 +117,96 @@ def test_youtube_hls_without_cors_sends_to_download(monkeypatch):
     assert stream.resolve("https://www.youtube.com/watch?v=dQw4w9WgXcQ") == \
         {"needs_download": True, "title": "Rick"}
     stream._CACHE.clear()
+
+
+# ---------- cadena de clientes de YouTube ----------
+# Medido el 13-nov-2026: desde GitHub (EE. UU.) los clientes por defecto dan
+# 403 y «web» funciona; desde Múnich (PR #16) es al revés. Ninguno vale fijo.
+
+def test_only_youtube_gets_several_attempts():
+    assert ytdlp.youtube_attempts("https://www.rtve.es/play/videos/x/1/") == [None]
+    assert ytdlp.youtube_attempts("https://www.youtube.com/watch?v=x") == [
+        None, {"youtube": {"player_client": ["tv_simply"]}},
+        {"youtube": {"player_client": ["web"]}}]
+    assert len(ytdlp.youtube_attempts("https://youtu.be/x")) == 3
+    assert ytdlp.youtube_attempts("https://notyoutube.com/x") == [None]
+
+
+def test_the_client_that_worked_goes_first_next_time():
+    web = {"youtube": {"player_client": ["web"]}}
+    ytdlp.youtube_worked(web)
+    assert ytdlp.youtube_attempts("https://www.youtube.com/watch?v=y")[0] == web
+    assert len(ytdlp.youtube_attempts("https://www.youtube.com/watch?v=y")) == 3
+
+
+_OK = {"title": "v", "duration": 9, "formats": [
+    {"format_id": "18", "protocol": "https", "ext": "mp4", "height": 360,
+     "vcodec": "avc1", "acodec": "mp4a", "url": "https://gv/ok.mp4"}]}
+
+
+def test_watch_online_survives_a_client_that_cannot_extract(monkeypatch):
+    """Lo de Múnich: el primer cliente lanza «No video formats found»."""
+    import yt_dlp
+    stream._CACHE.clear()
+    calls = []
+
+    def fake(u, extractor_args=None):
+        calls.append(extractor_args)
+        if extractor_args is None:
+            raise yt_dlp.utils.DownloadError("ERROR: [youtube] x: No video formats found!")
+        return _OK
+    monkeypatch.setattr(stream, "_extract", fake)
+    r = stream.resolve("https://www.youtube.com/watch?v=x")
+    assert r["best_url"] == "https://gv/ok.mp4"
+    assert calls == [None, {"youtube": {"player_client": ["tv_simply"]}}]
+    stream._CACHE.clear()
+    calls.clear()
+    stream.resolve("https://www.youtube.com/watch?v=z")
+    assert calls == [{"youtube": {"player_client": ["tv_simply"]}}], "empieza por el que funcionó"
+    stream._CACHE.clear()
+
+
+def test_other_sites_are_tried_once(monkeypatch):
+    stream._CACHE.clear()
+    calls = []
+
+    def boom(u):
+        calls.append(u)
+        raise RuntimeError("x")
+    monkeypatch.setattr(stream, "_extract", boom)
+    assert stream.resolve("https://www.rtve.es/play/videos/x/1/") == {}
+    assert len(calls) == 1
+
+
+def test_import_retries_youtube_with_the_next_client(monkeypatch, tmp_path):
+    """Lo de GitHub: con los clientes por defecto la descarga da 403."""
+    import yt_dlp
+
+    from app import config
+    monkeypatch.setattr(config, "DL_DIR", tmp_path)
+    tried = []
+
+    class FakeYDL:
+        def __init__(self, opts):
+            self.args = opts.get("extractor_args")
+            tried.append(self.args)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def extract_info(self, url, download):
+            if self.args is None:
+                raise yt_dlp.utils.DownloadError(
+                    "ERROR: unable to download video data: HTTP Error 403: Forbidden")
+            return {"title": "Vid", "duration": 5}
+
+        def prepare_filename(self, info):
+            return str(tmp_path / "vid.mp4")
+    monkeypatch.setattr(yt_dlp, "YoutubeDL", FakeYDL)
+    out = youtube.download("job", "https://www.youtube.com/watch?v=x")
+    assert out["title"] == "Vid"
+    assert tried == [None, {"youtube": {"player_client": ["tv_simply"]}}]
+    assert ytdlp.youtube_attempts("https://youtu.be/q")[0] == tried[-1]

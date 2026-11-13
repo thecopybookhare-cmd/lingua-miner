@@ -1159,7 +1159,11 @@ def _definition(selection: str, lemma: str, pos: str) -> str:
     salía como «Trabi»."""
     import html
     try:
-        glosses = (wikdict.lookup(lemma, limit=12)
+        # En alemán el lema de spaCy falla con los plurales («handschuhe»);
+        # la tabla de sustantivos da la entrada del diccionario («Handschuh»).
+        hit = nouns.lookup(selection) or nouns.lookup(lemma)
+        glosses = ((wikdict.lookup(hit[0], limit=12) if hit else [])
+                   or wikdict.lookup(lemma, limit=12)
                    or wikdict.lookup(selection, limit=12))
     except Exception:                                  # noqa: BLE001
         return ""
@@ -1570,9 +1574,16 @@ def _flush_locked() -> int:
             if "duplicate" in str(e).lower():
                 db.mark_card_duplicate(CON, card["id"])
                 continue
-            break
+            # Anki contestó, pero no quiere ESTA tarjeta. Antes se cortaba
+            # aquí y todas las de detrás se quedaban sin mandar para siempre
+            # («enviando 2…», PR #16). Se salta, se dice, y se sigue.
+            failures.warn_once(
+                "anki-card",
+                f"Anki rechazó la tarjeta «{card.get('paraula') or card.get('frase', '')[:40]}»; "
+                "se queda en la cola y las demás se envían igual.", e)
+            continue
         except Exception:
-            break
+            break                         # Anki dejó de contestar: no insistir
     return n
 
 

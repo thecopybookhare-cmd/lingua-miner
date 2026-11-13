@@ -10,7 +10,7 @@ import socket
 
 import requests
 
-from . import config
+from . import config, failures
 
 
 class AnkiError(Exception):
@@ -128,11 +128,16 @@ LISTEN_BACK = """{{FrontSide}}<hr id=answer>
 CARD_LAYOUTS = ("reading", "listening")
 
 
-def templates(layout: str = "reading") -> tuple[str, str]:
-    """(anverso, reverso) de la plantilla según el ajuste card_layout."""
-    if layout == "listening":
-        return LISTEN_FRONT, LISTEN_BACK
-    return FRONT, BACK
+def templates(layout: str = "reading", definition: bool = True) -> tuple[str, str]:
+    """(anverso, reverso) de la plantilla según el ajuste card_layout.
+
+    `definition=False` deja fuera el bloque de la definición: una plantilla
+    que nombra un campo que el tipo de nota no tiene enseña un error en cada
+    tarjeta («{{Definicio}}: field not found»)."""
+    front, back = (LISTEN_FRONT, LISTEN_BACK) if layout == "listening" else (FRONT, BACK)
+    if not definition:
+        back = back.replace(DEF + "\n", "")
+    return front, back
 
 
 def model_in_use() -> str:
@@ -150,30 +155,48 @@ def ensure_note_type(layout: str = "reading") -> str:
     (so template improvements reach decks created by older versions).
     Returns the model name in use."""
     model = model_in_use()
-    front, back = templates(layout)
     if model not in (invoke("modelNames") or []):
+        front, back = templates(layout)
         invoke("createModel", modelName=model,
                inOrderFields=config.NOTE_FIELDS, css=CARD_CSS,
                cardTemplates=[{"Name": "Card 1", "Front": front, "Back": back}])
         return model
     # Campos nuevos (Definicio) en tipos de nota creados por versiones previas.
-    have = invoke("modelFieldNames", modelName=model) or []
+    # Si no se puede añadir (AnkiConnect anterior a modelFieldAdd, o una
+    # ventana de edición abierta), la tarjeta sale igual, sin definición:
+    # peor sería que ninguna tarjeta llegara a Anki.
+    have = list(invoke("modelFieldNames", modelName=model) or [])
     for field in config.NOTE_FIELDS:
         if field not in have:
-            invoke("modelFieldAdd", modelName=model, fieldName=field,
-                   index=len(have))
-            have.append(field)
+            try:
+                invoke("modelFieldAdd", modelName=model, fieldName=field,
+                       index=len(have))
+                have.append(field)
+            except AnkiError as e:
+                failures.warn_once(
+                    "anki-field",
+                    f"no pude añadir el campo «{field}» al tipo de nota de Anki: "
+                    "las tarjetas llegan sin definición. Cierra las ventanas de "
+                    "edición de Anki y actualiza el complemento AnkiConnect.", e)
+    front, back = templates(layout, definition="Definicio" in have)
     # Escribir solo si cambia: con una ventana de edición abierta en Anki,
     # AnkiConnect rechaza la escritura («Close the affected editor…») y, como
     # esto va antes de cada tarjeta, la cola entera se quedaba en «enviando N».
-    current = (invoke("modelTemplates", modelName=model) or {}).get("Card 1") or {}
-    if current.get("Front") != front or current.get("Back") != back:
-        invoke("updateModelTemplates",
-               model={"name": model,
-                      "templates": {"Card 1": {"Front": front, "Back": back}}})
-    if (invoke("modelStyling", modelName=model) or {}).get("css") != CARD_CSS:
-        invoke("updateModelStyling",
-               model={"name": model, "css": CARD_CSS})
+    # Y si aun así la rechaza, la tarjeta se manda con la plantilla que haya.
+    try:
+        current = (invoke("modelTemplates", modelName=model) or {}).get("Card 1") or {}
+        if current.get("Front") != front or current.get("Back") != back:
+            invoke("updateModelTemplates",
+                   model={"name": model,
+                          "templates": {"Card 1": {"Front": front, "Back": back}}})
+        if (invoke("modelStyling", modelName=model) or {}).get("css") != CARD_CSS:
+            invoke("updateModelStyling",
+                   model={"name": model, "css": CARD_CSS})
+    except AnkiError as e:
+        failures.warn_once(
+            "anki-template",
+            "no pude actualizar la plantilla de las tarjetas en Anki (¿hay una "
+            "ventana de edición abierta?). Se aplicará en el próximo envío.", e)
     return model
 
 

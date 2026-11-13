@@ -860,6 +860,7 @@ function bindTokenEvents(container, segIndex) {
   for (const tok of container.querySelectorAll(".t")) {
     tok.onclick = (ev) => {
       ev.stopPropagation();
+      clearTimeout(HOVER_TIMER);       // el hover pendiente no debe pisar este popup
       const sel = window.getSelection().toString().trim();
       openPopup(segIndex, sel || tok.textContent, tok, true);
     };
@@ -869,7 +870,7 @@ function bindTokenEvents(container, segIndex) {
       if (PINNED) return;
       clearTimeout(HOVER_TIMER);
       HOVER_TIMER = setTimeout(
-        () => openPopup(segIndex, tok.textContent, tok, false), 180);
+        () => { if (!PINNED) openPopup(segIndex, tok.textContent, tok, false); }, 180);
     };
     tok.onmouseleave = () => {
       if (HOVER && HOVER.el === tok) HOVER = null;
@@ -886,6 +887,10 @@ function bindTokenEvents(container, segIndex) {
     const sel = s.toString().trim();
     if (!sel || !container.contains(s.anchorNode)) return;
     ev.stopPropagation();
+    // Al arrastrar, el ratón acaba de entrar en la última palabra y su hover
+    // (180 ms) sigue pendiente: sin cancelarlo, sustituía el popup de la
+    // frase por el de esa palabra sola.
+    clearTimeout(HOVER_TIMER);
     const first = s.anchorNode.parentElement?.closest(".t") || container.querySelector(".t");
     if (first) openPopup(segIndex, sel, first, true);
   };

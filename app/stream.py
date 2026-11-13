@@ -209,30 +209,6 @@ def _extract(url: str, extractor_args: dict | None = None) -> dict:
         return y.extract_info(url, download=False)
 
 
-_YOUTUBE = re.compile(r"(^|[/.])(youtube\.com|youtu\.be)/", re.I)
-# Con los clientes por defecto, algunos vídeos de YouTube dan un formato 18
-# cuya URL responde 403 (p. ej. mjy86srfb1c en nov-2026), y la app lo
-# anunciaba como bloqueo por país. El cliente tv_simply da para ese mismo
-# vídeo una URL que responde 206. Solo de reserva, no por defecto: fijar un
-# cliente es justo lo que rompió «web» en cuanto YouTube cambió (ytdlp.py).
-_FALLBACK_YT_ARGS = {"youtube": {"player_client": ["tv_simply"]}}
-
-
-def _youtube_fallback(url: str) -> tuple[dict, list[dict]] | None:
-    """(info, formatos) con el cliente de reserva, o None si no es YouTube o
-    tampoco así hay un formato progresivo que no responda 403."""
-    if not _YOUTUBE.search(url):
-        return None
-    try:
-        info = _extract(url, _FALLBACK_YT_ARGS)
-    except Exception:  # noqa: BLE001
-        return None
-    formats = _progressive(info)
-    if not formats or _forbidden(formats[-1]["url"]):
-        return None
-    return info, formats
-
-
 def _browser_can_load(url: str) -> bool:
     """¿Dejará el navegador que hls.js cargue este manifiesto?
 
@@ -287,27 +263,10 @@ def _has_video(info: dict) -> bool:
     return False
 
 
-def resolve(url: str) -> dict:
-    """{title, duration, formats:[{height,label,url}], best_url, subs_url,
-    subs_auto} — o {} si no se pudo resolver. Cacheado con TTL.
-
-    La clave lleva el idioma de estudio: los subtítulos elegidos dependen de
-    él, y con solo la URL un cambio de idioma reusaba los del anterior."""
-    from . import languages
-    lang = languages.active_code()
-    key = f"{lang}|{url}"
-    cached = _cache_get(key)
-    if cached is not None:
-        return cached
-    try:
-        info = _first_item(_extract(url))
-    except Exception as e:
-        if ytdlp.is_blocked(e):
-            return {"blocked": True, "title": url}
-        failures.warn_once("stream-resolve",
-                           "yt-dlp no pudo resolver un enlace; «Ver online» "
-                           "fallará hasta que se actualice o cambie el sitio", e)
-        return {}
+def _resolve_with(url: str, lang: str, args: dict | None) -> dict:
+    """Un intento de resolver, con unos extractor_args. Devuelve el resultado
+    completo (lleva "formats"), {"blocked"}, {"needs_download"} o {}."""
+    info = _first_item(_extract(url) if args is None else _extract(url, args))
     formats = _progressive(info)            # ideal: mp4 progresivo (mejor para ffmpeg)
     is_hls = is_audio = False
     has_video = _has_video(info)
@@ -332,20 +291,52 @@ def resolve(url: str) -> dict:
         return {}
     if not is_hls and _forbidden(formats[-1]["url"]):
         # El HLS ya se probó en _browser_can_load; esto cubre mp4 y audio.
-        alt = _youtube_fallback(url)
-        if not alt:
-            return {"blocked": True, "title": info.get("title") or url}
-        info, formats = alt
+        return {"blocked": True, "title": info.get("title") or url}
     subs_url, subs_auto = _subs_url(info, lang)
-    r = {"title": info.get("title") or url,
-         "duration": float(info.get("duration") or 0),
-         "formats": formats,
-         "best_url": formats[-1]["url"],
-         "best_height": formats[-1]["height"],
-         "is_hls": is_hls, "is_audio": is_audio,
-         "subs_url": subs_url, "subs_auto": subs_auto}
-    _CACHE[key] = (time.time(), r)          # solo éxitos; los fallos reintentan
-    return r
+    return {"title": info.get("title") or url,
+            "duration": float(info.get("duration") or 0),
+            "formats": formats,
+            "best_url": formats[-1]["url"],
+            "best_height": formats[-1]["height"],
+            "is_hls": is_hls, "is_audio": is_audio,
+            "subs_url": subs_url, "subs_auto": subs_auto}
+
+
+def resolve(url: str) -> dict:
+    """{title, duration, formats:[{height,label,url}], best_url, subs_url,
+    subs_auto} — o {} si no se pudo resolver. Cacheado con TTL.
+
+    La clave lleva el idioma de estudio: los subtítulos elegidos dependen de
+    él, y con solo la URL un cambio de idioma reusaba los del anterior.
+
+    En YouTube se prueban varios clientes (ytdlp.youtube_attempts): el mismo
+    vídeo da 403, «No video formats found» o un mp4 que funciona según el
+    cliente y el sitio desde donde se pida. La idea de la reserva es de
+    @ihonomic (PR #16)."""
+    from . import languages
+    lang = languages.active_code()
+    key = f"{lang}|{url}"
+    cached = _cache_get(key)
+    if cached is not None:
+        return cached
+    fail: dict = {}
+    err = None
+    for args in ytdlp.youtube_attempts(url):
+        try:
+            r = _resolve_with(url, lang, args)
+        except Exception as e:  # noqa: BLE001
+            err = err or e
+            r = {"blocked": True, "title": url} if ytdlp.is_blocked(e) else {}
+        if r.get("formats"):
+            ytdlp.youtube_worked(args)
+            _CACHE[key] = (time.time(), r)      # solo éxitos; los fallos reintentan
+            return r
+        fail = fail or r                        # el primer fallo que diga algo
+    if not fail and err is not None:
+        failures.warn_once("stream-resolve",
+                           "yt-dlp no pudo resolver un enlace; «Ver online» "
+                           "fallará hasta que se actualice o cambie el sitio", err)
+    return fail
 
 
 def stream_url(url: str, height: int = 0) -> tuple[str, list[dict], bool]:

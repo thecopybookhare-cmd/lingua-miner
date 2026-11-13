@@ -203,3 +203,12 @@ def test_card_saves_the_wiktionary_definition(tmp_path, monkeypatch):
                               frase_es="", freq_rank="", audio_file="", image_file="",
                               font="", definicio=d)
     assert main.db.pending_cards(main.CON)[0]["definicio"] == d and cid
+
+
+def test_dragging_a_phrase_is_not_replaced_by_the_hover_popup():
+    """Al soltar el arrastre sobre la última palabra, su hover (180 ms) seguía
+    pendiente y sustituía el popup de la frase por el de esa palabra."""
+    bloque = APP_JS[APP_JS.index("function bindTokenEvents"):APP_JS.index("function scheduleClose")]
+    onclick = bloque[bloque.index("container.onclick"):]
+    assert "clearTimeout(HOVER_TIMER)" in onclick
+    assert "if (!PINNED) openPopup(segIndex, tok.textContent, tok, false)" in bloque

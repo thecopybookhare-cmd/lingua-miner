@@ -10,6 +10,7 @@ yt-dlp[default] trae yt-dlp-ejs (los scripts que resuelven el desafío) y el
 paquete oficial deno de PyPI trae el binario. Hay que pasarle la ruta: la app
 arranca el python del venv sin activarlo, así que deno no está en el PATH.
 """
+import re
 import shutil
 
 from . import failures
@@ -26,11 +27,48 @@ def deno_path() -> str | None:
     return shutil.which("deno")
 
 
-# Sin player_client fijo: yt-dlp elige los clientes de YouTube. Forzar «web»
-# (el arreglo del issue #9, cuando TVHTML5 daba 403) dejó de servir en
-# noviembre de 2026: con yt-dlp 2026.10.26 ese cliente devuelve «No video
-# formats found» para todos los vídeos, y los clientes por defecto vuelven a
-# dar el formato 18 con URLs que responden 206.
+# Ningún cliente de YouTube sirve en todas partes. Medido el 13-nov-2026 con
+# yt-dlp 2026.10.26 y el mismo vídeo:
+#
+#                    por defecto   tv_simply   web
+#   GitHub (EE. UU.)     403          206      206
+#   Múnich (PR #16)      206          206      «No video formats found»
+#
+# Fijar «web» (issue #9) arregló a unos y rompió a otros, y fijar cualquier
+# otro haría lo mismo en cuanto YouTube cambie. Así que no se fija ninguno:
+# se prueban en orden y se recuerda el que funcionó en esta máquina.
+YOUTUBE_CLIENTS: tuple = (None, ("tv_simply",), ("web",))   # None = los de yt-dlp
+_YOUTUBE = re.compile(r"(^|[/.])(youtube\.com|youtu\.be)/", re.I)
+_yt_good = 0            # índice del último cliente que funcionó
+
+
+def is_youtube(url: str) -> bool:
+    return bool(_YOUTUBE.search(url or ""))
+
+
+def _yt_args(i: int) -> dict | None:
+    c = YOUTUBE_CLIENTS[i]
+    return {"youtube": {"player_client": list(c)}} if c else None
+
+
+def youtube_attempts(url: str) -> list[dict | None]:
+    """Los extractor_args a probar, en orden: primero el que funcionó la
+    última vez. Fuera de YouTube hay un solo intento, sin argumentos."""
+    if not is_youtube(url):
+        return [None]
+    order = [_yt_good] + [i for i in range(len(YOUTUBE_CLIENTS)) if i != _yt_good]
+    return [_yt_args(i) for i in order]
+
+
+def youtube_worked(args: dict | None) -> None:
+    """Recuerda el cliente que acaba de funcionar: el siguiente vídeo empieza
+    por él y no repite los intentos fallidos."""
+    global _yt_good
+    for i in range(len(YOUTUBE_CLIENTS)):
+        if _yt_args(i) == args:
+            _yt_good = i
+
+
 def base_opts() -> dict:
     opts: dict = {}
     path = deno_path()

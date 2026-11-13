@@ -34,7 +34,11 @@ language, plus where it came from and how common the word is.
   large-v3 / small) — or use the video's own `.srt` / YouTube subtitles.
 - 🖱️ **One-click mining**: click any subtitle word (or drag to select an
   expression) → editable Anki card with segment audio (ffmpeg-trimmed), video
-  frame, sentence + translation.
+  frame, sentence + translation, and the word's Wiktionary definition on the
+  back.
+- 👂 **Listening cards**: under ⚙️ *Anki → Card front* you can put only the
+  image and the audio on the front, so you answer by ear instead of by
+  reading; the text waits on the back.
 - 🌍 **Thirteen languages**: Catalan, **Spanish**, French, English, German,
   European Portuguese, Italian, Dutch, Russian, Mandarin Chinese, Cantonese,
   **Japanese** and **Korean**. Neural

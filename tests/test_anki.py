@@ -134,3 +134,108 @@ def test_old_note_type_gets_the_new_field(monkeypatch):
     anki.ensure_note_type()
     assert calls.count("modelFieldAdd") == 1
     assert "updateModelTemplates" in calls and "updateModelStyling" in calls
+
+
+# ---------- que un fallo de Anki no deje la cola parada ----------
+
+def test_old_ankiconnect_without_field_add_still_gets_a_valid_template(monkeypatch):
+    """Un AnkiConnect anterior a modelFieldAdd: la tarjeta tiene que salir,
+    y sin nombrar un campo que el tipo de nota no tiene (Anki enseñaría
+    «{{Definicio}}: field not found» en todas)."""
+    from app import failures
+    failures.reset()
+    written = {}
+
+    def invoke(action, **kw):
+        if action == "modelFieldAdd":
+            raise anki.AnkiError("unsupported action")
+        if action == "updateModelTemplates":
+            written.update(kw["model"]["templates"]["Card 1"])
+        return {"modelNames": ["LinguaMiner"],
+                "modelFieldNames": config.NOTE_FIELDS[:-1],
+                "modelTemplates": {"Card 1": {"Front": "old", "Back": "old"}},
+                "modelStyling": {"css": ""}}.get(action)
+    monkeypatch.setattr(anki, "invoke", invoke)
+    assert anki.ensure_note_type() == "LinguaMiner"
+    assert "Definicio" not in written["Back"] and "{{FraseES}}" in written["Back"]
+    assert any("Definicio" in m for m in failures.active()), "y lo dice"
+    failures.reset()
+
+
+def test_open_editor_does_not_stop_the_card(monkeypatch):
+    """Con una ventana de edición abierta AnkiConnect rechaza reescribir la
+    plantilla. La nota se manda con la plantilla que haya."""
+    from app import failures
+    failures.reset()
+
+    def invoke(action, **kw):
+        if action == "updateModelTemplates":
+            raise anki.AnkiError("Close the affected editor windows")
+        return {"modelNames": ["LinguaMiner"], "modelFieldNames": config.NOTE_FIELDS,
+                "modelTemplates": {"Card 1": {"Front": "old", "Back": "old"}},
+                "modelStyling": {"css": anki.CARD_CSS}, "deckNames": ["D"],
+                "addNote": 42}.get(action)
+    monkeypatch.setattr(anki, "invoke", invoke)
+    card = {"paraula": "Hund", "lema": "hund", "paraula_es": "perro", "frase": "x", "frase_es": ""}
+    assert anki.send_card(card, "D") == 42
+    assert failures.active()
+    failures.reset()
+
+
+def test_one_rejected_card_does_not_block_the_queue(tmp_path, monkeypatch):
+    """El «enviando 2…» del PR #16: Anki rechazaba una tarjeta y todas las de
+    detrás se quedaban sin mandar."""
+    import app.main as main
+    from app import failures
+    failures.reset()
+    main.CON = main.db.connect(tmp_path / "t.db")
+    sid = main.db.create_session(main.CON, language="de", title="t", source_type="file",
+                                 media_path="x", srt_source="none", model_size="-",
+                                 duration_secs=1, transcript_json="[]")
+    for w in ("mala", "buena", "otra"):
+        main.db.create_card(main.CON, session_id=sid, segment_index=0, paraula=w, lema=w,
+                            pos="", paraula_es="", frase=w, frase_es="", freq_rank="",
+                            audio_file="", image_file="", font="", language="de")
+
+    def send(card, deck, *a):
+        if card["paraula"] == "mala":
+            raise anki.AnkiError("cannot create note because it is empty")
+        return 7
+    monkeypatch.setattr(main.anki, "is_up", lambda p=None: True)
+    monkeypatch.setattr(main.anki, "send_card", send)
+    assert main._flush() == 2
+    assert [c["paraula"] for c in main.db.pending_cards(main.CON)] == ["mala"]
+    assert any("mala" in m for m in failures.active())
+    failures.reset()
+
+
+def test_queue_stops_when_anki_stops_answering(tmp_path, monkeypatch):
+    import requests
+
+    import app.main as main
+    main.CON = main.db.connect(tmp_path / "t.db")
+    sid = main.db.create_session(main.CON, language="de", title="t", source_type="file",
+                                 media_path="x", srt_source="none", model_size="-",
+                                 duration_secs=1, transcript_json="[]")
+    for w in ("a", "b"):
+        main.db.create_card(main.CON, session_id=sid, segment_index=0, paraula=w, lema=w,
+                            pos="", paraula_es="", frase=w, frase_es="", freq_rank="",
+                            audio_file="", image_file="", font="", language="de")
+    calls = []
+
+    def send(card, deck, *a):
+        calls.append(card["paraula"])
+        raise requests.ConnectionError("Anki cerrado")
+    monkeypatch.setattr(main.anki, "is_up", lambda p=None: True)
+    monkeypatch.setattr(main.anki, "send_card", send)
+    assert main._flush() == 0 and len(calls) == 1, "no se insiste tarjeta por tarjeta"
+
+
+def test_definition_uses_the_dictionary_entry_of_a_german_plural(monkeypatch):
+    import app.main as main
+    monkeypatch.setattr(main.nouns, "lookup",
+                        lambda f: ("Handschuh", "m", "Handschuhe") if f == "Handschuhe" else None)
+    monkeypatch.setattr(main.wikdict, "lookup",
+                        lambda t, limit=6: [("Guante.", "noun")] if t == "Handschuh" else [])
+    assert main._definition("Handschuhe", "handschuhe", "NOUN") == "Guante."
+    assert main._definition("xyz", "xyz", "NOUN") == ""

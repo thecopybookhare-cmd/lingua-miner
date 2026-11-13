@@ -25,15 +25,19 @@ UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0"
 
 def check(url: str) -> tuple[str, str]:
     stream._CACHE.clear()
-    try:
-        stream._extract(url)                 # resolve() se traga el error; aquí se ve
-    except Exception as e:  # noqa: BLE001
-        msg = str(e)
-        if "not a bot" in msg or "Sign in to confirm" in msg:
-            return "blocked", "YouTube asked to confirm we're not a bot (GitHub IP)"
-        return "broken", f"yt-dlp could not extract it: `{msg[:300]}`"
+    # Lo que hace la app: probar los clientes de YouTube en orden. Medir uno
+    # solo daría «roto» donde la app funciona con el siguiente.
     r = stream.resolve(url)
-    if not r:
+    if not r.get("formats") and not r.get("needs_download"):
+        try:
+            stream._extract(url)             # resolve() se traga el error; aquí se ve
+        except Exception as e:  # noqa: BLE001
+            msg = str(e)
+            if "not a bot" in msg or "Sign in to confirm" in msg:
+                return "blocked", "YouTube asked to confirm we're not a bot (GitHub IP)"
+            return "broken", f"yt-dlp could not extract it with any client: `{msg[:300]}`"
+        if r.get("blocked"):
+            return "broken", "every YouTube client gave a URL that answers 403"
         return "broken", "`resolve()` returned nothing"
     if r.get("needs_download"):
         return "broken", ("no directly playable format (format 18 missing) — "
@@ -51,7 +55,9 @@ def check(url: str) -> tuple[str, str]:
         code = getattr(e, "code", None) or str(e)[:120]
     if code not in (200, 206):
         return "broken", f"the URL the player would get answered `{code}`"
-    return "ok", f"{r.get('best_height')}p, {int(r['duration'])} s, URL answers {code}"
+    client = ytdlp.YOUTUBE_CLIENTS[ytdlp._yt_good]
+    return "ok", (f"{r.get('best_height')}p, {int(r['duration'])} s, URL answers {code}, "
+                  f"client: {', '.join(client) if client else 'yt-dlp default'}")
 
 
 def main() -> int:
