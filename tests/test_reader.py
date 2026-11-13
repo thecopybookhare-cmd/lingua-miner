@@ -176,3 +176,39 @@ def test_the_undo_toast_can_actually_carry_a_button():
     cabecera = cabecera[:cabecera.index("\n};")]
     assert "accion" in cabecera and "appendChild" in cabecera
     assert 't("rd.undo")' in APP_JS
+
+
+def test_card_layout_setting(tmp_path):
+    c = client(tmp_path)
+    assert c.get("/api/settings").json()["card_layout"] == "reading"
+    assert c.post("/api/settings",
+                  json={"card_layout": "listening"}).status_code == 200
+    assert c.get("/api/settings").json()["card_layout"] == "listening"
+    assert c.post("/api/settings",
+                  json={"card_layout": "otro"}).status_code == 400
+    assert 'saveSettings({ card_layout:' in APP_JS
+
+
+def test_card_saves_the_wiktionary_definition(tmp_path, monkeypatch):
+    main.CON = main.db.connect(tmp_path / "t.db")
+    monkeypatch.setattr(main.wikdict, "lookup", lambda term, limit=6: (
+        [("clipping of Trabant (East German make of car)", "noun"),
+         ("<b>second</b>", "noun"), ("third", "noun")] if term == "trabi" else []))
+    d = main._definition("Trabi", "trabi", "PROPN")
+    assert d == ("clipping of Trabant (East German make of car)"
+                 "<br>&lt;b&gt;second&lt;/b&gt;<br>third")
+    assert main._definition("ganzer Satz", "ganzer satz", "") == ""
+    cid = main.db.create_card(main.CON, session_id="s", segment_index=0, paraula="Trabi",
+                              lema="trabi", pos="PROPN", paraula_es="", frase="f",
+                              frase_es="", freq_rank="", audio_file="", image_file="",
+                              font="", definicio=d)
+    assert main.db.pending_cards(main.CON)[0]["definicio"] == d and cid
+
+
+def test_dragging_a_phrase_is_not_replaced_by_the_hover_popup():
+    """Al soltar el arrastre sobre la última palabra, su hover (180 ms) seguía
+    pendiente y sustituía el popup de la frase por el de esa palabra."""
+    bloque = APP_JS[APP_JS.index("function bindTokenEvents"):APP_JS.index("function scheduleClose")]
+    onclick = bloque[bloque.index("container.onclick"):]
+    assert "clearTimeout(HOVER_TIMER)" in onclick
+    assert "if (!PINNED) openPopup(segIndex, tok.textContent, tok, false)" in bloque

@@ -860,6 +860,7 @@ function bindTokenEvents(container, segIndex) {
   for (const tok of container.querySelectorAll(".t")) {
     tok.onclick = (ev) => {
       ev.stopPropagation();
+      clearTimeout(HOVER_TIMER);       // el hover pendiente no debe pisar este popup
       const sel = window.getSelection().toString().trim();
       openPopup(segIndex, sel || tok.textContent, tok, true);
     };
@@ -869,7 +870,7 @@ function bindTokenEvents(container, segIndex) {
       if (PINNED) return;
       clearTimeout(HOVER_TIMER);
       HOVER_TIMER = setTimeout(
-        () => openPopup(segIndex, tok.textContent, tok, false), 180);
+        () => { if (!PINNED) openPopup(segIndex, tok.textContent, tok, false); }, 180);
     };
     tok.onmouseleave = () => {
       if (HOVER && HOVER.el === tok) HOVER = null;
@@ -877,6 +878,22 @@ function bindTokenEvents(container, segIndex) {
       if (!PINNED && !$("word-pop").hidden) scheduleClose();
     };
   }
+  container.onclick = (ev) => {
+    // Arrastrar de una palabra a otra no dispara el click de ninguna: el
+    // navegador lo manda al ancestro común, este contenedor. Sin esto,
+    // marcar una frase entera no abría nada. stopPropagation: el click del
+    // documento cerraría el popup recién abierto.
+    const s = window.getSelection();
+    const sel = s.toString().trim();
+    if (!sel || !container.contains(s.anchorNode)) return;
+    ev.stopPropagation();
+    // Al arrastrar, el ratón acaba de entrar en la última palabra y su hover
+    // (180 ms) sigue pendiente: sin cancelarlo, sustituía el popup de la
+    // frase por el de esa palabra sola.
+    clearTimeout(HOVER_TIMER);
+    const first = s.anchorNode.parentElement?.closest(".t") || container.querySelector(".t");
+    if (first) openPopup(segIndex, sel, first, true);
+  };
 }
 
 function scheduleClose() {
@@ -1607,6 +1624,7 @@ function applySettings() {
   document.documentElement.style.setProperty("--sub-scale", SETTINGS.sub_scale);
   setUILang(SETTINGS.ui_lang || "auto");         // "auto" → idioma del navegador
   $("set-ui-lang").value = SETTINGS.ui_lang || "auto";
+  $("set-card-layout").value = SETTINGS.card_layout || "reading";
   // El servidor no ve navigator.languages, así que resuelve "auto" como inglés.
   // En el primer arranque fijamos aquí el valor real: solo quien tenga la
   // interfaz en español traduce a español.
@@ -1922,6 +1940,7 @@ $("set-speed").onchange = () => saveSettings({ speed_default: parseFloat($("set-
 $("set-ipa").onchange = () => saveSettings({ ipa_enabled: $("set-ipa").checked });
 $("set-online").onchange = () => saveSettings({ online_enabled: $("set-online").checked });
 $("set-ui-lang").onchange = () => saveSettings({ ui_lang: $("set-ui-lang").value });
+$("set-card-layout").onchange = () => saveSettings({ card_layout: $("set-card-layout").value });
 $("set-audio-trim").onchange = () => saveSettings({ audio_trim: $("set-audio-trim").checked });
 $("set-language").onchange = async () => {
   await saveSettings({ language: $("set-language").value });

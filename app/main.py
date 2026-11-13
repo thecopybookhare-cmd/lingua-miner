@@ -390,6 +390,9 @@ DEFAULT_SETTINGS = {
     # al pasar de página en el lector, ¿las palabras que quedaron sin tocar
     # pasan a conocidas? Apagado: se activa a mano y siempre se puede deshacer.
     "reader_mark_known": False,
+    # plantilla de las tarjetas en Anki: "reading" (palabra y frase delante)
+    # o "listening" (delante solo imagen y audio, para entrenar el oído)
+    "card_layout": "reading",
     "keymap": {"prev": "a", "next": "d", "replay": "s", "mine": "q",
                "subs": "w", "browser": "g", "copy": "c", "dual": "e",
                "autopause": "p", "fullscreen": "f", "recommended": "r"},
@@ -1081,7 +1084,7 @@ def sync_statuses():
     if not anki.is_up(_settings().get("anki_port")):
         return {"synced": 0}
     try:
-        anki.ensure_note_type()  # keeps card template in sync with app version
+        anki.ensure_note_type(_settings()["card_layout"])  # keeps card template in sync
     except Exception:
         pass
     pairs = db.cards_with_notes(CON, _lang())
@@ -1146,6 +1149,26 @@ def _rank_glosses(glosses: list[tuple[str, str]], pos: str,
     else:
         rest = [x for x in glosses if x[1] not in want]
     return match + rest
+
+
+def _definition(selection: str, lemma: str, pos: str) -> str:
+    """Todas las glosas del Wikcionario, para el reverso de la tarjeta.
+
+    El popup las enseñaba («clipping of Trabant (East German make of car)»)
+    pero no llegaban a Anki, y el traductor no sabe de palabras así: «Trabi»
+    salía como «Trabi»."""
+    import html
+    try:
+        # En alemán el lema de spaCy falla con los plurales («handschuhe»);
+        # la tabla de sustantivos da la entrada del diccionario («Handschuh»).
+        hit = nouns.lookup(selection) or nouns.lookup(lemma)
+        glosses = ((wikdict.lookup(hit[0], limit=12) if hit else [])
+                   or wikdict.lookup(lemma, limit=12)
+                   or wikdict.lookup(selection, limit=12))
+    except Exception:                                  # noqa: BLE001
+        return ""
+    glosses = _rank_glosses(glosses, pos, (lemma, selection))
+    return "<br>".join(html.escape(g) for g, _ in glosses)
 
 
 @app.post("/api/lookup")
@@ -1481,7 +1504,8 @@ def card_mine(req: MineReq):
         paraula_es=paraula_es, frase=p["frase"], frase_es=p["frase_es"],
         freq_rank=p["freq_rank"], audio_file=p["audio_file"],
         image_file=p["clip_file"] or p["image_file"], font=p["font"],
-        language=_lang())
+        language=_lang(),
+        definicio=_definition(req.selection, p["lema"], p["pos"]))
     if p["lema"]:
         db.mark_learning_if_new(CON, p["lema"], _lang())
     sent = _flush()
@@ -1514,7 +1538,8 @@ def create_card(req: CardReq):
                          frase=req.frase, frase_es=req.frase_es,
                          freq_rank=req.freq_rank, audio_file=req.audio_file,
                          image_file=req.image_file, font=req.font,
-                         language=_lang())
+                         language=_lang(),
+                         definicio=_definition(req.paraula, req.lema, req.pos))
     if req.lema:
         db.mark_learning_if_new(CON, req.lema, _lang())
     sent = _flush()
@@ -1538,19 +1563,27 @@ def _flush() -> int:
 def _flush_locked() -> int:
     if not anki.is_up(_settings().get("anki_port")):
         return 0
+    layout = _settings()["card_layout"]
     n = 0
     for card in db.pending_cards(CON):
         try:
-            note_id = anki.send_card(card, _deck_for(card.get("language")))
+            note_id = anki.send_card(card, _deck_for(card.get("language")), layout)
             db.mark_card_sent(CON, card["id"], note_id)
             n += 1
         except anki.AnkiError as e:
             if "duplicate" in str(e).lower():
                 db.mark_card_duplicate(CON, card["id"])
                 continue
-            break
+            # Anki contestó, pero no quiere ESTA tarjeta. Antes se cortaba
+            # aquí y todas las de detrás se quedaban sin mandar para siempre
+            # («enviando 2…», PR #16). Se salta, se dice, y se sigue.
+            failures.warn_once(
+                "anki-card",
+                f"Anki rechazó la tarjeta «{card.get('paraula') or card.get('frase', '')[:40]}»; "
+                "se queda en la cola y las demás se envían igual.", e)
+            continue
         except Exception:
-            break
+            break                         # Anki dejó de contestar: no insistir
     return n
 
 
@@ -1681,7 +1714,7 @@ def cards_export_apkg(all: int = 0):
         return _err("err.no_cards", "no hay tarjetas para exportar", 404)
     tmp = Path(tempfile.mkdtemp())
     dest = tmp / f"linguaminer-{time.strftime('%Y-%m-%d')}.apkg"
-    apkg.build(cards, _settings()["deck"], dest,
+    apkg.build(cards, _settings()["deck"], dest, _settings()["card_layout"],
                deck_for=lambda c: _deck_for(c.get("language")))
     return FileResponse(dest, media_type="application/octet-stream", filename=dest.name,
                         background=BackgroundTask(shutil.rmtree, tmp, True))
@@ -1866,7 +1899,7 @@ _SETTING_TYPES = {
     "speed_default": (int, float), "ipa_enabled": bool, "online_enabled": bool,
     "audio_trim": bool, "ui_lang": str, "keymap": dict,
     "base_language": str, "rec_min_zipf": (int, float),
-    "reader_mark_known": bool, "deck_by_lang": dict,
+    "reader_mark_known": bool, "card_layout": str, "deck_by_lang": dict,
 }
 _SETTING_RANGES = {"sub_scale": (0.3, 3.0), "speed_default": (0.25, 3.0),
                    "anki_port": (1, 65535), "rec_min_zipf": (0, 7)}
@@ -1891,6 +1924,8 @@ def post_settings(body: dict):
                                 status_code=400)
     if "ui_lang" in body and body["ui_lang"] not in ("auto", "es", "ca", "en"):
         return JSONResponse({"error": "ui_lang no soportado"}, status_code=400)
+    if "card_layout" in body and body["card_layout"] not in anki.CARD_LAYOUTS:
+        return JSONResponse({"error": "card_layout no soportado"}, status_code=400)
     if ("base_language" in body and body["base_language"] != "auto"
             and body["base_language"] not in languages.BASE_NAMES):
         return _err("err.base_lang", "idioma base no soportado")
@@ -1932,6 +1967,14 @@ def post_settings(body: dict):
     if by_lang:
         saved["deck_by_lang"] = by_lang
     _save_settings(saved)
+    if "card_layout" in body:
+        # la plantilla es del tipo de nota: cambia también las tarjetas que
+        # ya están en Anki. Si Anki está cerrado, se aplica al próximo envío.
+        try:
+            if anki.is_up(_settings().get("anki_port")):
+                anki.ensure_note_type(body["card_layout"])
+        except Exception:  # noqa: BLE001
+            pass
     return _settings_payload()
 
 

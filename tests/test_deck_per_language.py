@@ -62,7 +62,7 @@ def test_pending_cards_go_to_their_own_language_deck(tmp_path, monkeypatch):
     c.post("/api/settings", json={"language": "de"})
     sent = []
     monkeypatch.setattr(main.anki, "is_up", lambda p=None: True)
-    monkeypatch.setattr(main.anki, "send_card", lambda card, deck: sent.append((card["frase"], deck)) or 1)
+    monkeypatch.setattr(main.anki, "send_card", lambda card, deck, *_: sent.append((card["frase"], deck)) or 1)
     main._flush()
     assert sorted(sent) == [("frase ca", "Català::Mining"), ("frase de", "LinguaMiner::Deutsch")]
 

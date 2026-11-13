@@ -10,7 +10,7 @@ import socket
 
 import requests
 
-from . import config
+from . import config, failures
 
 
 class AnkiError(Exception):
@@ -99,16 +99,45 @@ text-align: center; color: #222; background: #fdfdfd; }
 .front { font-size: 34px; font-weight: 700; }
 .frase { margin-top: 12px; } .es { color: #666; font-size: 18px; }
 .font { color: #999; font-size: 13px; margin-top: 10px; }
+.def { color: #888; font-size: 15px; font-style: italic; margin-top: 8px; }
 img { max-width: 90%; border-radius: 8px; margin-top: 10px; }"""
 
 # Migaku-style: full context (sentence + image + audio) on the FRONT
 FRONT = """<div class="front">{{Paraula}}</div>
 <div class="frase">{{Frase}}</div>
 {{Imatge}}<br>{{Audio}}"""
+# La definición del Wikcionario solo cuando la hay (las frases no tienen).
+DEF = """{{#Definicio}}<div class="def">{{Definicio}}</div>{{/Definicio}}"""
 BACK = """{{FrontSide}}<hr id=answer>
 <div class="es">{{ParaulaES}}</div>
 <div class="es">{{FraseES}}</div>
+""" + DEF + """
 <div class="font">{{Font}} · {{Freq}}</div>"""
+
+# Para entrenar el oído: delante solo la escena y el audio, sin texto; la
+# palabra, la frase y las traducciones van detrás.
+LISTEN_FRONT = """{{Imatge}}<br>{{Audio}}"""
+LISTEN_BACK = """{{FrontSide}}<hr id=answer>
+<div class="front">{{Paraula}}</div>
+<div class="frase">{{Frase}}</div>
+<div class="es">{{ParaulaES}}</div>
+<div class="es">{{FraseES}}</div>
+""" + DEF + """
+<div class="font">{{Font}} · {{Freq}}</div>"""
+
+CARD_LAYOUTS = ("reading", "listening")
+
+
+def templates(layout: str = "reading", definition: bool = True) -> tuple[str, str]:
+    """(anverso, reverso) de la plantilla según el ajuste card_layout.
+
+    `definition=False` deja fuera el bloque de la definición: una plantilla
+    que nombra un campo que el tipo de nota no tiene enseña un error en cada
+    tarjeta («{{Definicio}}: field not found»)."""
+    front, back = (LISTEN_FRONT, LISTEN_BACK) if layout == "listening" else (FRONT, BACK)
+    if not definition:
+        back = back.replace(DEF + "\n", "")
+    return front, back
 
 
 def model_in_use() -> str:
@@ -121,21 +150,53 @@ def model_in_use() -> str:
     return config.NOTE_TYPE
 
 
-def ensure_note_type() -> str:
+def ensure_note_type(layout: str = "reading") -> str:
     """Create the note type, or sync its templates/styling if it exists
     (so template improvements reach decks created by older versions).
     Returns the model name in use."""
     model = model_in_use()
     if model not in (invoke("modelNames") or []):
+        front, back = templates(layout)
         invoke("createModel", modelName=model,
                inOrderFields=config.NOTE_FIELDS, css=CARD_CSS,
-               cardTemplates=[{"Name": "Card 1", "Front": FRONT, "Back": BACK}])
+               cardTemplates=[{"Name": "Card 1", "Front": front, "Back": back}])
         return model
-    invoke("updateModelTemplates",
-           model={"name": model,
-                  "templates": {"Card 1": {"Front": FRONT, "Back": BACK}}})
-    invoke("updateModelStyling",
-           model={"name": model, "css": CARD_CSS})
+    # Campos nuevos (Definicio) en tipos de nota creados por versiones previas.
+    # Si no se puede añadir (AnkiConnect anterior a modelFieldAdd, o una
+    # ventana de edición abierta), la tarjeta sale igual, sin definición:
+    # peor sería que ninguna tarjeta llegara a Anki.
+    have = list(invoke("modelFieldNames", modelName=model) or [])
+    for field in config.NOTE_FIELDS:
+        if field not in have:
+            try:
+                invoke("modelFieldAdd", modelName=model, fieldName=field,
+                       index=len(have))
+                have.append(field)
+            except AnkiError as e:
+                failures.warn_once(
+                    "anki-field",
+                    f"no pude añadir el campo «{field}» al tipo de nota de Anki: "
+                    "las tarjetas llegan sin definición. Cierra las ventanas de "
+                    "edición de Anki y actualiza el complemento AnkiConnect.", e)
+    front, back = templates(layout, definition="Definicio" in have)
+    # Escribir solo si cambia: con una ventana de edición abierta en Anki,
+    # AnkiConnect rechaza la escritura («Close the affected editor…») y, como
+    # esto va antes de cada tarjeta, la cola entera se quedaba en «enviando N».
+    # Y si aun así la rechaza, la tarjeta se manda con la plantilla que haya.
+    try:
+        current = (invoke("modelTemplates", modelName=model) or {}).get("Card 1") or {}
+        if current.get("Front") != front or current.get("Back") != back:
+            invoke("updateModelTemplates",
+                   model={"name": model,
+                          "templates": {"Card 1": {"Front": front, "Back": back}}})
+        if (invoke("modelStyling", modelName=model) or {}).get("css") != CARD_CSS:
+            invoke("updateModelStyling",
+                   model={"name": model, "css": CARD_CSS})
+    except AnkiError as e:
+        failures.warn_once(
+            "anki-template",
+            "no pude actualizar la plantilla de las tarjetas en Anki (¿hay una "
+            "ventana de edición abierta?). Se aplicará en el próximo envío.", e)
     return model
 
 
@@ -197,7 +258,11 @@ def build_note(card: dict, deck: str, model: str | None = None) -> dict:
         "deckName": deck,
         "modelName": model or config.NOTE_TYPE,
         "fields": {
-            "Paraula": card["paraula"] or "",
+            # Paraula es el primer campo: si va vacío Anki rechaza la nota
+            # («cannot create note because it is empty») y, como el envío se
+            # para en el primer error, la cola entera quedaba atascada en
+            # «enviando N». El lema siempre está.
+            "Paraula": card["paraula"] or card.get("lema") or "",
             "ParaulaES": card["paraula_es"] or "",
             "Frase": card["frase"] or "",
             "FraseES": card["frase_es"] or "",
@@ -205,15 +270,16 @@ def build_note(card: dict, deck: str, model: str | None = None) -> dict:
             "Imatge": f'<img src="{card["image_file"]}">' if card.get("image_file") else "",
             "Font": card.get("font") or "",
             "Freq": card.get("freq_rank") or "",
+            "Definicio": card.get("definicio") or "",
         },
         "options": {"allowDuplicate": False},
         "tags": ["lingua-miner"],
     }
 
 
-def send_card(card: dict, deck: str) -> int:
+def send_card(card: dict, deck: str, layout: str = "reading") -> int:
     """Upload media + note. Raises AnkiError/requests errors if Anki is down."""
-    model = ensure_note_type()
+    model = ensure_note_type(layout)
     if deck not in invoke("deckNames"):
         invoke("createDeck", deck=deck)
     for key in ("audio_file", "image_file"):

@@ -45,3 +45,21 @@ def no_media_probe(request, monkeypatch):
         return
     from app import stream
     monkeypatch.setattr(stream, "_forbidden", lambda url: False)
+
+
+@pytest.fixture(autouse=True)
+def fresh_youtube_client(monkeypatch):
+    """El cliente de YouTube que «funcionó» se recuerda entre llamadas: que
+    un test no le cambie el orden de los intentos al siguiente."""
+    from app import ytdlp
+    monkeypatch.setattr(ytdlp, "_yt_good", 0)
+
+
+@pytest.fixture(autouse=True)
+def isolated_downloads(monkeypatch, tmp_path):
+    """Los tests de importar texto escribían sus .txt en la carpeta real de
+    descargas del usuario (lo vio @ihonomic en el PR #16: había cientos)."""
+    from app import config
+    d = tmp_path / "downloads"
+    d.mkdir(exist_ok=True)
+    monkeypatch.setattr(config, "DL_DIR", d)

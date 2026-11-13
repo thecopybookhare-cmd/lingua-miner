@@ -68,18 +68,33 @@ def download(jid: str, url: str) -> dict:
         "quiet": True,
         "noprogress": True,          # la barra ya va por el hook; en consola era ruido
     }
-    with yt_dlp.YoutubeDL(opts) as ydl:
+    # Juntar vídeo y audio (bv*+ba) necesita ffmpeg. Sin uno en el PATH, la app
+    # usa el de static-ffmpeg, pero yt-dlp no lo encontraba solo: «requested
+    # merging of multiple formats but ffmpeg is not installed».
+    from . import media
+    ff = media._exe("ffmpeg")
+    if Path(ff).is_absolute():
+        opts["ffmpeg_location"] = ff
+    # En YouTube, el mismo vídeo se descarga o da 403 según el cliente con que
+    # se pida (ver ytdlp.py): se prueban en orden, igual que en «Ver online».
+    last = None
+    for args in ytdlp.youtube_attempts(url):
         try:
-            info = ydl.extract_info(url, download=True)
+            with yt_dlp.YoutubeDL({**opts, **({"extractor_args": args} if args else {})}) as ydl:
+                info = ydl.extract_info(url, download=True)
+                if info.get("entries") and not info.get("formats"):
+                    info = next(iter(info["entries"]), None) or info
+                media = Path(ydl.prepare_filename(info))
+            ytdlp.youtube_worked(args)
+            break
         except yt_dlp.utils.DownloadError as e:
-            # Sin esto llegaba «ERROR: unable to download video data: HTTP
-            # Error 403: Forbidden», que no dice qué hacer.
-            if ytdlp.is_blocked(e):
-                raise jobs.JobError("err.geo_blocked", ytdlp.BLOCKED_MSG) from e
-            raise
-        if info.get("entries") and not info.get("formats"):
-            info = next(iter(info["entries"]), None) or info
-        media = Path(ydl.prepare_filename(info))
+            last = e
+    else:
+        # Sin esto llegaba «ERROR: unable to download video data: HTTP
+        # Error 403: Forbidden», que no dice qué hacer.
+        if ytdlp.is_blocked(last):
+            raise jobs.JobError("err.geo_blocked", ytdlp.BLOCKED_MSG) from last
+        raise last
     # yt-dlp nombra el archivo con la etiqueta exacta que sirvió YouTube
     # ("ja", "pt-BR"…), así que se busca cualquiera que empiece por el idioma.
     stem = media.with_suffix("")
