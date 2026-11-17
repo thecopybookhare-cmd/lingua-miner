@@ -35,7 +35,9 @@ language, plus where it came from and how common the word is.
 - 🖱️ **One-click mining**: click any subtitle word (or drag to select an
   expression) → editable Anki card with segment audio (ffmpeg-trimmed), video
   frame, sentence + translation, and the word's Wiktionary definition on the
-  back.
+  back. The card takes the whole sentence even when the subtitles split it
+  across lines, and under ⚙️ *Anki → Card context* you can add the sentence
+  before (and after) for more context.
 - 👂 **Listening cards**: under ⚙️ *Anki → Card front* you can put only the
   image and the audio on the front, so you answer by ear instead of by
   reading; the text waits on the back.
