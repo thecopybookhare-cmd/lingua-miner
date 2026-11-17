@@ -384,6 +384,8 @@ DEFAULT_SETTINGS = {
     # "auto" = el navegador decide (i18n.js); quien ya tenga un idioma guardado
     # lo conserva, esto solo afecta a instalaciones nuevas
     "audio_trim": False, "ui_lang": "auto", "base_language": "auto",
+    # oraciones por tarjeta: 1 = la de la palabra; 2 = + la anterior; 3 = + la siguiente
+    "card_sentences": 1,
     # zipf mínimo para recomendar una palabra (0-7). Solo se recomiendan
     # palabras frecuentes y que no sean nombres propios (nivel de vocabulario).
     "rec_min_zipf": 3.5,
@@ -1307,11 +1309,75 @@ def translate_segment(sid: str, idx: int):
 
 # ---------- cards ----------
 
+# Fin de oración: el signo final, con comillas o paréntesis detrás si los hay.
+# «...» no cuenta: en subtítulos marca que la frase sigue en la línea siguiente.
+_SENT_END = re.compile(r'[.!?。！？]["»”’)\]]*\s*$')
+_MAX_LINES_PER_SENTENCE = 4     # subtítulos automáticos: no traen puntuación
+_MAX_PAUSE = 2.0                # una pausa así ya es otra frase, diga lo que diga el punto
+_MAX_CONTEXT_SECS = 30.0
+
+
+def _ends_sentence(text: str) -> bool:
+    t = (text or "").rstrip()
+    return bool(_SENT_END.search(t)) and not t.endswith(("...", "…"))
+
+
+def _sentence_bounds(segs: list, idx: int) -> tuple[int, int]:
+    """(primera, última) línea de la oración que contiene la línea idx.
+
+    Una línea de subtítulo no es una oración: ZDF parte «Die Imkerei ist
+    eine Kunst, die meist von Generation zu» / «Generation weitergegeben
+    wird.», y la tarjeta se quedaba con media frase. Si en unas pocas líneas
+    no aparece el final (subtítulos automáticos, sin puntuación), se queda
+    con la línea sola."""
+    def joined(a, b):        # ¿b sigue a a sin pausa?
+        return segs[b]["start"] - segs[a]["end"] <= _MAX_PAUSE
+    lo = idx
+    while (lo > 0 and idx - lo < _MAX_LINES_PER_SENTENCE - 1 and joined(lo - 1, lo)
+           and not _ends_sentence(segs[lo - 1]["text"])):
+        lo -= 1
+    if lo > 0 and joined(lo - 1, lo) and not _ends_sentence(segs[lo - 1]["text"]):
+        lo = idx                                   # no se encontró el inicio
+    hi = idx
+    while (hi < len(segs) - 1 and hi - lo < _MAX_LINES_PER_SENTENCE - 1
+           and joined(hi, hi + 1) and not _ends_sentence(segs[hi]["text"])):
+        hi += 1
+    if hi < len(segs) - 1 and joined(hi, hi + 1) and not _ends_sentence(segs[hi]["text"]):
+        hi = idx                                   # no se encontró el final
+    return lo, hi
+
+
+def _context_range(segs: list, idx: int, sentences: int = 1,
+                   pad_before: int = 0, pad_after: int = 0) -> tuple[int, int]:
+    """Líneas que entran en la tarjeta: la oración de la palabra y, según el
+    ajuste «card_sentences», la anterior (2) y la siguiente (3). Los ⏪+ / +⏩
+    del editor añaden una línea más por cada pulsación.
+
+    Hay quien estudia con dos oraciones por tarjeta para entender el
+    contexto (lo pidieron en Reddit, así lo hacían en Yomitan)."""
+    lo, hi = _sentence_bounds(segs, idx)
+    if sentences >= 2 and lo > 0:
+        lo = _sentence_bounds(segs, lo - 1)[0]
+    if sentences >= 3 and hi < len(segs) - 1:
+        hi = _sentence_bounds(segs, hi + 1)[1]
+    # que el contexto automático no se coma medio episodio
+    while segs[hi]["end"] - segs[lo]["start"] > _MAX_CONTEXT_SECS and (lo < idx or hi > idx):
+        if hi > idx and (hi - idx >= idx - lo):
+            hi -= 1
+        else:
+            lo += 1
+    return max(0, lo - pad_before), min(len(segs) - 1, hi + pad_after)
+
+
+def _card_sentences() -> int:
+    return int(_settings().get("card_sentences") or 1)
+
+
 class PreviewReq(BaseModel):
     session_id: str
     segment_index: int
     selection: str
-    pad_before: int = 0   # extend audio N segments back
+    pad_before: int = 0   # líneas de más antes del contexto (⏪+)
     pad_after: int = 0
     offset: float = 0.0   # desfase subtítulo↔media en segundos (srt desajustado)
 
@@ -1328,8 +1394,16 @@ def _build_preview(s: dict, segment_index: int, selection: str,
     if s.get("source_type") == "text":
         return _text_preview(s, segs, segment_index, selection, pad_before, pad_after)
 
-    start = max(0.0, segs[max(0, segment_index - pad_before)]["start"] + offset)
-    end = max(0.0, segs[min(len(segs) - 1, segment_index + pad_after)]["end"] + offset)
+    desde, hasta = _context_range(segs, segment_index, _card_sentences(),
+                                  pad_before, pad_after)
+    frase = " ".join(x["text"] for x in segs[desde:hasta + 1])
+    # el audio cubre todo el contexto; la imagen y el GIF, la línea de la
+    # palabra: si no, con la oración anterior delante la captura mostraba
+    # otra escena
+    start = max(0.0, segs[desde]["start"] + offset)
+    end = max(0.0, segs[hasta]["end"] + offset)
+    vstart = max(0.0, seg["start"] + offset)
+    vend = max(vstart + 0.1, seg["end"] + offset)
     mid = max(0.0, (seg["start"] + seg["end"]) / 2 + offset)
 
     # los streams tienen URL caducable: re-resolver una fresca para ffmpeg
@@ -1349,19 +1423,19 @@ def _build_preview(s: dict, segment_index: int, selection: str,
     # y agotaba el timeout → la tarjeta caía a solo-imagen «en algunos momentos».
     win_path = None
     if s.get("source_type") == "stream":
-        win_dur = min(max(0.1, end - start), MAX_GIF) + 0.5
+        win_dur = min(max(0.1, vend - vstart), MAX_GIF) + 0.5
         wp = config.MEDIA_DIR / f"cm-{base}-win.mp4"
         try:
-            media.download_window(src, start, win_dur, str(wp))
+            media.download_window(src, vstart, win_dur, str(wp))
             win_path = str(wp)
         except Exception as e:
             _log.warning("ventana de stream falló (%s); intento directo", e)
 
     video_src = win_path or src
     # en la ventana los tiempos son relativos (empieza en 0); directo usa originales
-    win_content = min(max(0.1, end - start), MAX_GIF)
-    snap_ts = min(max(0.0, mid - start), win_content - 0.1) if win_path else mid
-    gif_start, gif_end = (0.0, win_content) if win_path else (start, end)
+    win_content = min(max(0.1, vend - vstart), MAX_GIF)
+    snap_ts = min(max(0.0, mid - vstart), win_content - 0.1) if win_path else mid
+    gif_start, gif_end = (0.0, win_content) if win_path else (vstart, vstart + win_content)
 
     audio_ok = image_ok = clip_ok = True
     try:
@@ -1398,7 +1472,7 @@ def _build_preview(s: dict, segment_index: int, selection: str,
     lemma, pos = info["lemma"], info["pos"]
     z = nlp.zipf(selection)
     senses = _senses(selection, lemma) if languages.spanish_sources_active() else []
-    frase_es = translate.sentence(seg["text"])
+    frase_es = translate.sentence(frase)
     word_es = info["word_es"]
     return {
         "paraula": selection,
@@ -1406,7 +1480,7 @@ def _build_preview(s: dict, segment_index: int, selection: str,
         "paraula_es": _card_word(info),
         "senses": [{"es": es, "pos": p} for es, p in senses[:8]],
         "active": _active_sense(senses[:8], frase_es, word_es),
-        "frase": seg["text"],
+        "frase": frase,
         "frase_es": frase_es,
         "freq_zipf": z, "freq_rank": nlp.freq_badge(z),
         "audio_file": audio_name if audio_ok else "",
@@ -1420,11 +1494,10 @@ def _text_preview(s: dict, segs: list, idx: int, selection: str,
                   pad_before: int = 0, pad_after: int = 0) -> dict:
     """Tarjeta desde un libro: frase, traducción y voz neural. Sin imagen.
 
-    Los ⏪+ / +⏩ del editor siguen valiendo — amplían la frase con la anterior
-    o la siguiente, que es lo mismo que hacen en vídeo con el audio.
+    Las frases del contexto («card_sentences») y los ⏪+ / +⏩ del editor
+    funcionan igual que en vídeo.
     """
-    desde = max(0, idx - pad_before)
-    hasta = min(len(segs) - 1, idx + pad_after)
+    desde, hasta = _context_range(segs, idx, _card_sentences(), pad_before, pad_after)
     frase = " ".join(x["text"] for x in segs[desde:hasta + 1])
 
     audio_name = ""
@@ -1897,12 +1970,13 @@ _SETTING_TYPES = {
     "deck": str, "anki_port": (int, type(None)), "language": str,
     "sub_scale": (int, float), "dual_default": bool, "autopause_default": bool,
     "speed_default": (int, float), "ipa_enabled": bool, "online_enabled": bool,
-    "audio_trim": bool, "ui_lang": str, "keymap": dict,
+    "audio_trim": bool, "ui_lang": str, "keymap": dict, "card_sentences": int,
     "base_language": str, "rec_min_zipf": (int, float),
     "reader_mark_known": bool, "card_layout": str, "deck_by_lang": dict,
 }
 _SETTING_RANGES = {"sub_scale": (0.3, 3.0), "speed_default": (0.25, 3.0),
-                   "anki_port": (1, 65535), "rec_min_zipf": (0, 7)}
+                   "anki_port": (1, 65535), "rec_min_zipf": (0, 7),
+                   "card_sentences": (1, 3)}
 
 
 @app.post("/api/settings")

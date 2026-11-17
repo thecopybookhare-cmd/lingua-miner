@@ -1625,6 +1625,7 @@ function applySettings() {
   setUILang(SETTINGS.ui_lang || "auto");         // "auto" → idioma del navegador
   $("set-ui-lang").value = SETTINGS.ui_lang || "auto";
   $("set-card-layout").value = SETTINGS.card_layout || "reading";
+  $("set-card-sentences").value = String(SETTINGS.card_sentences || 1);
   // El servidor no ve navigator.languages, así que resuelve "auto" como inglés.
   // En el primer arranque fijamos aquí el valor real: solo quien tenga la
   // interfaz en español traduce a español.
@@ -1941,6 +1942,7 @@ $("set-ipa").onchange = () => saveSettings({ ipa_enabled: $("set-ipa").checked }
 $("set-online").onchange = () => saveSettings({ online_enabled: $("set-online").checked });
 $("set-ui-lang").onchange = () => saveSettings({ ui_lang: $("set-ui-lang").value });
 $("set-card-layout").onchange = () => saveSettings({ card_layout: $("set-card-layout").value });
+$("set-card-sentences").onchange = () => saveSettings({ card_sentences: parseInt($("set-card-sentences").value, 10) });
 $("set-audio-trim").onchange = () => saveSettings({ audio_trim: $("set-audio-trim").checked });
 $("set-language").onchange = async () => {
   await saveSettings({ language: $("set-language").value });
