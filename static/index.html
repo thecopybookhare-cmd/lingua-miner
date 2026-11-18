@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>LinguaMiner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="icon" href="/favicon.png?v=1.40.0">
+<link rel="icon" href="/favicon.png?v=1.41.0">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#0c0d13">
@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="LinguaMiner">
-<link rel="stylesheet" href="/style.css?v=1.40.0">
+<link rel="stylesheet" href="/style.css?v=1.41.0">
 </head>
 <body>
 <!-- sprite de iconos (estilo Lucide: 24×24, trazo 2, sin relleno) -->
@@ -232,6 +232,9 @@
         <div id="senses"></div>
         <div class="row"><label data-i18n="card.sentence">Frase</label><textarea id="c-frase" rows="2"></textarea></div>
         <div class="row"><label id="lbl-sentence-es">Frase ES</label><textarea id="c-frase-es" rows="2"></textarea></div>
+        <div class="row"><label data-i18n="card.definition">Definición</label><textarea id="c-definicio" rows="2"></textarea></div>
+        <div class="row"><label data-i18n="card.examples">Ejemplos de tus vídeos</label><textarea id="c-exemples" rows="2" placeholder="Ninguno todavía: salen cuando la palabra aparece en otros vídeos" data-i18n-ph="card.examples_ph"></textarea></div>
+        <div class="row"><label data-i18n="card.notes">Notas</label><textarea id="c-notes" rows="2" placeholder="Lo que quieras recordar. ⇧Intro para otra línea" data-i18n-ph="card.notes_ph"></textarea></div>
         <div class="row meta"><span id="c-meta"></span></div>
         <div class="row">
           <audio id="c-audio" controls></audio>
@@ -386,6 +389,13 @@
           <option value="2" data-i18n="set.sent_2">2 oraciones: la anterior y la tuya</option>
           <option value="3" data-i18n="set.sent_3">3 oraciones: anterior, tuya y siguiente</option>
         </select></div>
+      <div class="set-row"><label data-i18n="set.card_examples">Ejemplos de tus vídeos</label>
+        <select id="set-card-examples">
+          <option value="0" data-i18n="set.ex_0">Ninguno</option>
+          <option value="1" data-i18n="set.ex_1">1 frase</option>
+          <option value="2" data-i18n="set.ex_2">2 frases</option>
+          <option value="3" data-i18n="set.ex_3">3 frases</option>
+        </select></div>
       <p class="dim" data-i18n="set.card_layout_note">Cambia también las tarjetas que ya están en Anki, de todos los idiomas. Se puede volver atrás cuando quieras.</p>
       <div class="set-row"><label data-i18n="set.port">Puerto AnkiConnect</label>
         <input id="set-port" type="number" min="1" max="65535" placeholder="automático" data-i18n-ph="set.port_ph"></div>
@@ -534,7 +544,7 @@
     });
   }
 </script>
-<script src="/i18n.js?v=1.40.0"></script>
-<script src="/app.js?v=1.40.0"></script>
+<script src="/i18n.js?v=1.41.0"></script>
+<script src="/app.js?v=1.41.0"></script>
 </body>
 </html>

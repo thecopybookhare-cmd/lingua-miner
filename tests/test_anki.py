@@ -152,12 +152,13 @@ def test_old_ankiconnect_without_field_add_still_gets_a_valid_template(monkeypat
         if action == "updateModelTemplates":
             written.update(kw["model"]["templates"]["Card 1"])
         return {"modelNames": ["LinguaMiner"],
-                "modelFieldNames": config.NOTE_FIELDS[:-1],
+                "modelFieldNames": config.NOTE_FIELDS[:config.NOTE_FIELDS.index("Definicio")],
                 "modelTemplates": {"Card 1": {"Front": "old", "Back": "old"}},
                 "modelStyling": {"css": ""}}.get(action)
     monkeypatch.setattr(anki, "invoke", invoke)
     assert anki.ensure_note_type() == "LinguaMiner"
     assert "Definicio" not in written["Back"] and "{{FraseES}}" in written["Back"]
+    assert "Exemples" not in written["Back"] and "Notes" not in written["Back"]
     assert any("Definicio" in m for m in failures.active()), "y lo dice"
     failures.reset()
 

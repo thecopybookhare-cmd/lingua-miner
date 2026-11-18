@@ -77,9 +77,10 @@ def connect(path: Path) -> sqlite3.Connection:
     if "language" not in card_cols:
         con.execute("ALTER TABLE cards ADD COLUMN language TEXT NOT NULL "
                     "DEFAULT 'ca'")
-    if "definicio" not in card_cols:
-        con.execute("ALTER TABLE cards ADD COLUMN definicio TEXT NOT NULL "
-                    "DEFAULT ''")
+    for col in ("definicio", "exemples", "notes"):
+        if col not in card_cols:
+            con.execute(f"ALTER TABLE cards ADD COLUMN {col} TEXT NOT NULL "
+                        "DEFAULT ''")
     ws_cols = {r["name"] for r in con.execute("PRAGMA table_info(word_status)")}
     if "language" not in ws_cols:
         con.executescript("""
@@ -173,18 +174,19 @@ def list_sessions(con, lang: str | None = None):
 
 def create_card(con, *, session_id, segment_index, paraula, lema, pos,
                 paraula_es, frase, frase_es, freq_rank, audio_file,
-                image_file, font, language="ca", definicio="") -> str:
+                image_file, font, language="ca", definicio="", exemples="",
+                notes="") -> str:
     cid = uuid.uuid4().hex[:12]
     with LOCK:
         con.execute(
             "INSERT INTO cards (id, session_id, segment_index, paraula, lema,"
             " pos, paraula_es, frase, frase_es, freq_rank, audio_file,"
             " image_file, font, anki_note_id, status, created_at, language,"
-            " definicio) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NULL,'pending',?,?,?)",
+            " definicio, exemples, notes) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NULL,'pending',?,?,?,?,?)",
             (cid, session_id, segment_index, paraula, lema, pos, paraula_es,
              frase, frase_es, freq_rank, audio_file, image_file, font, _now(),
-             language, definicio))
+             language, definicio, exemples, notes))
         con.commit()
     return cid
 

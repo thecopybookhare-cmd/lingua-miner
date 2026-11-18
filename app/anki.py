@@ -100,6 +100,9 @@ text-align: center; color: #222; background: #fdfdfd; }
 .frase { margin-top: 12px; } .es { color: #666; font-size: 18px; }
 .font { color: #999; font-size: 13px; margin-top: 10px; }
 .def { color: #888; font-size: 15px; font-style: italic; margin-top: 8px; }
+.ex { color: #555; font-size: 16px; margin-top: 10px; }
+.notes { font-size: 16px; margin-top: 10px; padding-top: 8px;
+  border-top: 1px dashed #bbb; }
 img { max-width: 90%; border-radius: 8px; margin-top: 10px; }"""
 
 # Migaku-style: full context (sentence + image + audio) on the FRONT
@@ -108,11 +111,16 @@ FRONT = """<div class="front">{{Paraula}}</div>
 {{Imatge}}<br>{{Audio}}"""
 # La definición del Wikcionario solo cuando la hay (las frases no tienen).
 DEF = """{{#Definicio}}<div class="def">{{Definicio}}</div>{{/Definicio}}"""
+# Otras frases de tus vídeos con la misma palabra, y lo que quieras apuntar.
+EX = """{{#Exemples}}<div class="ex">{{Exemples}}</div>{{/Exemples}}"""
+NOTES = """{{#Notes}}<div class="notes">{{Notes}}</div>{{/Notes}}"""
+# Campos que un tipo de nota de una versión anterior puede no tener todavía
+OPTIONAL = {"Definicio": DEF, "Exemples": EX, "Notes": NOTES}
+EXTRA = DEF + "\n" + EX + "\n" + NOTES + "\n"
 BACK = """{{FrontSide}}<hr id=answer>
 <div class="es">{{ParaulaES}}</div>
 <div class="es">{{FraseES}}</div>
-""" + DEF + """
-<div class="font">{{Font}} · {{Freq}}</div>"""
+""" + EXTRA + """<div class="font">{{Font}} · {{Freq}}</div>"""
 
 # Para entrenar el oído: delante solo la escena y el audio, sin texto; la
 # palabra, la frase y las traducciones van detrás.
@@ -122,21 +130,22 @@ LISTEN_BACK = """{{FrontSide}}<hr id=answer>
 <div class="frase">{{Frase}}</div>
 <div class="es">{{ParaulaES}}</div>
 <div class="es">{{FraseES}}</div>
-""" + DEF + """
-<div class="font">{{Font}} · {{Freq}}</div>"""
+""" + EXTRA + """<div class="font">{{Font}} · {{Freq}}</div>"""
 
 CARD_LAYOUTS = ("reading", "listening")
 
 
-def templates(layout: str = "reading", definition: bool = True) -> tuple[str, str]:
+def templates(layout: str = "reading", fields=None) -> tuple[str, str]:
     """(anverso, reverso) de la plantilla según el ajuste card_layout.
 
-    `definition=False` deja fuera el bloque de la definición: una plantilla
-    que nombra un campo que el tipo de nota no tiene enseña un error en cada
-    tarjeta («{{Definicio}}: field not found»)."""
+    `fields` son los campos que tiene el tipo de nota (None: todos). Los
+    opcionales que falten se quitan de la plantilla: una que nombra un campo
+    que el tipo de nota no tiene enseña un error en cada tarjeta
+    («{{Definicio}}: field not found»)."""
     front, back = (LISTEN_FRONT, LISTEN_BACK) if layout == "listening" else (FRONT, BACK)
-    if not definition:
-        back = back.replace(DEF + "\n", "")
+    for name, block in OPTIONAL.items():
+        if fields is not None and name not in fields:
+            back = back.replace(block + "\n", "")
     return front, back
 
 
@@ -161,9 +170,10 @@ def ensure_note_type(layout: str = "reading") -> str:
                inOrderFields=config.NOTE_FIELDS, css=CARD_CSS,
                cardTemplates=[{"Name": "Card 1", "Front": front, "Back": back}])
         return model
-    # Campos nuevos (Definicio) en tipos de nota creados por versiones previas.
-    # Si no se puede añadir (AnkiConnect anterior a modelFieldAdd, o una
-    # ventana de edición abierta), la tarjeta sale igual, sin definición:
+    # Campos nuevos (Definicio, Exemples, Notes) en tipos de nota creados por
+    # versiones previas. Si no se puede añadir (AnkiConnect anterior a
+    # modelFieldAdd, o una ventana de edición abierta), la tarjeta sale igual,
+    # sin ese campo:
     # peor sería que ninguna tarjeta llegara a Anki.
     have = list(invoke("modelFieldNames", modelName=model) or [])
     for field in config.NOTE_FIELDS:
@@ -176,9 +186,9 @@ def ensure_note_type(layout: str = "reading") -> str:
                 failures.warn_once(
                     "anki-field",
                     f"no pude añadir el campo «{field}» al tipo de nota de Anki: "
-                    "las tarjetas llegan sin definición. Cierra las ventanas de "
+                    "las tarjetas llegan sin él. Cierra las ventanas de "
                     "edición de Anki y actualiza el complemento AnkiConnect.", e)
-    front, back = templates(layout, definition="Definicio" in have)
+    front, back = templates(layout, fields=have)
     # Escribir solo si cambia: con una ventana de edición abierta en Anki,
     # AnkiConnect rechaza la escritura («Close the affected editor…») y, como
     # esto va antes de cada tarjeta, la cola entera se quedaba en «enviando N».
@@ -271,6 +281,8 @@ def build_note(card: dict, deck: str, model: str | None = None) -> dict:
             "Font": card.get("font") or "",
             "Freq": card.get("freq_rank") or "",
             "Definicio": card.get("definicio") or "",
+            "Exemples": card.get("exemples") or "",
+            "Notes": card.get("notes") or "",
         },
         "options": {"allowDuplicate": False},
         "tags": ["lingua-miner"],

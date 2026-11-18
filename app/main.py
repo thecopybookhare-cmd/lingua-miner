@@ -386,6 +386,7 @@ DEFAULT_SETTINGS = {
     "audio_trim": False, "ui_lang": "auto", "base_language": "auto",
     # oraciones por tarjeta: 1 = la de la palabra; 2 = + la anterior; 3 = + la siguiente
     "card_sentences": 1,
+    "card_examples": 2,
     # zipf mínimo para recomendar una palabra (0-7). Solo se recomiendan
     # palabras frecuentes y que no sean nombres propios (nivel de vocabulario).
     "rec_min_zipf": 3.5,
@@ -1159,7 +1160,11 @@ def _definition(selection: str, lemma: str, pos: str) -> str:
     El popup las enseñaba («clipping of Trabant (East German make of car)»)
     pero no llegaban a Anki, y el traductor no sabe de palabras así: «Trabi»
     salía como «Trabi»."""
-    import html
+    return _html_lines(_definition_text(selection, lemma, pos))
+
+
+def _definition_text(selection: str, lemma: str, pos: str) -> str:
+    """Las glosas, una por línea: lo que se ve (y se puede editar) en el editor."""
     try:
         # En alemán el lema de spaCy falla con los plurales («handschuhe»);
         # la tabla de sustantivos da la entrada del diccionario («Handschuh»).
@@ -1170,7 +1175,7 @@ def _definition(selection: str, lemma: str, pos: str) -> str:
     except Exception:                                  # noqa: BLE001
         return ""
     glosses = _rank_glosses(glosses, pos, (lemma, selection))
-    return "<br>".join(html.escape(g) for g, _ in glosses)
+    return "\n".join(g.replace("\n", " ") for g, _ in glosses)
 
 
 @app.post("/api/lookup")
@@ -1373,6 +1378,29 @@ def _card_sentences() -> int:
     return int(_settings().get("card_sentences") or 1)
 
 
+def _html_lines(text: str) -> str:
+    """Texto del editor (una cosa por línea) a HTML para Anki, escapado:
+    lo que escribe el usuario no puede romper la plantilla."""
+    import html
+    return "<br>".join(html.escape(x.strip()) for x in (text or "").splitlines()
+                       if x.strip())
+
+
+def _examples_for(lemma: str, session_id: str, frase: str) -> list[str]:
+    """Otras frases de tus vídeos y libros con la misma palabra («card_examples»
+    como máximo). Las que ya están en la tarjeta no cuentan."""
+    n = _settings().get("card_examples")
+    n = 2 if n is None else int(n)
+    if n <= 0 or not lemma:
+        return []
+    try:
+        found = examples.find(CON, lemma, limit=n + 4, language=_lang())
+    except Exception as e:                              # noqa: BLE001
+        _log.warning("ejemplos para la tarjeta: %s", e)
+        return []
+    return [e["text"] for e in found if e["text"] not in frase][:n]
+
+
 class PreviewReq(BaseModel):
     session_id: str
     segment_index: int
@@ -1482,6 +1510,8 @@ def _build_preview(s: dict, segment_index: int, selection: str,
         "active": _active_sense(senses[:8], frase_es, word_es),
         "frase": frase,
         "frase_es": frase_es,
+        "definicio": _definition_text(selection, lemma, pos),
+        "exemples": "\n".join(_examples_for(lemma, s["id"], frase)),
         "freq_zipf": z, "freq_rank": nlp.freq_badge(z),
         "audio_file": audio_name if audio_ok else "",
         "image_file": image_name if image_ok else "",
@@ -1520,6 +1550,8 @@ def _text_preview(s: dict, segs: list, idx: int, selection: str,
         "active": _active_sense(senses[:8], frase_es, word_es),
         "frase": frase,
         "frase_es": frase_es,
+        "definicio": _definition_text(selection, lemma, pos),
+        "exemples": "\n".join(_examples_for(lemma, s["id"], frase)),
         "freq_zipf": z, "freq_rank": nlp.freq_badge(z),
         "audio_file": audio_name,
         "image_file": "",
@@ -1578,7 +1610,8 @@ def card_mine(req: MineReq):
         freq_rank=p["freq_rank"], audio_file=p["audio_file"],
         image_file=p["clip_file"] or p["image_file"], font=p["font"],
         language=_lang(),
-        definicio=_definition(req.selection, p["lema"], p["pos"]))
+        definicio=_html_lines(p["definicio"]),
+        exemples=_html_lines(p["exemples"]))
     if p["lema"]:
         db.mark_learning_if_new(CON, p["lema"], _lang())
     sent = _flush()
@@ -1601,6 +1634,11 @@ class CardReq(BaseModel):
     audio_file: str = ""
     image_file: str = ""
     font: str = ""
+    # Del editor, una cosa por línea. definicio=None: la de siempre, sacada
+    # del diccionario (clientes que no la mandan).
+    definicio: str | None = None
+    exemples: str = ""
+    notes: str = ""
 
 
 @app.post("/api/cards")
@@ -1612,7 +1650,11 @@ def create_card(req: CardReq):
                          freq_rank=req.freq_rank, audio_file=req.audio_file,
                          image_file=req.image_file, font=req.font,
                          language=_lang(),
-                         definicio=_definition(req.paraula, req.lema, req.pos))
+                         definicio=(_definition(req.paraula, req.lema, req.pos)
+                                    if req.definicio is None
+                                    else _html_lines(req.definicio)),
+                         exemples=_html_lines(req.exemples),
+                         notes=_html_lines(req.notes))
     if req.lema:
         db.mark_learning_if_new(CON, req.lema, _lang())
     sent = _flush()
@@ -1882,7 +1924,7 @@ def get_examples(lemma: str, session_id: str = "", index: int = -1):
     """Frases del propio contenido del usuario donde aparece el lema."""
     return {"examples": examples.find(CON, lemma, limit=4,
                                       exclude_sid=session_id,
-                                      exclude_idx=index)}
+                                      exclude_idx=index, language=_lang())}
 
 
 @app.get("/api/tts")
@@ -1971,12 +2013,13 @@ _SETTING_TYPES = {
     "sub_scale": (int, float), "dual_default": bool, "autopause_default": bool,
     "speed_default": (int, float), "ipa_enabled": bool, "online_enabled": bool,
     "audio_trim": bool, "ui_lang": str, "keymap": dict, "card_sentences": int,
+    "card_examples": int,
     "base_language": str, "rec_min_zipf": (int, float),
     "reader_mark_known": bool, "card_layout": str, "deck_by_lang": dict,
 }
 _SETTING_RANGES = {"sub_scale": (0.3, 3.0), "speed_default": (0.25, 3.0),
                    "anki_port": (1, 65535), "rec_min_zipf": (0, 7),
-                   "card_sentences": (1, 3)}
+                   "card_sentences": (1, 3), "card_examples": (0, 3)}
 
 
 @app.post("/api/settings")
