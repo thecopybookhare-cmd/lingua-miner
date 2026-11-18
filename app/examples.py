@@ -4,14 +4,19 @@ import json
 
 
 def find(con, lemma: str, limit: int = 4,
-         exclude_sid: str = "", exclude_idx: int = -1) -> list[dict]:
+         exclude_sid: str = "", exclude_idx: int = -1,
+         language: str = "") -> list[dict]:
+    """`language` limita la búsqueda a las sesiones de ese idioma: «die» es
+    un lema alemán y uno inglés, y los ejemplos no pueden mezclarse."""
     lemma = (lemma or "").strip().lower()
     if not lemma:
         return []
     out, seen = [], set()
-    rows = con.execute(
-        "SELECT id, title, transcript_json FROM sessions "
-        "ORDER BY created_at DESC").fetchall()
+    q = "SELECT id, title, transcript_json FROM sessions"
+    args = ()
+    if language:
+        q, args = q + " WHERE language=?", (language,)
+    rows = con.execute(q + " ORDER BY created_at DESC", args).fetchall()
     for row in rows:
         try:
             segs = json.loads(row["transcript_json"])

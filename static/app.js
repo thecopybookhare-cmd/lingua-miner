@@ -440,6 +440,21 @@ function uploadWithProgress(url, fd) {
 
 // ---------- sesión ----------
 let PENDING_SEEK = 0;                    // reanudar / saltar desde búsqueda
+// El popup y el editor de tarjetas viven dentro del reproductor para verse
+// con el vídeo en pantalla completa (fuera del elemento a pantalla completa
+// no se pinta nada). Pero en el lector el reproductor está oculto, y ellos
+// con él: el popup se «abría» con 0×0 píxeles. Se mudan al lector y vuelven.
+const FLOATERS = ["card-panel", "word-pop"].map((id) => {
+  const el = $(id);
+  return { el, parent: el.parentNode, next: el.nextSibling };
+});
+function placeFloaters(inReader) {
+  for (const f of FLOATERS) {
+    if (inReader) $("reader").append(f.el);
+    else if (f.el.parentNode !== f.parent) f.parent.insertBefore(f.el, f.next);
+  }
+}
+
 async function openSession(sid, opts = {}) {
   const s = await api("/api/sessions/" + sid);
   SESSION = s; SEGS = s.transcript; STATUS = s.word_statuses || {};
@@ -461,6 +476,7 @@ async function openSession(sid, opts = {}) {
     if (seg.text_es && (seg.es_b || "es") === base) ES_CACHE[i] = seg.text_es;
   });
   // las sesiones de texto no tienen vídeo: van al lector, no al reproductor
+  placeFloaters(s.source_type === "text");
   if (s.source_type === "text") {
     stopPlayback();                     // veníamos de un vídeo: apagarlo
     $("home").hidden = true; $("player").hidden = true; $("reader").hidden = false;
@@ -1365,6 +1381,12 @@ async function mine(segIndex, selection, padB = 0, padA = 0, extra = {}) {
   $("c-paraula-es").value = extra.chosen || p.paraula_es;
   $("c-frase").value = p.frase;
   $("c-frase-es").value = p.frase_es;
+  // ⏪+ / +⏩ rehacen la vista previa: lo que ya escribiste se queda
+  if (!padB && !padA) {
+    $("c-definicio").value = p.definicio || "";
+    $("c-exemples").value = p.exemples || "";
+    $("c-notes").value = "";
+  }
   $("c-meta").textContent = `${p.headword || p.lema} · ${p.pos} · ${p.freq_rank} (zipf ${p.freq_zipf.toFixed(1)}) · ${p.font}`;
   $("senses").innerHTML = p.senses.map((s) =>
     `<span class="sense" data-es="${esc(s.es)}">${esc(s.es)} <small>${esc(s.pos)}</small></span>`).join("");
@@ -1395,6 +1417,8 @@ async function sendCard() {
     paraula: $("c-paraula").value, lema: CARD.lema, pos: CARD.pos,
     paraula_es: $("c-paraula-es").value,
     frase: $("c-frase").value, frase_es: $("c-frase-es").value,
+    definicio: $("c-definicio").value, exemples: $("c-exemples").value,
+    notes: $("c-notes").value,
     freq_rank: CARD.freq_rank, audio_file: CARD.audio_file,
     image_file: CARD.image_file, font: CARD.font,
   };
@@ -1626,6 +1650,7 @@ function applySettings() {
   $("set-ui-lang").value = SETTINGS.ui_lang || "auto";
   $("set-card-layout").value = SETTINGS.card_layout || "reading";
   $("set-card-sentences").value = String(SETTINGS.card_sentences || 1);
+  $("set-card-examples").value = String(SETTINGS.card_examples ?? 2);
   // El servidor no ve navigator.languages, así que resuelve "auto" como inglés.
   // En el primer arranque fijamos aquí el valor real: solo quien tenga la
   // interfaz en español traduce a español.
@@ -1943,6 +1968,7 @@ $("set-online").onchange = () => saveSettings({ online_enabled: $("set-online").
 $("set-ui-lang").onchange = () => saveSettings({ ui_lang: $("set-ui-lang").value });
 $("set-card-layout").onchange = () => saveSettings({ card_layout: $("set-card-layout").value });
 $("set-card-sentences").onchange = () => saveSettings({ card_sentences: parseInt($("set-card-sentences").value, 10) });
+$("set-card-examples").onchange = () => saveSettings({ card_examples: parseInt($("set-card-examples").value, 10) });
 $("set-audio-trim").onchange = () => saveSettings({ audio_trim: $("set-audio-trim").checked });
 $("set-language").onchange = async () => {
   await saveSettings({ language: $("set-language").value });

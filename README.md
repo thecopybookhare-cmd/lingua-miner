@@ -38,6 +38,10 @@ language, plus where it came from and how common the word is.
   back. The card takes the whole sentence even when the subtitles split it
   across lines, and under ⚙️ *Anki → Card context* you can add the sentence
   before (and after) for more context.
+- 📝 **Room for more on the back**: the editor shows the definition (editable),
+  up to 3 other sentences with the same word from your own videos and books
+  (⚙️ *Anki → Examples from your videos*), and a free **Notes** field for
+  whatever you want to remember.
 - 👂 **Listening cards**: under ⚙️ *Anki → Card front* you can put only the
   image and the audio on the front, so you answer by ear instead of by
   reading; the text waits on the back.
