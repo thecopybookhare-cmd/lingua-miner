@@ -19,7 +19,7 @@ from pathlib import Path
 
 import requests
 
-from . import config, failures
+from . import config, failures, sqlshare
 
 _CONS: dict = {}          # (code, base) -> conexión sqlite (o None si falló)
 
@@ -182,7 +182,7 @@ def _open(url: str, dbp: Path):
                 # iter_lines lee de 512 en 512 bytes por defecto: con
                 # cientos de MB son millones de lecturas.
                 build_from_lines(r.iter_lines(chunk_size=1 << 16), dbp)
-    return sqlite3.connect(str(dbp), check_same_thread=False)
+    return sqlshare.connect(dbp)
 
 
 def _drop_stale_jsonl():

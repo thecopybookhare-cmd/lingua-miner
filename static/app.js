@@ -1360,8 +1360,9 @@ async function mineQuick(segIndex, selection, paraula_es = "") {
   if (r.error) { toast(errMsg(r), "err"); return; }
   if (r.word_status) STATUS[r.lema] = r.word_status;
   renderSegs(); renderOverlay(); updateComp(); refreshAnki();
-  toast(r.sent_now ? t("ts.card_sent", r.paraula) : t("ts.card_queued", r.paraula),
-        r.sent_now ? "ok" : "err");
+  if (r.duplicate) toast(t("ts.card_dup", r.paraula), "err");
+  else toast(r.sent_now ? t("ts.card_sent", r.paraula) : t("ts.card_queued", r.paraula),
+             r.sent_now ? "ok" : "err");
 }
 
 // ---------- minado ----------
@@ -1429,7 +1430,8 @@ async function sendCard() {
   renderOverlay();
   updateComp();
   refreshAnki();
-  toast(r.sent_now ? t("ts.card_added") : t("ts.card_queue"), r.sent_now ? "ok" : "err");
+  if (r.duplicate) toast(t("ts.card_dup", body.paraula), "err");
+  else toast(r.sent_now ? t("ts.card_added") : t("ts.card_queue"), r.sent_now ? "ok" : "err");
 }
 $("c-send").onclick = sendCard;
 
