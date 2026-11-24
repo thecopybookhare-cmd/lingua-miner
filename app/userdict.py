@@ -6,7 +6,7 @@ import re
 import sqlite3
 from pathlib import Path
 
-from . import config, jobs
+from . import config, jobs, sqlshare
 
 _TAG = re.compile(r"<[^>]+>")
 _WS = re.compile(r"\s+")
@@ -111,7 +111,7 @@ def remove(slug: str) -> bool:
 def _con(p: Path):
     key = str(p)
     if key not in _CONS:
-        _CONS[key] = sqlite3.connect(str(p), check_same_thread=False)
+        _CONS[key] = sqlshare.connect(p)
     return _CONS[key]
 
 

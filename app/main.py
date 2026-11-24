@@ -1614,8 +1614,9 @@ def card_mine(req: MineReq):
         exemples=_html_lines(p["exemples"]))
     if p["lema"]:
         db.mark_learning_if_new(CON, p["lema"], _lang())
-    sent = _flush()
-    return {"card_id": cid, "sent_now": sent > 0,
+    _flush()
+    st = db.card_status(CON, cid)
+    return {"card_id": cid, "sent_now": st == "sent", "duplicate": st == "duplicate",
             "pending": len(db.pending_cards(CON)),
             "word_status": db.word_statuses(CON, _lang()).get(p["lema"]),
             "lema": p["lema"], "paraula": p["paraula"]}
@@ -1657,8 +1658,12 @@ def create_card(req: CardReq):
                          notes=_html_lines(req.notes))
     if req.lema:
         db.mark_learning_if_new(CON, req.lema, _lang())
-    sent = _flush()
-    return {"card_id": cid, "sent_now": sent,
+    _flush()
+    # Se mira ESTA tarjeta: el recuento del envío mezcla las de la cola, y una
+    # duplicada (la palabra ya está en Anki) se descarta. Antes se anunciaba
+    # «en cola», como si fuera a llegar al abrir Anki, y no llegaba nunca.
+    st = db.card_status(CON, cid)
+    return {"card_id": cid, "sent_now": st == "sent", "duplicate": st == "duplicate",
             "pending": len(db.pending_cards(CON)),
             "word_status": db.word_statuses(CON, _lang()).get(req.lema.strip().lower())}
 

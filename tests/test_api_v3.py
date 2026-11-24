@@ -55,7 +55,14 @@ def test_lookup_word_es_uses_lowercase_form(_tr, _sen, _ipa, tmp_path,
     assert "active" in r
 
 
-@patch("app.main._flush", return_value=1)
+def _send_all():
+    """Como _flush con Anki abierto: todas las de la cola pasan a enviadas."""
+    for card in main.db.pending_cards(main.CON):
+        main.db.mark_card_sent(main.CON, card["id"], 1)
+    return 1
+
+
+@patch("app.main._flush", side_effect=_send_all)
 @patch("app.main.media.animated_clip")
 @patch("app.main.media.snapshot")
 @patch("app.main.media.cut_audio")

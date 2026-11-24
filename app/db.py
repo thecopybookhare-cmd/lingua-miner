@@ -4,11 +4,14 @@ import time
 import uuid
 from pathlib import Path
 
+from . import sqlshare
+
 # La conexión se comparte entre el threadpool de uvicorn, los hilos de jobs y
-# el segundo servidor del modo compartir. sqlite3 es thread-safe a nivel C,
-# pero el autocommit diferido no: un commit() de un hilo confirmaría la
-# transacción a medias de otro. Este lock serializa cada escritura completa
-# (execute+commit). RLock: los helpers pueden anidarse.
+# el segundo servidor del modo compartir. Una conexión no aguanta dos
+# consultas a la vez (InterfaceError), y el autocommit diferido tampoco: un
+# commit() de un hilo confirmaría la transacción a medias de otro. Este lock
+# serializa cada consulta (lo hace sqlshare) y cada escritura completa
+# (execute+commit, con `with LOCK`). RLock: los helpers pueden anidarse.
 LOCK = threading.RLock()
 
 SCHEMA = """
@@ -49,9 +52,11 @@ def _now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%S")
 
 
-def connect(path: Path) -> sqlite3.Connection:
-    con = sqlite3.connect(str(path), check_same_thread=False)
-    con.row_factory = sqlite3.Row
+def connect(path: Path) -> "sqlshare.Locked":
+    """La conexión de la app, compartida por todos los hilos del servidor
+    (ver sqlshare: sin candado, dos lecturas a la vez se pisaban)."""
+    con = sqlshare.connect(path, lock=LOCK)
+    con._con.row_factory = sqlite3.Row
     con.execute("PRAGMA journal_mode=WAL")
     con.execute("PRAGMA synchronous=NORMAL")   # seguro con WAL, menos fsync
     con.execute("PRAGMA temp_store=MEMORY")
@@ -196,6 +201,11 @@ def mark_card_sent(con, cid, anki_note_id):
         con.execute("UPDATE cards SET status='sent', anki_note_id=? WHERE id=?",
                     (anki_note_id, cid))
         con.commit()
+
+
+def card_status(con, cid) -> str:
+    r = con.execute("SELECT status FROM cards WHERE id=?", (cid,)).fetchone()
+    return r["status"] if r else ""
 
 
 def mark_card_duplicate(con, cid):

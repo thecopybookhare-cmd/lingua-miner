@@ -9,7 +9,7 @@ from pathlib import Path
 
 import requests
 
-from . import config
+from . import config, sqlshare
 
 _TXT_PATH = config.MODELS_DIR / "diccionari-lt.txt"   # nombre legado (ca)
 _DB_PATH = config.MODELS_DIR / "forms.sqlite"         # nombre legado (ca)
@@ -89,7 +89,7 @@ def _con():
                     resp.raise_for_status()
                     txt.write_text(resp.text, encoding="utf-8")
                 build(txt.read_text(encoding="utf-8"), dbp)
-            _CON = sqlite3.connect(str(dbp), check_same_thread=False)
+            _CON = sqlshare.connect(dbp)
         except Exception:
             _CON = None
     return _CON

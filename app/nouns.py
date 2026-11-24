@@ -16,7 +16,7 @@ from pathlib import Path
 
 import requests
 
-from . import config, failures
+from . import config, failures, sqlshare
 
 _CONS: dict = {}       # código de idioma -> conexión sqlite (o None si falló)
 
@@ -75,7 +75,7 @@ def _con():
                 r.raise_for_status()
                 r.encoding = "utf-8"
                 build_from_lines(r.iter_lines(chunk_size=1 << 16, decode_unicode=True), dbp)
-        _CONS[code] = sqlite3.connect(str(dbp), check_same_thread=False)
+        _CONS[code] = sqlshare.connect(dbp)
     except Exception as e:
         failures.warn_once(f"nouns-{code}", "sin tabla de sustantivos: el popup no "
                            "mostrará el artículo ni el singular", e)
