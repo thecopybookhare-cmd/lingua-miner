@@ -1671,6 +1671,8 @@ function applySettings() {
   $("set-online").checked = SETTINGS.online_enabled;
   $("set-audio-trim").checked = SETTINGS.audio_trim;
   $("set-port").value = SETTINGS.anki_port ?? "";
+  // puente con asbplayer: siempre 127.0.0.1 (el /ankiconnect solo atiende al equipo anfitrión)
+  $("asb-url").textContent = `http://127.0.0.1:${location.port || 80}/ankiconnect`;
   // idioma: el selector solo aparece cuando hay más de un perfil activable
   const langs = (SETTINGS.languages || []).filter((l) => l.available);
   $("set-lang-section").hidden = langs.length <= 1;
@@ -1949,6 +1951,10 @@ $("settings-view").onclick = (e) => { if (e.target === $("settings-view")) $("se
 $("set-deck").onchange = async () => {
   await api("/api/anki/deck", { method: "POST", body: JSON.stringify({ deck: $("set-deck").value }) });
   toast(t("ts.deck", $("set-deck").value), "ok");
+};
+$("asb-copy").onclick = () => {
+  navigator.clipboard?.writeText($("asb-url").textContent)
+    .then(() => toast(t("ts.link_copied"), "ok"));
 };
 $("set-port").onchange = async () => {
   const v = $("set-port").value.trim();

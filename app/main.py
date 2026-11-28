@@ -12,12 +12,14 @@ from urllib.parse import unquote as url_unquote
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, File, Request, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import (
     anki,
+    ankiproxy,
     config,
     db,
     dictionary,
@@ -134,6 +136,8 @@ _ADMIN_POSTS = {
     "/api/sessions/text",
     "/api/sessions/sample",
     "/api/update/apply", "/api/words/seed-anki",
+    # el puente de asbplayer llega a tu colección de Anki entera
+    "/ankiconnect",
 }
 
 
@@ -1726,6 +1730,173 @@ def anki_status():
     return {"up": up, "port": port, "reason": reason, "diag": diag,
             "decks": decks, "deck": _settings()["deck"],
             "pending": len(db.pending_cards(CON))}
+
+
+# ---------- puente con asbplayer (Netflix y otras webs) ----------
+# asbplayer apunta aquí en vez de a AnkiConnect. Ver app/ankiproxy.py.
+
+_ASB_SESSION = "asbplayer"      # las tarjetas no vienen de una sesión tuya
+_ANKI_DOWN = ("LinguaMiner no encuentra Anki: ábrelo (con AnkiConnect) y "
+              "vuelve a probar · LinguaMiner can't find Anki: open it "
+              "(with AnkiConnect) and try again")
+
+
+def _guarded(fn, *args, default=""):
+    """Un dato que no sale (traductor, diccionario) no puede tumbar la tarjeta:
+    asbplayer ya grabó el audio y el clip, y se perderían."""
+    try:
+        return fn(*args)
+    except Exception as e:                              # noqa: BLE001
+        _log.warning("puente asbplayer, %s: %s", getattr(fn, "__name__", fn), e)
+        return default
+
+
+def _auto_word(frase: str) -> str:
+    """La palabra de la tarjeta cuando no la eligieron: la única nueva de la
+    frase (i+1). Con dos o más no se adivina; sale una tarjeta de frase."""
+    statuses = db.word_statuses(CON, _lang())
+    unknown: dict[str, dict] = {}
+    for t in nlp.tokenize(frase):
+        if (t["is_word"] and t["lemma"]
+                and statuses.get(t["lemma"], "unknown") == "unknown"):
+            unknown.setdefault(t["lemma"], t)
+    if len(unknown) != 1:
+        return ""
+    (t,) = unknown.values()
+    return "" if t["pos"] == "PROPN" else t["t"]
+
+
+def _enrich_note(note: dict) -> dict | None:
+    """Completa una nota LinguaMiner de asbplayer con lo que sabe LinguaMiner.
+
+    Solo rellena lo que llega vacío: lo que escribiste en el diálogo de
+    asbplayer manda. El audio y la imagen no se tocan (van aparte, en
+    note.audio / note.picture). Devuelve lo que hay que apuntar en la base de
+    datos, o None si la nota no es de LinguaMiner."""
+    if note.get("modelName") not in (config.NOTE_TYPE, config.NOTE_TYPE_LEGACY):
+        return None
+    f = note.get("fields")
+    if not isinstance(f, dict):
+        return None
+    plain, esc = ankiproxy.plain, ankiproxy.esc
+
+    def empty(k):
+        return not plain(f.get(k))
+
+    frase_raw = f.get("Frase") or ""
+    frase = plain(frase_raw)
+    typed = plain(f.get("Paraula"))
+    word = typed or ankiproxy.highlighted(frase_raw)
+    if not word and frase:
+        word = _guarded(_auto_word, frase)
+    if not word and not frase:
+        return None                   # nada que completar: pasa tal cual
+
+    frase_es = plain(f.get("FraseES"))
+    if frase and not frase_es:
+        frase_es = _guarded(translate.sentence, frase)
+        if frase_es:
+            f["FraseES"] = esc(frase_es)
+
+    lemma = pos = freq = ""
+    if word:
+        if not typed:
+            f["Paraula"] = esc(word)
+        info = _guarded(_word_info, word, frase, default=None) or {
+            "lemma": word.lower(), "pos": "", "headword": "", "word_es": ""}
+        lemma, pos = info["lemma"], info["pos"]
+        if empty("ParaulaES"):
+            f["ParaulaES"] = esc(_card_word(info))
+        if empty("Definicio"):
+            f["Definicio"] = _guarded(_definition, word, lemma, pos)
+        if empty("Exemples"):
+            ex = _guarded(_examples_for, lemma, _ASB_SESSION, frase, default=[])
+            f["Exemples"] = _html_lines("\n".join(ex))
+        freq = _guarded(lambda w: nlp.freq_badge(nlp.zipf(w)), word)
+        if empty("Freq"):
+            f["Freq"] = esc(freq)
+    else:
+        # Tarjeta de frase. Paraula es el primer campo y no puede ir vacío
+        # (Anki rechaza la nota); la frase pasa delante y no se repite.
+        f["Paraula"] = esc(frase)
+        f["Frase"] = ""
+
+    tags = [t for t in (note.get("tags") or []) if isinstance(t, str)]
+    if "lingua-miner" not in tags:
+        tags.append("lingua-miner")
+    note["tags"] = tags
+    return {"paraula": plain(f.get("Paraula")), "lema": lemma, "pos": pos,
+            "paraula_es": plain(f.get("ParaulaES")), "frase": frase,
+            "frase_es": frase_es, "freq_rank": plain(f.get("Freq")) or freq,
+            "font": plain(f.get("Font")) or "asbplayer",
+            "definicio": f.get("Definicio") or "",
+            "exemples": f.get("Exemples") or "", "notes": f.get("Notes") or ""}
+
+
+def _record_card(card: dict, note_id: int):
+    """La tarjeta de asbplayer también cuenta en LinguaMiner: la palabra pasa a
+    «aprendiendo» y, cuando madura en Anki, a conocida (sync-statuses)."""
+    try:
+        db.create_card(CON, session_id=_ASB_SESSION, segment_index=-1,
+                       audio_file="", image_file="", language=_lang(),
+                       anki_note_id=note_id, **card)
+        if card["lema"]:
+            db.mark_learning_if_new(CON, card["lema"], _lang())
+    except Exception as e:                              # noqa: BLE001
+        _log.warning("puente asbplayer, guardar la tarjeta: %s", e)
+
+
+def _ankiconnect(payload) -> dict:
+    if not (isinstance(payload, dict) and isinstance(payload.get("action"), str)):
+        return {"result": None, "error": "LinguaMiner: petición AnkiConnect no válida"}
+    action = payload["action"]
+    params = payload.get("params") if isinstance(payload.get("params"), dict) else {}
+    pref = _settings().get("anki_port")
+    if anki.find_port(pref)[0] is None:
+        return {"result": None, "error": _ANKI_DOWN}
+    if action == "modelNames":
+        # Para que «LinguaMiner» salga en la lista de tipos de nota de
+        # asbplayer aunque nunca hayas mandado una tarjeta desde la app
+        _guarded(anki.ensure_note_type, _settings()["card_layout"])
+    card = None
+    note = params.get("note")
+    if action in ("addNote", "guiAddCards") and isinstance(note, dict):
+        card = _enrich_note(note)
+    try:
+        resp = anki.forward(payload, pref)
+    except Exception as e:                              # noqa: BLE001
+        _log.warning("puente asbplayer, %s: %s", action, e)
+        return {"result": None, "error": _ANKI_DOWN}
+    if (action == "addNote" and card and isinstance(resp, dict)
+            and not resp.get("error") and isinstance(resp.get("result"), int)):
+        _record_card(card, resp["result"])
+    return resp
+
+
+@app.options("/ankiconnect")
+def ankiconnect_preflight(request: Request):
+    origin = request.headers.get("origin")
+    if not ankiproxy.origin_allowed(origin):
+        return Response(status_code=403)
+    return Response(status_code=204, headers=ankiproxy.cors_headers(origin))
+
+
+@app.post("/ankiconnect")
+async def ankiconnect(request: Request):
+    """AnkiConnect para asbplayer: mismas peticiones, mismas respuestas, y las
+    notas LinguaMiner llegan a Anki completas. asbplayer manda el JSON como
+    text/plain, así que se lee el cuerpo a mano."""
+    origin = request.headers.get("origin")
+    if not ankiproxy.origin_allowed(origin):
+        return JSONResponse({"result": None,
+                             "error": "LinguaMiner: origen no permitido"},
+                            status_code=403)
+    try:
+        payload = json.loads(await request.body() or b"null")
+    except ValueError:
+        payload = None
+    out = await run_in_threadpool(_ankiconnect, payload)
+    return JSONResponse(out, headers=ankiproxy.cors_headers(origin))
 
 
 # ---------- vocabulario (Language Reactor) ----------

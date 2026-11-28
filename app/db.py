@@ -180,18 +180,23 @@ def list_sessions(con, lang: str | None = None):
 def create_card(con, *, session_id, segment_index, paraula, lema, pos,
                 paraula_es, frase, frase_es, freq_rank, audio_file,
                 image_file, font, language="ca", definicio="", exemples="",
-                notes="") -> str:
+                notes="", anki_note_id=None) -> str:
+    """Tarjeta en la cola de envío. Con anki_note_id ya está en Anki (la
+    mandó asbplayer): se guarda directamente como enviada. Primero pendiente
+    y luego enviada dejaba un hueco en el que el envío de la cola la podía
+    mandar otra vez."""
     cid = uuid.uuid4().hex[:12]
+    status = "pending" if anki_note_id is None else "sent"
     with LOCK:
         con.execute(
             "INSERT INTO cards (id, session_id, segment_index, paraula, lema,"
             " pos, paraula_es, frase, frase_es, freq_rank, audio_file,"
             " image_file, font, anki_note_id, status, created_at, language,"
             " definicio, exemples, notes) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NULL,'pending',?,?,?,?,?)",
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (cid, session_id, segment_index, paraula, lema, pos, paraula_es,
-             frase, frase_es, freq_rank, audio_file, image_file, font, _now(),
-             language, definicio, exemples, notes))
+             frase, frase_es, freq_rank, audio_file, image_file, font,
+             anki_note_id, status, _now(), language, definicio, exemples, notes))
         con.commit()
     return cid
 

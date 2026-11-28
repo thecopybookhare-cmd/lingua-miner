@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>LinguaMiner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="icon" href="/favicon.png?v=1.41.1">
+<link rel="icon" href="/favicon.png?v=1.42.0">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#0c0d13">
@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="LinguaMiner">
-<link rel="stylesheet" href="/style.css?v=1.41.1">
+<link rel="stylesheet" href="/style.css?v=1.42.0">
 </head>
 <body>
 <!-- sprite de iconos (estilo Lucide: 24×24, trazo 2, sin relleno) -->
@@ -405,6 +405,15 @@
         <button id="set-apkg" class="small" data-i18n="set.apkg_btn">Exportar</button></div>
       <p class="dim" data-i18n="set.apkg_hint">Sin AnkiConnect, o para AnkiDroid y el iPhone: abre el archivo y Anki lo importa.</p>
     </section>
+    <section id="asb-section">
+      <h3 data-i18n="set.sec_asb">Netflix y otras webs (asbplayer)</h3>
+      <p class="dim" data-i18n="set.asb_desc">Mina en Netflix con la extensión asbplayer y LinguaMiner completa la tarjeta: traducción, definición y ejemplos. En asbplayer, pega esta dirección como «AnkiConnect URL» y elige el tipo de nota LinguaMiner.</p>
+      <div class="share-url">
+        <div class="share-url-body"><div class="share-url-label">AnkiConnect URL</div><code id="asb-url"></code>
+          <button id="asb-copy" class="small share-copy" data-i18n="set.asb_copy">Copiar</button></div>
+      </div>
+      <p class="dim"><a class="asb-guide" href="https://github.com/thecopybookhare-cmd/lingua-miner/blob/main/docs/netflix.md" target="_blank" rel="noopener" data-i18n="set.asb_guide">Guía paso a paso</a></p>
+    </section>
     <section>
       <h3 data-i18n="set.sec_subs">Subtítulos</h3>
       <div class="set-row"><label><span data-i18n="set.sub_size">Tamaño</span> (<span id="set-sub-val">100</span>%)</label>
@@ -544,7 +553,7 @@
     });
   }
 </script>
-<script src="/i18n.js?v=1.41.1"></script>
-<script src="/app.js?v=1.41.1"></script>
+<script src="/i18n.js?v=1.42.0"></script>
+<script src="/app.js?v=1.42.0"></script>
 </body>
 </html>
