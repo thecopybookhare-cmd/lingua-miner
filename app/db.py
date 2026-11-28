@@ -135,6 +135,15 @@ def update_transcript(con, sid, transcript_json, model_size, srt_source,
         con.commit()
 
 
+def find_session_by_media(con, media_path: str, source_type: str, lang: str):
+    """La sesión de ese vídeo (p. ej. el episodio de Netflix de asbplayer, por
+    su archivo de subtítulos) en ese idioma, o None."""
+    r = con.execute("SELECT * FROM sessions WHERE media_path=? AND source_type=? "
+                    "AND language=? ORDER BY created_at DESC LIMIT 1",
+                    (media_path, source_type, lang)).fetchone()
+    return dict(r) if r else None
+
+
 def get_session(con, sid):
     r = con.execute("SELECT * FROM sessions WHERE id=?", (sid,)).fetchone()
     return dict(r) if r else None
@@ -206,6 +215,11 @@ def mark_card_sent(con, cid, anki_note_id):
         con.execute("UPDATE cards SET status='sent', anki_note_id=? WHERE id=?",
                     (anki_note_id, cid))
         con.commit()
+
+
+def card_note_id(con, cid) -> int | None:
+    r = con.execute("SELECT anki_note_id FROM cards WHERE id=?", (cid,)).fetchone()
+    return r["anki_note_id"] if r else None
 
 
 def card_status(con, cid) -> str:

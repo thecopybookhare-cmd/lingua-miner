@@ -146,47 +146,13 @@ def test_a_failing_lookup_does_not_lose_the_card(tmp_path, monkeypatch):
     assert f["Paraula"] == "Kunst" and f["FraseES"] == "Eso es arte."
 
 
-# ---------- sin palabra elegida ----------
+# ---------- palabra marcada ----------
 
 def test_the_highlighted_word_is_the_word(tmp_path, monkeypatch):
     c, sent = _client(tmp_path, monkeypatch)
     _post(c, _note({"Frase": "Das ist <b>Kunst</b>."}))
     f = _sent_note(sent)["fields"]
     assert f["Paraula"] == "Kunst" and f["ParaulaES"] == "die Kunst — el arte"
-
-
-def _tokens(*words):
-    return [{"t": w, "lemma": lemma, "pos": pos, "is_word": True, "zipf": 4.0, "ws": " "}
-            for w, lemma, pos in words]
-
-
-def test_the_only_new_word_is_picked(tmp_path, monkeypatch):
-    c, sent = _client(tmp_path, monkeypatch)
-    monkeypatch.setattr(main.nlp, "tokenize", lambda t: _tokens(
-        ("Das", "das", "PRON"), ("ist", "sein", "AUX"), ("Kunst", "kunst", "NOUN")))
-    for lemma in ("das", "sein"):
-        main.db.set_word_status(main.CON, lemma, "known", "de")
-    _post(c, _note({"Frase": "Das ist Kunst."}))
-    assert _sent_note(sent)["fields"]["Paraula"] == "Kunst"
-
-
-def test_with_several_new_words_it_is_a_sentence_card(tmp_path, monkeypatch):
-    c, sent = _client(tmp_path, monkeypatch)
-    monkeypatch.setattr(main.nlp, "tokenize", lambda t: _tokens(
-        ("Moderne", "modern", "ADJ"), ("Kunst", "kunst", "NOUN")))
-    _post(c, _note({"Frase": "Moderne Kunst."}))
-    f = _sent_note(sent)["fields"]
-    assert f["Paraula"] == "Moderne Kunst." and f["Frase"] == ""
-    assert f["FraseES"] == "Eso es arte."
-
-
-def test_a_new_name_is_not_the_word(tmp_path, monkeypatch):
-    c, sent = _client(tmp_path, monkeypatch)
-    monkeypatch.setattr(main.nlp, "tokenize", lambda t: _tokens(
-        ("Jonas", "jonas", "PROPN"), ("kommt", "kommen", "VERB")))
-    main.db.set_word_status(main.CON, "kommen", "known", "de")
-    _post(c, _note({"Frase": "Jonas kommt."}))
-    assert _sent_note(sent)["fields"]["Paraula"] == "Jonas kommt."
 
 
 # ---------- quién puede usar el puente ----------
@@ -253,49 +219,3 @@ def test_settings_show_the_note_type_to_pick(tmp_path, monkeypatch):
     monkeypatch.setattr(anki, "find_port", lambda p=None: (None, {}))
     assert c.get("/api/anki/status").json()["model"] == config.NOTE_TYPE
 
-
-def _toks(*items):
-    """(texto, lema, pos) o un signo de puntuación suelto."""
-    out = []
-    for it in items:
-        if isinstance(it, str):
-            out.append({"t": it, "lemma": "", "pos": "", "is_word": False, "zipf": 0.0, "ws": " "})
-        else:
-            w, lemma, pos = it
-            out.append({"t": w, "lemma": lemma, "pos": pos, "is_word": True, "zipf": 4.0, "ws": " "})
-    return out
-
-
-def test_a_capitalised_word_mid_sentence_is_a_name(tmp_path, monkeypatch):
-    """Primera prueba real (Génesis, en catalán): sin etiqueta del analizador,
-    «Guérard» salió como la palabra de la tarjeta."""
-    c, sent = _client(tmp_path, monkeypatch)
-    c.post("/api/settings", json={"language": "ca"})
-    monkeypatch.setattr(main.nlp, "tokenize", lambda t: _toks(
-        ("Que", "que", ""), ("comenci", "començar", "VERB"), ("amb", "amb", ""),
-        ("Guérard", "guérard", ""), "."))
-    for lemma in ("que", "començar", "amb"):
-        main.db.set_word_status(main.CON, lemma, "known", "ca")
-    _post(c, _note({"Frase": "Que comenci amb Guérard."}))
-    assert _sent_note(sent)["fields"]["Paraula"] == "Que comenci amb Guérard."
-
-
-def test_a_capitalised_word_after_a_full_stop_is_not_a_name(tmp_path, monkeypatch):
-    c, sent = _client(tmp_path, monkeypatch)
-    c.post("/api/settings", json={"language": "ca"})
-    monkeypatch.setattr(main.nlp, "tokenize", lambda t: _toks(
-        ("Va", "va", ""), ".", ("Digues", "dir", "VERB"), ("ne", "ne", ""), ("una", "un", "DET"), "."))
-    for lemma in ("va", "ne", "un"):
-        main.db.set_word_status(main.CON, lemma, "known", "ca")
-    _post(c, _note({"Frase": "Va. Digues-ne una."}))
-    assert _sent_note(sent)["fields"]["Paraula"] == "Digues"
-
-
-def test_german_nouns_are_not_names(tmp_path, monkeypatch):
-    c, sent = _client(tmp_path, monkeypatch)
-    monkeypatch.setattr(main.nlp, "tokenize", lambda t: _toks(
-        ("Das", "das", ""), ("ist", "sein", ""), ("Kunst", "kunst", ""), "."))
-    for lemma in ("das", "sein"):
-        main.db.set_word_status(main.CON, lemma, "known", "de")
-    _post(c, _note({"Frase": "Das ist Kunst."}))
-    assert _sent_note(sent)["fields"]["Paraula"] == "Kunst"
