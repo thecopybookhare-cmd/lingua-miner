@@ -1756,17 +1756,32 @@ def _guarded(fn, *args, default=""):
 
 def _auto_word(frase: str) -> str:
     """La palabra de la tarjeta cuando no la eligieron: la única nueva de la
-    frase (i+1). Con dos o más no se adivina; sale una tarjeta de frase."""
+    frase (i+1). Con dos o más no se adivina; sale una tarjeta de frase.
+
+    Un nombre propio no es vocabulario. Sin etiqueta del analizador (en
+    catalán a veces no la hay) se reconoce por la mayúscula en mitad de la
+    frase: la primera prueba con Netflix eligió «Guérard». No vale en alemán,
+    donde todos los sustantivos van con mayúscula."""
     statuses = db.word_statuses(CON, _lang())
+    caps_are_names = not languages.profile().get("noun_articles")
     unknown: dict[str, dict] = {}
+    names: set[str] = set()
+    start = True                       # ¿empieza frase? (ahí la mayúscula no dice nada)
     for t in nlp.tokenize(frase):
-        if (t["is_word"] and t["lemma"]
-                and statuses.get(t["lemma"], "unknown") == "unknown"):
+        if not t["is_word"]:
+            start = start or any(c in t["t"] for c in ".!?…:")
+            continue
+        if t["lemma"] and statuses.get(t["lemma"], "unknown") == "unknown":
             unknown.setdefault(t["lemma"], t)
+            if t["pos"] == "PROPN" or (
+                    caps_are_names and not t["pos"] and not start
+                    and t["t"][:1].isupper()):
+                names.add(t["lemma"])
+        start = False
     if len(unknown) != 1:
         return ""
-    (t,) = unknown.values()
-    return "" if t["pos"] == "PROPN" else t["t"]
+    (lemma, t), = unknown.items()
+    return "" if lemma in names else t["t"]
 
 
 def _enrich_note(note: dict) -> dict | None:
