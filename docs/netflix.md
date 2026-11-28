@@ -37,8 +37,10 @@ mine in the app.
 4. In asbplayer's settings, under **Anki**:
    - **AnkiConnect URL**: paste that address.
    - **Deck**: whichever you like.
-   - **Note type**: `LinguaMiner`. It appears in the list even if you've never
-     sent a card from the app.
+   - **Note type**: the one LinguaMiner shows under the address, usually
+     `LinguaMiner`. If you installed before the rename it's `CatalaMiner`:
+     same fields, and the bridge fills it in just the same. It appears in the
+     list even if you've never sent a card from the app.
    - **Card fields**:
 
      | asbplayer | LinguaMiner note field |

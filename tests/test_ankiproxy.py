@@ -241,3 +241,14 @@ def test_plain_and_highlighted():
     assert ankiproxy.highlighted("Das ist <b>Kunst</b>.") == "Kunst"
     assert ankiproxy.highlighted("Das ist Kunst.") == ""
     assert ankiproxy.esc("<ojo>") == "&lt;ojo&gt;"
+
+
+def test_settings_show_the_note_type_to_pick(tmp_path, monkeypatch):
+    """Quien instaló antes del cambio de nombre tiene «CatalaMiner» en Anki y
+    buscaba «LinguaMiner» en la lista de asbplayer."""
+    c, _ = _client(tmp_path, monkeypatch)
+    monkeypatch.setattr(anki, "invoke", lambda action, **kw: {
+        "deckNames": ["Netflix"], "modelNames": ["CatalaMiner", "Basic"]}.get(action))
+    assert c.get("/api/anki/status").json()["model"] == "CatalaMiner"
+    monkeypatch.setattr(anki, "find_port", lambda p=None: (None, {}))
+    assert c.get("/api/anki/status").json()["model"] == config.NOTE_TYPE

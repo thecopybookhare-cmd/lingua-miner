@@ -1727,8 +1727,11 @@ def anki_status():
     else:
         reason = "down"
     decks = anki.invoke("deckNames") if up else []
+    # El tipo de nota que hay que elegir en asbplayer. Quien instaló antes del
+    # cambio de nombre lo tiene como «CatalaMiner», y buscaba «LinguaMiner».
+    model = _guarded(anki.model_in_use, default=config.NOTE_TYPE) if up else config.NOTE_TYPE
     return {"up": up, "port": port, "reason": reason, "diag": diag,
-            "decks": decks, "deck": _settings()["deck"],
+            "decks": decks, "deck": _settings()["deck"], "model": model,
             "pending": len(db.pending_cards(CON))}
 
 

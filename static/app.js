@@ -55,6 +55,7 @@ async function refreshAnki() {
   else if (s.reason === "squatted") { b.textContent = q + t("anki.squatted"); b.className = "badge err"; }
   else { b.textContent = q + t("anki.closed"); b.className = s.pending > 0 ? "badge pending" : "badge"; }
   b.dataset.reason = s.reason || "";
+  if (s.model) $("asb-model").textContent = s.model;   // en asbplayer se elige este
   refreshDegraded();
 }
 
