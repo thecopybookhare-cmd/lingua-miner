@@ -94,6 +94,17 @@ def is_up(preferred: int | None = None) -> bool:
     return find_port(preferred)[0] is not None
 
 
+def forward(payload: dict, preferred: int | None = None) -> dict:
+    """Una petición AnkiConnect entera (con su versión y su key) al Anki de
+    verdad, y su respuesta tal cual. Para el puente de asbplayer (ankiproxy).
+    El plazo es largo: un clip animado de la frase pesa varios MB."""
+    port, _ = find_port(preferred)
+    if port is None:
+        raise AnkiError("anki-down")
+    r = requests.post(_url(port), json=payload, timeout=60)
+    return r.json()
+
+
 CARD_CSS = """.card { font-family: -apple-system, sans-serif; font-size: 22px;
 text-align: center; color: #222; background: #fdfdfd; }
 .front { font-size: 34px; font-weight: 700; }

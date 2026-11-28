@@ -42,6 +42,12 @@ language, plus where it came from and how common the word is.
   up to 3 other sentences with the same word from your own videos and books
   (⚙️ *Anki → Examples from your videos*), and a free **Notes** field for
   whatever you want to remember.
+- 🍿 **Netflix, mined from LinguaMiner**: Netflix can't be downloaded (DRM),
+  so the free [asbplayer](https://github.com/asbplayer/asbplayer) extension
+  acts as the recorder. The episode's subtitles open in LinguaMiner with the
+  usual popup and colours; clicking a line's time moves Netflix there, and
+  `Ctrl+Shift+Z` in Netflix captures the line you just heard (audio and
+  image) so you can pick the word here. [How to set it up](docs/netflix.md).
 - 👂 **Listening cards**: under ⚙️ *Anki → Card front* you can put only the
   image and the audio on the front, so you answer by ear instead of by
   reading; the text waits on the back.

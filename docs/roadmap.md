@@ -167,8 +167,14 @@ abiertas) cubre de sobra la necesidad de material real, y ahí sí conviene
 invertir. Lo que no se implementa son *scrapers* de agregadores pirata ni
 suplantación de cabeceras para saltarse protecciones: aparte del problema
 legal, esos sitios rompen cada semana y arrastrarían el mantenimiento. El
-contenido con DRM (Netflix, Prime…) es directamente inviable sin romper la
-protección. Alternativa práctica ya soportada: archivo local + `.srt`.
+contenido con DRM (Netflix, Prime…) no se descarga ni se descifra. Lo que sí
+se hace (v1.42.0) es lo que hacen Language Reactor y Migaku: trabajar encima
+de la página mientras ves. asbplayer, extensión abierta, lee los subtítulos
+y graba audio y clip; LinguaMiner hace de AnkiConnect y completa la tarjeta
+([docs/netflix.md](netflix.md)). Y con su API externa (WebSocket:
+`get-subtitles`, `seek-timestamp`, `mine-subtitle`) el episodio se abre como
+sesión y se mina desde LinguaMiner; `Ctrl+Shift+Z` en Netflix marca la línea
+que suena, porque la API no da la posición del vídeo.
 
 ## 🧭 Próximos grandes (v1.x)
 

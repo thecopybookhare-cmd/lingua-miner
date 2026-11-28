@@ -135,6 +135,15 @@ def update_transcript(con, sid, transcript_json, model_size, srt_source,
         con.commit()
 
 
+def find_session_by_media(con, media_path: str, source_type: str, lang: str):
+    """La sesión de ese vídeo (p. ej. el episodio de Netflix de asbplayer, por
+    su archivo de subtítulos) en ese idioma, o None."""
+    r = con.execute("SELECT * FROM sessions WHERE media_path=? AND source_type=? "
+                    "AND language=? ORDER BY created_at DESC LIMIT 1",
+                    (media_path, source_type, lang)).fetchone()
+    return dict(r) if r else None
+
+
 def get_session(con, sid):
     r = con.execute("SELECT * FROM sessions WHERE id=?", (sid,)).fetchone()
     return dict(r) if r else None
@@ -180,18 +189,23 @@ def list_sessions(con, lang: str | None = None):
 def create_card(con, *, session_id, segment_index, paraula, lema, pos,
                 paraula_es, frase, frase_es, freq_rank, audio_file,
                 image_file, font, language="ca", definicio="", exemples="",
-                notes="") -> str:
+                notes="", anki_note_id=None) -> str:
+    """Tarjeta en la cola de envío. Con anki_note_id ya está en Anki (la
+    mandó asbplayer): se guarda directamente como enviada. Primero pendiente
+    y luego enviada dejaba un hueco en el que el envío de la cola la podía
+    mandar otra vez."""
     cid = uuid.uuid4().hex[:12]
+    status = "pending" if anki_note_id is None else "sent"
     with LOCK:
         con.execute(
             "INSERT INTO cards (id, session_id, segment_index, paraula, lema,"
             " pos, paraula_es, frase, frase_es, freq_rank, audio_file,"
             " image_file, font, anki_note_id, status, created_at, language,"
             " definicio, exemples, notes) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NULL,'pending',?,?,?,?,?)",
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (cid, session_id, segment_index, paraula, lema, pos, paraula_es,
-             frase, frase_es, freq_rank, audio_file, image_file, font, _now(),
-             language, definicio, exemples, notes))
+             frase, frase_es, freq_rank, audio_file, image_file, font,
+             anki_note_id, status, _now(), language, definicio, exemples, notes))
         con.commit()
     return cid
 
@@ -201,6 +215,11 @@ def mark_card_sent(con, cid, anki_note_id):
         con.execute("UPDATE cards SET status='sent', anki_note_id=? WHERE id=?",
                     (anki_note_id, cid))
         con.commit()
+
+
+def card_note_id(con, cid) -> int | None:
+    r = con.execute("SELECT anki_note_id FROM cards WHERE id=?", (cid,)).fetchone()
+    return r["anki_note_id"] if r else None
 
 
 def card_status(con, cid) -> str:

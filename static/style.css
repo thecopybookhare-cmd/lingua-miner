@@ -648,6 +648,17 @@ button.small { font-size: 12px; padding: 6px 10px; }
 .share-url-body code { font-size: 13px; word-break: break-all; color: var(--fg); }
 .share-copy { align-self: flex-start; }
 #share-note { margin-top: 8px; }
+.asb-guide { color: var(--vio); }
+#asb-ws-state.on { color: var(--green, #4caf7d); }
+/* Netflix (asbplayer): subtítulos, una línea por párrafo, con su hora */
+.rd-ts { font-size: 12px; padding: 1px 7px; margin-right: 8px; vertical-align: 2px;
+  color: var(--dim); background: transparent; border: 1px solid var(--line);
+  border-radius: 6px; cursor: pointer; font-variant-numeric: tabular-nums; }
+.rd-ts:hover { color: var(--fg); border-color: var(--vio); }
+.rd-ts.cap { color: var(--fg); border-color: var(--vio); }
+#reader-page .rd-p.nf { margin-bottom: 8px; }
+.rd-p.rd-flash { background: var(--vio-soft); border-radius: 8px;
+  box-shadow: 0 0 0 6px var(--vio-soft); transition: background .6s; }
 
 /* Control de desfase de subtítulos (sincronía) */
 #offset-ctl { display: inline-flex; align-items: center; gap: 2px; }

@@ -11,13 +11,16 @@ from pathlib import Path
 from urllib.parse import unquote as url_unquote
 from urllib.parse import urlparse
 
-from fastapi import FastAPI, File, Request, UploadFile
+from fastapi import FastAPI, File, Request, UploadFile, WebSocket
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import (
     anki,
+    ankiproxy,
+    asbws,
     config,
     db,
     dictionary,
@@ -134,6 +137,10 @@ _ADMIN_POSTS = {
     "/api/sessions/text",
     "/api/sessions/sample",
     "/api/update/apply", "/api/words/seed-anki",
+    # el puente de asbplayer llega a tu colección de Anki entera
+    "/ankiconnect",
+    # crear sesiones y mover el Netflix del anfitrión
+    "/api/asbplayer/open", "/api/asbplayer/seek",
 }
 
 
@@ -1421,6 +1428,10 @@ def _build_preview(s: dict, segment_index: int, selection: str,
     # tarjeta salía muda. La voz la pone Piper, que ya está para pronunciar.
     if s.get("source_type") == "text":
         return _text_preview(s, segs, segment_index, selection, pad_before, pad_after)
+    # Netflix: el audio y la imagen los pone asbplayer (de la tecla, o al enviar)
+    if s.get("source_type") == "asbplayer":
+        return _text_preview(s, segs, segment_index, selection, pad_before, pad_after,
+                             netflix=True)
 
     desde, hasta = _context_range(segs, segment_index, _card_sentences(),
                                   pad_before, pad_after)
@@ -1521,20 +1532,29 @@ def _build_preview(s: dict, segment_index: int, selection: str,
 
 
 def _text_preview(s: dict, segs: list, idx: int, selection: str,
-                  pad_before: int = 0, pad_after: int = 0) -> dict:
+                  pad_before: int = 0, pad_after: int = 0,
+                  netflix: bool = False) -> dict:
     """Tarjeta desde un libro: frase, traducción y voz neural. Sin imagen.
 
     Las frases del contexto («card_sentences») y los ⏪+ / +⏩ del editor
     funcionan igual que en vídeo.
+
+    netflix: sesión de asbplayer. Sin voz sintética: si la línea se capturó
+    con la tecla trae su audio y su imagen; si no, asbplayer los graba al
+    enviar la tarjeta (_asb_after_card).
     """
     desde, hasta = _context_range(segs, idx, _card_sentences(), pad_before, pad_after)
     frase = " ".join(x["text"] for x in segs[desde:hasta + 1])
 
-    audio_name = ""
-    try:
-        audio_name = piper_tts.speak(frase)
-    except Exception as e:                              # noqa: BLE001
-        failures.warn_once("text-tts", "sin voz para las tarjetas de texto", e)
+    audio_name = image_name = ""
+    if netflix:
+        audio_name = segs[idx].get("audio_file", "")
+        image_name = segs[idx].get("image_file", "")
+    else:
+        try:
+            audio_name = piper_tts.speak(frase)
+        except Exception as e:                          # noqa: BLE001
+            failures.warn_once("text-tts", "sin voz para las tarjetas de texto", e)
 
     info = _word_info(selection, frase)
     lemma, pos = info["lemma"], info["pos"]
@@ -1554,10 +1574,11 @@ def _text_preview(s: dict, segs: list, idx: int, selection: str,
         "exemples": "\n".join(_examples_for(lemma, s["id"], frase)),
         "freq_zipf": z, "freq_rank": nlp.freq_badge(z),
         "audio_file": audio_name,
-        "image_file": "",
+        "image_file": image_name,
         "clip_file": "",
         # en un libro el "@ 07:16" no significa nada: va el número de frase
-        "font": f"{s['title']} · {idx + 1}/{len(segs)}",
+        "font": (f"{s['title']} @ {_fmt_ts(segs[idx]['start'])}" if netflix
+                 else f"{s['title']} · {idx + 1}/{len(segs)}"),
     }
 
 
@@ -1616,10 +1637,12 @@ def card_mine(req: MineReq):
         db.mark_learning_if_new(CON, p["lema"], _lang())
     _flush()
     st = db.card_status(CON, cid)
+    netflix = _asb_after_card(req.session_id, req.segment_index, cid,
+                              bool(p["audio_file"]), p["frase"])
     return {"card_id": cid, "sent_now": st == "sent", "duplicate": st == "duplicate",
             "pending": len(db.pending_cards(CON)),
             "word_status": db.word_statuses(CON, _lang()).get(p["lema"]),
-            "lema": p["lema"], "paraula": p["paraula"]}
+            "lema": p["lema"], "paraula": p["paraula"], "netflix": netflix}
 
 
 class CardReq(BaseModel):
@@ -1663,9 +1686,12 @@ def create_card(req: CardReq):
     # duplicada (la palabra ya está en Anki) se descarta. Antes se anunciaba
     # «en cola», como si fuera a llegar al abrir Anki, y no llegaba nunca.
     st = db.card_status(CON, cid)
+    netflix = _asb_after_card(req.session_id, req.segment_index, cid,
+                              bool(req.audio_file), req.frase)
     return {"card_id": cid, "sent_now": st == "sent", "duplicate": st == "duplicate",
             "pending": len(db.pending_cards(CON)),
-            "word_status": db.word_statuses(CON, _lang()).get(req.lema.strip().lower())}
+            "word_status": db.word_statuses(CON, _lang()).get(req.lema.strip().lower()),
+            "netflix": netflix}
 
 
 _FLUSH_LOCK = threading.Lock()
@@ -1723,9 +1749,511 @@ def anki_status():
     else:
         reason = "down"
     decks = anki.invoke("deckNames") if up else []
+    # El tipo de nota que hay que elegir en asbplayer. Quien instaló antes del
+    # cambio de nombre lo tiene como «CatalaMiner», y buscaba «LinguaMiner».
+    model = _guarded(anki.model_in_use, default=config.NOTE_TYPE) if up else config.NOTE_TYPE
     return {"up": up, "port": port, "reason": reason, "diag": diag,
-            "decks": decks, "deck": _settings()["deck"],
+            "decks": decks, "deck": _settings()["deck"], "model": model,
             "pending": len(db.pending_cards(CON))}
+
+
+# ---------- puente con asbplayer (Netflix y otras webs) ----------
+# asbplayer apunta aquí en vez de a AnkiConnect. Ver app/ankiproxy.py.
+
+_ASB_SESSION = "asbplayer"      # las tarjetas no vienen de una sesión tuya
+_ANKI_DOWN = ("LinguaMiner no encuentra Anki: ábrelo (con AnkiConnect) y "
+              "vuelve a probar · LinguaMiner can't find Anki: open it "
+              "(with AnkiConnect) and try again")
+
+
+def _guarded(fn, *args, default=""):
+    """Un dato que no sale (traductor, diccionario) no puede tumbar la tarjeta:
+    asbplayer ya grabó el audio y el clip, y se perderían."""
+    try:
+        return fn(*args)
+    except Exception as e:                              # noqa: BLE001
+        _log.warning("puente asbplayer, %s: %s", getattr(fn, "__name__", fn), e)
+        return default
+
+
+def _enrich_note(note: dict) -> dict | None:
+    """Completa una nota LinguaMiner de asbplayer con lo que sabe LinguaMiner.
+
+    Solo rellena lo que llega vacío: lo que escribiste en el diálogo de
+    asbplayer manda. El audio y la imagen no se tocan (van aparte, en
+    note.audio / note.picture). Devuelve lo que hay que apuntar en la base de
+    datos, o None si la nota no es de LinguaMiner."""
+    if note.get("modelName") not in (config.NOTE_TYPE, config.NOTE_TYPE_LEGACY):
+        return None
+    f = note.get("fields")
+    if not isinstance(f, dict):
+        return None
+    plain, esc = ankiproxy.plain, ankiproxy.esc
+
+    def empty(k):
+        return not plain(f.get(k))
+
+    frase_raw = f.get("Frase") or ""
+    frase = plain(frase_raw)
+    typed = plain(f.get("Paraula"))
+    word = typed or ankiproxy.highlighted(frase_raw)
+    if not word and not frase:
+        return None                   # nada que completar: pasa tal cual
+
+    frase_es = plain(f.get("FraseES"))
+    if frase and not frase_es:
+        frase_es = _guarded(translate.sentence, frase)
+        if frase_es:
+            f["FraseES"] = esc(frase_es)
+
+    lemma = pos = freq = ""
+    if word:
+        if not typed:
+            f["Paraula"] = esc(word)
+        info = _guarded(_word_info, word, frase, default=None) or {
+            "lemma": word.lower(), "pos": "", "headword": "", "word_es": ""}
+        lemma, pos = info["lemma"], info["pos"]
+        if empty("ParaulaES"):
+            f["ParaulaES"] = esc(_card_word(info))
+        if empty("Definicio"):
+            f["Definicio"] = _guarded(_definition, word, lemma, pos)
+        if empty("Exemples"):
+            ex = _guarded(_examples_for, lemma, _ASB_SESSION, frase, default=[])
+            f["Exemples"] = _html_lines("\n".join(ex))
+        freq = _guarded(lambda w: nlp.freq_badge(nlp.zipf(w)), word)
+        if empty("Freq"):
+            f["Freq"] = esc(freq)
+    else:
+        # Tarjeta de frase. Paraula es el primer campo y no puede ir vacío
+        # (Anki rechaza la nota); la frase pasa delante y no se repite.
+        f["Paraula"] = esc(frase)
+        f["Frase"] = ""
+
+    tags = [t for t in (note.get("tags") or []) if isinstance(t, str)]
+    if "lingua-miner" not in tags:
+        tags.append("lingua-miner")
+    note["tags"] = tags
+    return {"paraula": plain(f.get("Paraula")), "lema": lemma, "pos": pos,
+            "paraula_es": plain(f.get("ParaulaES")), "frase": frase,
+            "frase_es": frase_es, "freq_rank": plain(f.get("Freq")) or freq,
+            "font": plain(f.get("Font")) or "asbplayer",
+            "definicio": f.get("Definicio") or "",
+            "exemples": f.get("Exemples") or "", "notes": f.get("Notes") or ""}
+
+
+def _record_card(card: dict, note_id: int):
+    """La tarjeta de asbplayer también cuenta en LinguaMiner: la palabra pasa a
+    «aprendiendo» y, cuando madura en Anki, a conocida (sync-statuses)."""
+    try:
+        db.create_card(CON, session_id=_ASB_SESSION, segment_index=-1,
+                       audio_file="", image_file="", language=_lang(),
+                       anki_note_id=note_id, **card)
+        if card["lema"]:
+            db.mark_learning_if_new(CON, card["lema"], _lang())
+    except Exception as e:                              # noqa: BLE001
+        _log.warning("puente asbplayer, guardar la tarjeta: %s", e)
+
+
+def _ankiconnect(payload) -> dict:
+    if not (isinstance(payload, dict) and isinstance(payload.get("action"), str)):
+        return {"result": None, "error": "LinguaMiner: petición AnkiConnect no válida"}
+    action = payload["action"]
+    params = payload.get("params") if isinstance(payload.get("params"), dict) else {}
+    note = params.get("note")
+    if action == "addNote" and _asb_is_capture(note):
+        # Ctrl+Shift+Z en Netflix: la línea va a LinguaMiner, no a Anki (ni
+        # hace falta que Anki esté abierto); la palabra se elige allí
+        return _asb_capture(note)
+    pref = _settings().get("anki_port")
+    if anki.find_port(pref)[0] is None:
+        return {"result": None, "error": _ANKI_DOWN}
+    if action == "modelNames":
+        # Para que «LinguaMiner» salga en la lista de tipos de nota de
+        # asbplayer aunque nunca hayas mandado una tarjeta desde la app
+        _guarded(anki.ensure_note_type, _settings()["card_layout"])
+    card = None
+    if action in ("addNote", "guiAddCards") and isinstance(note, dict):
+        card = _enrich_note(note)
+    try:
+        resp = anki.forward(payload, pref)
+    except Exception as e:                              # noqa: BLE001
+        _log.warning("puente asbplayer, %s: %s", action, e)
+        return {"result": None, "error": _ANKI_DOWN}
+    if (action == "addNote" and card and isinstance(resp, dict)
+            and not resp.get("error") and isinstance(resp.get("result"), int)):
+        _record_card(card, resp["result"])
+    return resp
+
+
+@app.options("/ankiconnect")
+def ankiconnect_preflight(request: Request):
+    origin = request.headers.get("origin")
+    if not ankiproxy.origin_allowed(origin):
+        return Response(status_code=403)
+    return Response(status_code=204, headers=ankiproxy.cors_headers(origin))
+
+
+@app.post("/ankiconnect")
+async def ankiconnect(request: Request):
+    """AnkiConnect para asbplayer: mismas peticiones, mismas respuestas, y las
+    notas LinguaMiner llegan a Anki completas. asbplayer manda el JSON como
+    text/plain, así que se lee el cuerpo a mano."""
+    origin = request.headers.get("origin")
+    if not ankiproxy.origin_allowed(origin):
+        return JSONResponse({"result": None,
+                             "error": "LinguaMiner: origen no permitido"},
+                            status_code=403)
+    try:
+        payload = json.loads(await request.body() or b"null")
+    except ValueError:
+        payload = None
+    out = await run_in_threadpool(_ankiconnect, payload)
+    return JSONResponse(out, headers=ankiproxy.cors_headers(origin))
+
+
+# ---------- Netflix desde LinguaMiner (asbplayer por WebSocket) ----------
+# asbplayer se conecta a /ws y queda de grabadora: LinguaMiner trae los
+# subtítulos del episodio, hace saltar el vídeo y le pide el audio y la imagen
+# de la línea minada. Su API no da la posición de reproducción, así que la
+# línea que acabas de oír llega con una tecla: Ctrl+Shift+Z en Netflix
+# exporta sin palabra, el puente la captura (audio e imagen incluidos) y la
+# interfaz salta a ella. Ver docs/plans/2026-11-28-netflix-desde-linguaminer.md.
+
+_ASB_LOCK = threading.Lock()            # crear/actualizar la sesión del episodio
+_ASB_EVENTS: list[dict] = []            # líneas capturadas, para que la UI salte
+_ASB_N = 0
+_SOURCE_RE = re.compile(
+    r"^(?P<name>.*?)\s*\((?P<h>\d+)h(?P<m>\d+)m(?P<s>[\d.]+)s\)\s*$")
+_TRACK_TAIL = re.compile(r"\s+-\s+[a-z]{2,3}(?:-[A-Za-z]{2,4})?\s+-\s+.*$")
+_TRACK_LANG = re.compile(r"\s-\s([a-z]{2,3})(?:-[A-Za-z]{2,4})?\s-\s")
+
+
+def _asb_source(font: str) -> tuple[str, float | None]:
+    """Fuente de asbplayer → (archivo de subtítulos, segundo del vídeo).
+    «Génesis S01E01 … [CC].nfimsc (00h09m05.4s)» → («Génesis … .nfimsc», 545.4)."""
+    m = _SOURCE_RE.match(font or "")
+    if not m:
+        return (font or "").strip(), None
+    return (m["name"].strip(),
+            int(m["h"]) * 3600 + int(m["m"]) * 60 + float(m["s"]))
+
+
+def _asb_title(name: str) -> str:
+    """«Génesis S01E01 Episodio 1 - ca - Catalán [CC].nfimsc» → «Génesis S01E01 Episodio 1»."""
+    base = re.sub(r"\.[A-Za-z0-9]{2,6}$", "", name or "")
+    return _TRACK_TAIL.sub("", base).strip() or base.strip() or "Netflix"
+
+
+def _asb_track_lang(name: str) -> str:
+    m = _TRACK_LANG.search(name or "")
+    return m.group(1) if m else ""
+
+
+def _asb_key(name: str) -> str:
+    return "asbplayer:" + (name or "Netflix")
+
+
+def _asb_find(name: str) -> dict | None:
+    return db.find_session_by_media(CON, _asb_key(name), "asbplayer", _lang())
+
+
+def _asb_media(name: str | None = None) -> dict | None:
+    """El vídeo de asbplayer con esos subtítulos (o, sin nombre, el de la
+    pestaña activa). Los id cambian si recargas la pestaña: se piden cada vez."""
+    res = asbws.HUB.call("get-bound-media", timeout=4) or {}
+    media = [m for m in (res.get("media") or []) if m.get("loadedSubtitles")]
+    if name:
+        for m in media:
+            if any(t.get("fileName") == name for t in m["loadedSubtitles"]):
+                return m
+        return None
+    media.sort(key=lambda m: (not m.get("active"), m.get("type") != "streaming"))
+    return media[0] if media else None
+
+
+def _asb_cues_to_segs(cues: list) -> list[dict]:
+    from .transcribe import tokens_for_existing
+    segs = []
+    for c in sorted((c for c in cues if isinstance(c, dict)),
+                    key=lambda c: c.get("start") or 0):
+        text = ankiproxy.plain(str(c.get("text") or ""))
+        if not text:
+            continue
+        segs.append({"start": (c.get("start") or 0) / 1000,
+                     "end": (c.get("end") or 0) / 1000, "text": text})
+    segs = tokens_for_existing(segs)
+    for i, seg in enumerate(segs):
+        seg["para"] = i                  # una línea, un párrafo: son subtítulos
+    return segs
+
+
+def _asb_locate(segs: list, ts: float | None, frase: str) -> int | None:
+    """La línea capturada en la sesión: la que suena en ese segundo (si hay
+    varias, la que coincide con el texto); sin segundo, por el texto."""
+    if ts is not None:
+        near = [i for i, x in enumerate(segs)
+                if x["start"] - 0.5 <= ts <= x["end"] + 0.5]
+        for i in near:
+            if segs[i]["text"] and (segs[i]["text"] in frase or frase in segs[i]["text"]):
+                return i
+        if near:
+            return min(near, key=lambda i: abs(segs[i]["start"] - ts))
+    for i, x in enumerate(segs):
+        if x["text"] == frase:
+            return i
+    return None
+
+
+def _asb_save_media(item, default_ext: str) -> str:
+    """Audio o imagen que manda asbplayer (base64) a MEDIA_DIR. Nombre asb-*:
+    la limpieza de _gc_media solo toca los cm-* de las previews."""
+    import base64
+    if isinstance(item, list):
+        item = item[0] if item else None
+    if not isinstance(item, dict) or not item.get("data"):
+        return ""
+    ext = Path(str(item.get("filename") or "")).suffix.lstrip(".").lower()
+    if not re.fullmatch(r"[a-z0-9]{2,5}", ext):
+        ext = default_ext
+    name = f"asb-{uuid.uuid4().hex[:12]}.{ext}"
+    try:
+        (config.MEDIA_DIR / name).write_bytes(base64.b64decode(item["data"]))
+    except (ValueError, OSError) as e:
+        _log.warning("asbplayer: no pude guardar %s: %s", name, e)
+        return ""
+    return name
+
+
+def _asb_merge_media(old: list, new: list):
+    """Al recargar los subtítulos, las líneas ya capturadas conservan su
+    audio e imagen."""
+    for x in old:
+        if x.get("audio_file") or x.get("image_file"):
+            i = _asb_locate(new, (x["start"] + x["end"]) / 2, x["text"])
+            if i is not None:
+                for k in ("audio_file", "image_file"):
+                    if x.get(k):
+                        new[i][k] = x[k]
+
+
+def _asb_open(name: str | None = None) -> str:
+    """Trae el episodio de asbplayer como sesión de LinguaMiner (o la
+    actualiza) y devuelve su id."""
+    m = _asb_media(name)
+    if m is None:
+        raise asbws.AsbError("no-media")
+    track = next((t for t in m["loadedSubtitles"]
+                  if not name or t.get("fileName") == name), m["loadedSubtitles"][0])
+    fname = track.get("fileName") or m.get("title") or "Netflix"
+    res = asbws.HUB.call("get-subtitles", {"mediaId": m["id"],
+                                           "trackNumbers": [track.get("trackNumber", 0)]},
+                         timeout=15) or {}
+    segs = _asb_cues_to_segs(res.get("subtitles") or [])
+    if not segs:
+        raise asbws.AsbError("no-subtitles")
+    with _ASB_LOCK:
+        s = _asb_find(fname)
+        if s:
+            _asb_merge_media(json.loads(s["transcript_json"]), segs)
+            db.update_transcript(CON, s["id"], json.dumps(segs), "-", "asbplayer",
+                                 nlp.TOK_VERSION)
+            return s["id"]
+        return db.create_session(
+            CON, title=_asb_title(fname), source_type="asbplayer",
+            media_path=_asb_key(fname), srt_source="asbplayer", model_size="-",
+            duration_secs=segs[-1]["end"], transcript_json=json.dumps(segs),
+            language=_lang())
+
+
+def _asb_is_capture(note) -> bool:
+    """Una nota LinguaMiner de asbplayer sin palabra elegida: es la tecla de
+    «esta línea», no una tarjeta."""
+    if not (isinstance(note, dict)
+            and note.get("modelName") in (config.NOTE_TYPE, config.NOTE_TYPE_LEGACY)
+            and isinstance(note.get("fields"), dict)):
+        return False
+    f = note["fields"]
+    return bool(ankiproxy.plain(f.get("Frase"))
+                and not ankiproxy.plain(f.get("Paraula"))
+                and not ankiproxy.highlighted(f.get("Frase")))
+
+
+def _asb_capture(note: dict) -> dict:
+    """La línea que suena en Netflix, con su audio y su imagen, a la sesión
+    del episodio; la interfaz salta a ella para elegir la palabra."""
+    global _ASB_N
+    f = note["fields"]
+    frase = ankiproxy.plain(f.get("Frase"))
+    name, ts = _asb_source(ankiproxy.plain(f.get("Font")))
+    audio = _asb_save_media(note.get("audio"), "mp3")
+    image = _asb_save_media(note.get("picture"), "jpeg")
+    if _asb_find(name) is None and asbws.HUB.connected:
+        try:
+            _asb_open(name)              # el episodio entero, si asbplayer está conectado
+        except Exception as e:                          # noqa: BLE001
+            _log.info("asbplayer: sin el episodio entero (%s); solo la línea", e)
+    from .transcribe import tokens_for_existing
+    with _ASB_LOCK:
+        s = _asb_find(name)
+        if s is None:
+            sid = db.create_session(
+                CON, title=_asb_title(name), source_type="asbplayer",
+                media_path=_asb_key(name), srt_source="asbplayer-lines",
+                model_size="-", duration_secs=0.0, transcript_json="[]",
+                language=_lang())
+            s = db.get_session(CON, sid)
+        segs = json.loads(s["transcript_json"])
+        idx = _asb_locate(segs, ts, frase)
+        if idx is None:
+            start = ts if ts is not None else (segs[-1]["end"] + 1 if segs else 0.0)
+            seg = tokens_for_existing([{"start": start, "end": start + 2.0,
+                                        "text": frase}])[0]
+            segs.append(seg)
+            segs.sort(key=lambda x: x["start"])
+            for i, x in enumerate(segs):
+                x["para"] = i
+            idx = segs.index(seg)
+        if audio:
+            segs[idx]["audio_file"] = audio
+        if image:
+            segs[idx]["image_file"] = image
+        db.update_transcript(CON, s["id"], json.dumps(segs), "-", s["srt_source"],
+                             nlp.TOK_VERSION)
+        thumb = config.MEDIA_DIR / f"thumb-{s['id']}.jpg"
+        if image.endswith((".jpeg", ".jpg")) and not thumb.exists():
+            try:
+                shutil.copyfile(config.MEDIA_DIR / image, thumb)
+            except OSError:
+                pass
+        _ASB_N += 1
+        lang = _asb_track_lang(name)
+        _ASB_EVENTS.append({"n": _ASB_N, "session_id": s["id"], "segment_index": idx,
+                            "title": s["title"],
+                            "track_lang": lang if lang and lang != _lang() else ""})
+        del _ASB_EVENTS[:-50]
+    # asbplayer enseña esto como nombre de la tarjeta exportada
+    return {"result": "→ LinguaMiner", "error": None}
+
+
+def _asb_record(s: dict, idx: int, note_id: int, frase: str):
+    """La línea en Netflix → asbplayer graba audio e imagen y los añade a la
+    nota que ya creó LinguaMiner (postMineAction 2 = actualizar esa nota)."""
+    import time
+    segs = json.loads(s["transcript_json"])
+    m = _asb_media(s["media_path"].split(":", 1)[1] if ":" in s["media_path"] else None)
+    target = {"mediaId": m["id"]} if m else {}
+    asbws.HUB.call("seek-timestamp", {"timestamp": segs[idx]["start"] + 0.05, **target})
+    time.sleep(0.6)                       # que el vídeo llegue antes de minar «la actual»
+    r = asbws.HUB.call("mine-subtitle", {"postMineAction": 2, "noteId": note_id,
+                                         "fields": {"Frase": ankiproxy.esc(frase)},
+                                         **target}, timeout=8) or {}
+    if not r.get("published"):
+        raise asbws.AsbError("not-published")
+
+
+def _asb_after_card(session_id: str, idx: int, cid: str, has_audio: bool,
+                    frase: str) -> str:
+    """Tras crear la tarjeta de una sesión de Netflix: «captured» (ya lleva el
+    audio de la tecla), «requested» (asbplayer la está grabando), «pending»
+    (Anki cerrado: no hay nota a la que añadirlo) u «offline»."""
+    s = db.get_session(CON, session_id)
+    if not s or s.get("source_type") != "asbplayer":
+        return ""
+    if has_audio:
+        return "captured"
+    note_id = db.card_note_id(CON, cid)
+    if not note_id:
+        return "pending"
+    if not asbws.HUB.connected:
+        return "offline"
+    try:
+        _asb_record(s, idx, note_id, frase)
+        return "requested"
+    except Exception as e:                              # noqa: BLE001
+        _log.warning("asbplayer: grabar la línea %s: %s", idx, e)
+        return "offline"
+
+
+@app.websocket("/ws")
+async def asbplayer_ws(ws: WebSocket):
+    """Aquí se conecta asbplayer («Enable WebSocket client»). Solo desde este
+    equipo y desde una extensión: una web cualquiera no puede hacerse pasar
+    por asbplayer."""
+    host = ws.client.host if ws.client else ""
+    if (not ankiproxy.origin_allowed(ws.headers.get("origin"))
+            or not (config.TRUST_ALL_CLIENTS or host in ("127.0.0.1", "::1", "testclient"))
+            or not _host_allowed(ws)):
+        await ws.close(code=1008)
+        return
+    await asbws.HUB.serve(ws)
+
+
+@app.get("/api/asbplayer/status")
+def asb_status():
+    if not asbws.HUB.connected:
+        return {"connected": False, "media": []}
+    try:
+        res = asbws.HUB.call("get-bound-media", timeout=3) or {}
+    except asbws.AsbError:
+        res = {}
+    media = [{"id": m.get("id"), "title": m.get("title") or "",
+              "active": bool(m.get("active")),
+              "subtitles": [t.get("fileName") or "" for t in m.get("loadedSubtitles") or []]}
+             for m in res.get("media") or []]
+    return {"connected": True, "media": media}
+
+
+class AsbOpenReq(BaseModel):
+    name: str | None = None
+
+
+@app.post("/api/asbplayer/open")
+def asb_open(req: AsbOpenReq):
+    if not asbws.HUB.connected:
+        return _err("err.asb_offline", "asbplayer no está conectado", 409)
+    try:
+        return {"session_id": _asb_open(req.name)}
+    except asbws.AsbError as e:
+        if str(e) in ("no-media", "no-subtitles"):
+            return _err("err.asb_no_media", "asbplayer no tiene un vídeo con subtítulos", 404)
+        return _err("err.asb_offline", f"asbplayer: {e}", 502)
+
+
+class AsbSeekReq(BaseModel):
+    session_id: str
+    segment_index: int
+
+
+@app.post("/api/asbplayer/seek")
+def asb_seek(req: AsbSeekReq):
+    s = db.get_session(CON, req.session_id)
+    if not s or s.get("source_type") != "asbplayer":
+        return JSONResponse({"error": "not found"}, status_code=404)
+    segs = json.loads(s["transcript_json"])
+    if not 0 <= req.segment_index < len(segs):
+        return _err("err.bad_segment", "línea fuera de rango", 400, (len(segs) - 1,))
+    if not asbws.HUB.connected:
+        return _err("err.asb_offline", "asbplayer no está conectado", 409)
+    try:
+        m = _asb_media(s["media_path"].split(":", 1)[1])
+        asbws.HUB.call("seek-timestamp", {"timestamp": segs[req.segment_index]["start"],
+                                          **({"mediaId": m["id"]} if m else {})})
+    except asbws.AsbError as e:
+        return _err("err.asb_offline", f"asbplayer: {e}", 502)
+    return {"ok": True}
+
+
+@app.get("/api/asbplayer/events")
+def asb_events(after: int = -1):
+    """Líneas capturadas con la tecla. after=-1: solo el contador actual (la
+    interfaz empieza a escuchar desde ahí)."""
+    n = _ASB_N
+    if after < 0:
+        return {"last": n, "events": [], "connected": asbws.HUB.connected}
+    if after > n:                         # el servidor se reinició
+        after = 0
+    return {"last": n, "events": [e for e in list(_ASB_EVENTS) if e["n"] > after],
+            "connected": asbws.HUB.connected}
 
 
 # ---------- vocabulario (Language Reactor) ----------

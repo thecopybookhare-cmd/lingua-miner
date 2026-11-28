@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>LinguaMiner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="icon" href="/favicon.png?v=1.41.1">
+<link rel="icon" href="/favicon.png?v=1.42.0">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#0c0d13">
@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="LinguaMiner">
-<link rel="stylesheet" href="/style.css?v=1.41.1">
+<link rel="stylesheet" href="/style.css?v=1.42.0">
 </head>
 <body>
 <!-- sprite de iconos (estilo Lucide: 24×24, trazo 2, sin relleno) -->
@@ -72,6 +72,7 @@
       <label class="filebtn"><svg class="ic"><use href="#i-book"/></svg><span data-i18n="hero.text">Abrir libro</span>
         <input type="file" id="text-input" accept=".txt,.epub,text/plain,application/epub+zip">
       </label>
+      <button id="nf-btn" class="filebtn" title="Abre aquí el episodio que suena en asbplayer" data-i18n-title="tip.netflix"><span data-i18n="hero.netflix">🍿 Netflix</span></button>
       <div class="yt">
         <input type="url" id="yt-url" placeholder="URL de YouTube o enlace directo (.mp4, .m3u8)…" data-i18n-ph="hero.url_ph">
         <button id="yt-btn" title="Descargar con yt-dlp (YouTube)" data-i18n-title="tip.import"><svg class="ic"><use href="#i-download"/></svg><span data-i18n="hero.import">Importar</span></button>
@@ -135,6 +136,7 @@
     <button id="reader-back" data-i18n="pl.back">← Biblioteca</button>
     <span id="reader-title" class="dim"></span>
     <span class="spacer"></span>
+    <button id="reader-nf" class="small" hidden data-i18n-title="rd.nf_full" title="Traer el episodio completo de asbplayer"><svg class="ic"><use href="#i-refresh"/></svg></button>
     <button id="reader-say" class="small" hidden data-i18n-title="rd.say" title="Escuchar la frase (S / ↓)"><svg class="ic"><use href="#i-volume"/></svg></button>
     <button id="reader-mode" class="small" data-i18n-title="rd.mode" title="Frase a frase"><svg class="ic"><use href="#i-speech"/></svg></button>
     <button id="reader-prev" class="small" data-i18n-title="rd.prev" title="Página anterior (A / ←)"><svg class="ic"><use href="#i-chevron-l"/></svg></button>
@@ -405,6 +407,20 @@
         <button id="set-apkg" class="small" data-i18n="set.apkg_btn">Exportar</button></div>
       <p class="dim" data-i18n="set.apkg_hint">Sin AnkiConnect, o para AnkiDroid y el iPhone: abre el archivo y Anki lo importa.</p>
     </section>
+    <section id="asb-section">
+      <h3 data-i18n="set.sec_asb">Netflix y otras webs (asbplayer)</h3>
+      <p class="dim" data-i18n="set.asb_desc">Mina Netflix desde LinguaMiner: la extensión asbplayer graba el audio y la imagen de cada línea. En sus ajustes, pega estas dos direcciones y elige este tipo de nota.</p>
+      <div class="share-url">
+        <div class="share-url-body"><div class="share-url-label">AnkiConnect URL</div><code id="asb-url"></code>
+          <button id="asb-copy" class="small share-copy" data-i18n="set.asb_copy">Copiar</button>
+          <div class="share-url-label" data-i18n="set.asb_model">Tipo de nota</div><code id="asb-model">LinguaMiner</code>
+          <div class="share-url-label" data-i18n="set.asb_ws">WebSocket Server URL (Misc → Enable WebSocket client)</div><code id="asb-ws"></code>
+          <button id="asb-ws-copy" class="small share-copy" data-i18n="set.asb_copy">Copiar</button></div>
+      </div>
+      <p id="asb-ws-state" class="dim"></p>
+      <p class="dim" data-i18n="set.asb_how">Con asbplayer conectado, «🍿 Netflix» en la biblioteca abre el episodio. Mientras ves, Ctrl+Shift+Z captura la línea que suena y LinguaMiner salta a ella para que elijas la palabra.</p>
+      <p class="dim"><a class="asb-guide" href="https://github.com/thecopybookhare-cmd/lingua-miner/blob/main/docs/netflix.md" target="_blank" rel="noopener" data-i18n="set.asb_guide">Guía paso a paso</a></p>
+    </section>
     <section>
       <h3 data-i18n="set.sec_subs">Subtítulos</h3>
       <div class="set-row"><label><span data-i18n="set.sub_size">Tamaño</span> (<span id="set-sub-val">100</span>%)</label>
@@ -544,7 +560,7 @@
     });
   }
 </script>
-<script src="/i18n.js?v=1.41.1"></script>
-<script src="/app.js?v=1.41.1"></script>
+<script src="/i18n.js?v=1.42.0"></script>
+<script src="/app.js?v=1.42.0"></script>
 </body>
 </html>

@@ -55,6 +55,7 @@ async function refreshAnki() {
   else if (s.reason === "squatted") { b.textContent = q + t("anki.squatted"); b.className = "badge err"; }
   else { b.textContent = q + t("anki.closed"); b.className = s.pending > 0 ? "badge pending" : "badge"; }
   b.dataset.reason = s.reason || "";
+  if (s.model) $("asb-model").textContent = s.model;   // en asbplayer se elige este
   refreshDegraded();
 }
 
@@ -171,6 +172,7 @@ function sourceBadge(s) {
   if (s.source_type === "youtube") return { t: "▶ YouTube", c: "yt" };
   if (s.source_type === "url") return { t: t("lib.link"), c: "st" };
   if (s.source_type === "text") return { t: t("lib.book"), c: "txt" };
+  if (s.source_type === "asbplayer") return { t: "Netflix", c: "tv" };
   return { t: t("lib.local"), c: "loc" };
 }
 
@@ -475,9 +477,11 @@ async function openSession(sid, opts = {}) {
   SEGS.forEach((seg, i) => {
     if (seg.text_es && (seg.es_b || "es") === base) ES_CACHE[i] = seg.text_es;
   });
-  // las sesiones de texto no tienen vídeo: van al lector, no al reproductor
-  placeFloaters(s.source_type === "text");
-  if (s.source_type === "text") {
+  // las sesiones de texto no tienen vídeo: van al lector, no al reproductor.
+  // Netflix (asbplayer) tampoco: el vídeo está en Chrome, aquí los subtítulos
+  const lector = s.source_type === "text" || s.source_type === "asbplayer";
+  placeFloaters(lector);
+  if (lector) {
     stopPlayback();                     // veníamos de un vídeo: apagarlo
     $("home").hidden = true; $("player").hidden = true; $("reader").hidden = false;
     $("reader-title").textContent = s.title || "";
@@ -486,6 +490,7 @@ async function openSession(sid, opts = {}) {
     $("reader-say").hidden = true;
     $("reader-auto").hidden = false;
     $("reader-auto-cb").checked = !!SETTINGS?.reader_mark_known;
+    $("reader-nf").hidden = !isNF();
     READ_PAGE = Math.floor((s.resume_pos || 0) / READ_PER_PAGE);
     if (opts.seg != null) READ_PAGE = Math.floor(opts.seg / READ_PER_PAGE);
     renderReader();
@@ -1363,6 +1368,7 @@ async function mineQuick(segIndex, selection, paraula_es = "") {
   if (r.duplicate) toast(t("ts.card_dup", r.paraula), "err");
   else toast(r.sent_now ? t("ts.card_sent", r.paraula) : t("ts.card_queued", r.paraula),
              r.sent_now ? "ok" : "err");
+  nfCardToast(r);
 }
 
 // ---------- minado ----------
@@ -1432,6 +1438,7 @@ async function sendCard() {
   refreshAnki();
   if (r.duplicate) toast(t("ts.card_dup", body.paraula), "err");
   else toast(r.sent_now ? t("ts.card_added") : t("ts.card_queue"), r.sent_now ? "ok" : "err");
+  nfCardToast(r);
 }
 $("c-send").onclick = sendCard;
 
@@ -1671,6 +1678,10 @@ function applySettings() {
   $("set-online").checked = SETTINGS.online_enabled;
   $("set-audio-trim").checked = SETTINGS.audio_trim;
   $("set-port").value = SETTINGS.anki_port ?? "";
+  // puente con asbplayer: siempre 127.0.0.1 (el /ankiconnect solo atiende al equipo anfitrión)
+  $("asb-url").textContent = `http://127.0.0.1:${location.port || 80}/ankiconnect`;
+  $("asb-ws").textContent = `ws://127.0.0.1:${location.port || 80}/ws`;
+  nfState(NF_CONNECTED);
   // idioma: el selector solo aparece cuando hay más de un perfil activable
   const langs = (SETTINGS.languages || []).filter((l) => l.available);
   $("set-lang-section").hidden = langs.length <= 1;
@@ -1950,6 +1961,14 @@ $("set-deck").onchange = async () => {
   await api("/api/anki/deck", { method: "POST", body: JSON.stringify({ deck: $("set-deck").value }) });
   toast(t("ts.deck", $("set-deck").value), "ok");
 };
+$("asb-ws-copy").onclick = () => {
+  navigator.clipboard?.writeText($("asb-ws").textContent)
+    .then(() => toast(t("ts.link_copied"), "ok"));
+};
+$("asb-copy").onclick = () => {
+  navigator.clipboard?.writeText($("asb-url").textContent)
+    .then(() => toast(t("ts.link_copied"), "ok"));
+};
 $("set-port").onchange = async () => {
   const v = $("set-port").value.trim();
   const r = await api("/api/anki/port", { method: "POST", body: JSON.stringify({ port: v === "" ? null : parseInt(v, 10) }) });
@@ -2110,19 +2129,21 @@ function renderReader() {
   // libro. Cada frase mantiene su propio <span> para poder minarla.
   let html = "", parAbierto = null;
   frases.forEach((seg, k) => {
-    const np = seg.para ?? (desde + k);
+    const np = isNF() ? desde + k : (seg.para ?? (desde + k));
     if (np !== parAbierto) {
       if (parAbierto !== null) html += "</p>";
-      html += '<p class="rd-p">';
+      html += isNF() ? '<p class="rd-p nf">' : '<p class="rd-p">';
       parAbierto = np;
     }
-    html += `<span class="rd-s" data-i="${desde + k}">${tokenHtml(seg)}</span> `;
+    html += (isNF() ? nfStamp(seg, desde + k) : "")
+      + `<span class="rd-s" data-i="${desde + k}">${tokenHtml(seg)}</span> `;
   });
   if (parAbierto !== null) html += "</p>";
   $("reader-page").innerHTML = html;
   for (const fr of $("reader-page").querySelectorAll(".rd-s")) {
     bindTokenEvents(fr, Number(fr.dataset.i));
   }
+  bindNfStamps();
   $("reader-pos").textContent = `${READ_PAGE + 1} / ${total}`;
   $("reader-fill").style.width = ((READ_PAGE + 1) / total * 100) + "%";
   $("reader-prev").disabled = READ_PAGE === 0;
@@ -2149,8 +2170,9 @@ function renderSentence() {
   const caja = $("reader-page");
   caja.classList.add("one");
   if (!seg) { caja.innerHTML = ""; return; }
-  caja.innerHTML = `<p class="rd-p rd-one"><span class="rd-s" data-i="${READ_ONE}">`
-    + tokenHtml(seg) + "</span></p>";
+  caja.innerHTML = `<p class="rd-p rd-one">${isNF() ? nfStamp(seg, READ_ONE) : ""}`
+    + `<span class="rd-s" data-i="${READ_ONE}">` + tokenHtml(seg) + "</span></p>";
+  bindNfStamps();
   bindTokenEvents(caja.querySelector(".rd-s"), READ_ONE);
   const total = SEGS.length || 1;
   $("reader-pos").textContent = `${READ_ONE + 1} / ${total}`;
@@ -2180,6 +2202,7 @@ function setReaderMode(frase) {
 async function saySentence() {
   const i = readerOne() ? READ_ONE : -1;
   if (i < 0 || !SEGS[i]) return;
+  if (isNF()) { nfSeek(i); return; }   // la voz es la de la serie, en Netflix
   const btn = $("reader-say");
   btn.disabled = true;
   try {
@@ -2367,3 +2390,94 @@ $("rec-chip").onclick = () => nextRec();
 loadSettings();
 loadSessions();
 refreshAnki();
+
+// ---------- Netflix (asbplayer) ----------
+// asbplayer, conectado por WebSocket, es la grabadora: el vídeo sigue en
+// Chrome y aquí están los subtítulos del episodio. Su API no dice en qué
+// segundo va el vídeo, así que la línea que acabas de oír llega con
+// Ctrl+Shift+Z en Netflix: el servidor la captura (audio e imagen) y aquí se
+// salta a ella para elegir la palabra.
+const isNF = () => SESSION?.source_type === "asbplayer";
+let NF_AFTER = -1, NF_CONNECTED = false;
+
+function nfStamp(seg, i) {
+  const cap = seg.audio_file ? " cap" : "";
+  return `<button class="rd-ts${cap}" data-i="${i}" title="${esc(t("rd.nf_seek"))}">`
+    + `${seg.audio_file ? "🎬 " : ""}${fmtTime(seg.start)}</button>`;
+}
+
+function bindNfStamps() {
+  for (const b of $("reader-page").querySelectorAll(".rd-ts"))
+    b.onclick = (ev) => { ev.stopPropagation(); nfSeek(Number(b.dataset.i)); };
+}
+
+async function nfSeek(i) {
+  const r = await api("/api/asbplayer/seek", { method: "POST",
+    body: JSON.stringify({ session_id: SESSION.id, segment_index: i }) }).catch(() => null);
+  if (r?.error) toast(errMsg(r), "err");
+}
+
+function nfState(on) {
+  NF_CONNECTED = on;
+  const el = $("asb-ws-state");
+  if (!el) return;
+  el.textContent = on ? t("set.asb_ws_on") : t("set.asb_ws_off");
+  el.classList.toggle("on", on);
+}
+
+function nfCardToast(r) {
+  const k = { requested: "ts.nf_recording", offline: "ts.nf_offline",
+              pending: "ts.nf_pending" }[r?.netflix];
+  if (k) setTimeout(() => toast(t(k), k === "ts.nf_recording" ? "ok" : "err"), 1400);
+}
+
+async function openNetflix(name = null) {
+  if (!NF_CONNECTED) { toast(t("ts.nf_connect"), "err"); return; }
+  toast(t("ts.nf_loading"));
+  const r = await api("/api/asbplayer/open", { method: "POST",
+    body: JSON.stringify({ name }) }).catch(() => null);
+  if (!r || r.error) { toast(errMsg(r, t("err.asb_offline")), "err"); return; }
+  openSession(r.session_id);
+}
+$("nf-btn").onclick = () => openNetflix();
+$("reader-nf").onclick = () => {
+  const mp = SESSION?.media_path || "";
+  openNetflix(mp.includes(":") ? mp.slice(mp.indexOf(":") + 1) : null);
+};
+
+function flashLine(i) {
+  const p = $("reader-page").querySelector(`.rd-s[data-i="${i}"]`)?.closest(".rd-p");
+  if (!p) return;
+  p.classList.add("rd-flash");
+  p.scrollIntoView({ block: "center", behavior: "smooth" });
+  setTimeout(() => p.classList.remove("rd-flash"), 2600);
+}
+
+async function nfJump(e) {
+  if (e.track_lang) toast(t("ts.nf_lang", e.track_lang), "err");
+  // no se interrumpe un vídeo de LinguaMiner ni una tarjeta a medio editar
+  const playing = SESSION && !isNF() && !$("player").hidden && !V.paused;
+  if (playing || !$("card-panel").hidden) { toast(t("ts.nf_line", e.title), "ok"); return; }
+  if (SESSION?.id === e.session_id) {
+    const s = await api("/api/sessions/" + e.session_id);
+    SESSION = s; SEGS = s.transcript; STATUS = s.word_statuses || STATUS;
+  } else {
+    await openSession(e.session_id, { seg: e.segment_index });
+  }
+  if (readerOne()) READ_ONE = e.segment_index;
+  else READ_PAGE = Math.floor(e.segment_index / READ_PER_PAGE);
+  renderReader();
+  flashLine(e.segment_index);
+  toast(t("ts.nf_pick"), "ok");
+}
+
+async function pollNetflix() {
+  const r = await api("/api/asbplayer/events?after=" + NF_AFTER).catch(() => null);
+  if (!r) return;
+  if (r.connected !== NF_CONNECTED) nfState(!!r.connected);
+  const first = NF_AFTER < 0;
+  NF_AFTER = r.last;
+  if (!first && r.events.length) nfJump(r.events[r.events.length - 1]);
+}
+setInterval(pollNetflix, 1500);
+pollNetflix();
